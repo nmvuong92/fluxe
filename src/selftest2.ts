@@ -42,6 +42,9 @@ async function run(profileName: string, port: number) {
     const hello = JSON.parse((await get(port, "/hello/world?json=1")).body);
     check("[route động /hello/[name]] param 'world' tới loader", hello.data?.name === "world");
     check("[route động] no-match → 404", (await get(port, "/nope/x/y")).status === 404);
+    const todosHtml = (await get(port, "/todos")).body;
+    const iSite = todosHtml.indexOf("fluxe site"), iNav = todosHtml.indexOf("app nav"), iUl = todosHtml.indexOf("<ul");
+    check("[layout] nested site>app>todos đúng thứ tự lồng", iSite >= 0 && iNav > iSite && iUl > iNav);
     const homeHtml = (await get(port, "/")).body;
     check("[SEO] home có <title> riêng + canonical", homeHtml.includes("<title>fluxe — fullstack tối giản</title>") && homeHtml.includes('rel="canonical"'));
     const sm = await get(port, "/sitemap.xml");

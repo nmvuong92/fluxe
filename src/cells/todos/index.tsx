@@ -50,6 +50,7 @@ export default defineCell<{}, TodosData>({
   id: "todos",
   route: "/todos",
   hydration: "island",   // có tương tác → hydrate
+  layout: "app",         // bọc trong app → site (nested layout)
   async loader({ backend }) {
     return { todos: await backend.listTodos(), backendName: backend.name };
   },

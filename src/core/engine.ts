@@ -22,6 +22,7 @@ export interface CellDef<I, O> {
   view: ComponentType<{ data: O }>;
   actions?: Record<string, Action<any, any>>;
   head?: (data: O) => HeadMeta;   // SEO: title/meta/canonical/og/jsonLd per cell
+  layout?: string;                // id layout bọc view (nested qua parent)
 }
 
 export function defineCell<I, O>(c: CellDef<I, O>): CellDef<I, O> { return c; }

@@ -7,6 +7,8 @@ import type { ResolutionManifest } from "./core/resolver";
 import { backendsFromManifest } from "./core/wiring.ts";
 import { renderResolutionPanel } from "./core/panel.ts";
 import { makeRouter } from "./core/router.ts";
+import { layoutChain } from "./core/layouts.ts";
+import { layouts } from "./layouts/index";
 import { renderHead, renderSitemap, renderRobots } from "./core/seo.ts";
 import { FluxeError, toErrorPayload, renderErrorPage } from "./core/errors.ts";
 import { randomUUID } from "node:crypto";
@@ -76,7 +78,11 @@ export function makeServer(manifest: ResolutionManifest) {
     const cell = match.cell;
     const data = await cell.loader({ input: match.params, backend: backendFor(cell.id) });
     if (wantsJson) { res.writeHead(200,{ "content-type":"application/json" }); return res.end(JSON.stringify({ cell: cell.id, data })); }
-    const bodyHtml = renderToString(h(cell.view, { data }));
+    let node: any = h(cell.view, { data });
+    for (const id of layoutChain(cell.layout, layouts)) {   // inner→outer: bọc dần
+      node = h(layouts[id].component as any, { children: node });
+    }
+    const bodyHtml = renderToString(node);
     const shipClientJs = manifest.cells[cell.id]?.render.shipClientJs ?? false;
     res.writeHead(200,{ "content-type":"text/html; charset=utf-8" }); res.end(shell(cell, bodyHtml, data, shipClientJs));
     } catch (err) {
