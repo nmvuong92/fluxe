@@ -54,6 +54,14 @@ func main() {
 	}
 	proxy := httputil.NewSingleHostReverseProxy(up)
 
+	// Static cell prerendered (route → HTML) — Go phục vụ TRỰC TIẾP, không proxy Node.
+	staticHTML := map[string]string{}
+	if sp := getenv("FLUXE_STATIC", ".fluxe/static.json"); sp != "" {
+		if b, e := os.ReadFile(sp); e == nil {
+			_ = json.Unmarshal(b, &staticHTML)
+		}
+	}
+
 	// Route tĩnh (bỏ [param]) cho sitemap — đọc từ manifest.
 	var staticRoutes []string
 	for _, c := range m.Cells {
@@ -79,7 +87,14 @@ func main() {
 			w.Header().Set("content-type", "text/plain; charset=utf-8")
 			fmt.Fprintf(w, "User-agent: *\nAllow: /\nSitemap: %s/sitemap.xml\n", base)
 		default:
-			// Cell page (SSR React) / API / action / client.js / _fluxe → Node SSR worker.
+			// Cell static prerendered → Go phục vụ trực tiếp (0 JS, không chạm Node).
+			if html, ok := staticHTML[r.URL.Path]; ok && r.Method == http.MethodGet {
+				w.Header().Set("X-Fluxe-Render", "static-prerendered")
+				w.Header().Set("content-type", "text/html; charset=utf-8")
+				fmt.Fprint(w, html)
+				return
+			}
+			// Còn lại (cell island/SSR động, API, action, client.js, _fluxe) → Node SSR worker.
 			proxy.ServeHTTP(w, r)
 		}
 	})
