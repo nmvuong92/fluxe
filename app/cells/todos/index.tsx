@@ -1,8 +1,8 @@
-import { createElement as h, useState } from "react";
+import { createElement as h, useState, useEffect } from "react";
 import { z } from "zod";
 import { defineCell } from "../../../src/core/engine";
 import { withInput } from "../../../src/core/validate";
-import { rpc, mutate, RpcError } from "../../../src/core/client";
+import { rpc, mutate, RpcError, subscribe } from "../../../src/core/client";
 import type { Todo } from "../../../src/backends/types";
 
 interface TodosData { todos: Todo[]; backendName: string }
@@ -12,6 +12,15 @@ function View({ data }: { data: TodosData }) {
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+
+  // Realtime: client KHÁC thêm/sửa todo → cập nhật live qua SSE (merge theo id).
+  useEffect(() => subscribe("todos", (ev) => {
+    if (ev.action === "add" && ev.out?.id) {
+      setTodos((t) => (t.some((x) => x.id === ev.out.id) ? t : [...t, ev.out]));
+    } else if (ev.action === "toggle" && Array.isArray(ev.out)) {
+      setTodos(ev.out);
+    }
+  }), []);
 
   async function add() {
     setErr("");

@@ -75,3 +75,13 @@ export async function fetchPageProps(url: string): Promise<{ cell: string; data:
 export async function revalidate(): Promise<{ cell: string; data: unknown }> {
   return fetchPageProps(location.pathname + location.search);
 }
+
+/* Realtime: subscribe topic qua SSE. Trả hàm hủy. (Trục 4g) */
+export function subscribe(topic: string, onData: (data: any) => void): () => void {
+  if (typeof EventSource === "undefined") return () => {};
+  const es = new EventSource(`/__sse/${encodeURIComponent(topic)}`);
+  es.onmessage = (e) => {
+    try { onData(JSON.parse(e.data)); } catch { /* ignore */ }
+  };
+  return () => es.close();
+}

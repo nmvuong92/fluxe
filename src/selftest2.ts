@@ -98,6 +98,17 @@ async function run(profileName: string, port: number) {
     check("[validate] add title rỗng → 400 + code=validation + details", bad.status === 400 && JSON.parse(bad.body).error?.code === "validation" && Array.isArray(JSON.parse(bad.body).error?.details));
     const okAdd = await post(port, "/__action/todos/add", { title: "việc hợp lệ" }, csrfHdr);
     check("[validate] add title hợp lệ (csrf ok) → 200 + tạo todo", okAdd.status === 200 && JSON.parse(okAdd.body).title.includes("việc hợp lệ"));
+    // Realtime SSE: mở kết nối, add → client nhận event live.
+    const sseEvents: string[] = [];
+    const sseReq = http.request({ host: "127.0.0.1", port, path: "/__sse/todos", method: "GET" }, (res) => {
+      res.on("data", (c) => sseEvents.push(c.toString()));
+    });
+    sseReq.end();
+    await new Promise((r) => setTimeout(r, 100));
+    await post(port, "/__action/todos/add", { title: "todo realtime" }, csrfHdr);
+    await new Promise((r) => setTimeout(r, 120));
+    check("[sse] client nhận event live sau khi add", sseEvents.join("").includes("todo realtime"));
+    sseReq.destroy();
   } finally {
     srv.close();
     await new Promise((r) => setTimeout(r, 80));

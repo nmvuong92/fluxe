@@ -13,6 +13,7 @@ import { renderHead, renderSitemap, renderRobots } from "./core/seo.ts";
 import { FluxeError, toErrorPayload, renderErrorPage } from "./core/errors.ts";
 import { signSession, verifySession, parseCookie, hasRole, hashPassword, verifyPassword, newCsrfToken } from "./core/auth.ts";
 import { validateInput } from "./core/validate.ts";
+import { createBroker } from "./core/broker.ts";
 import { randomUUID } from "node:crypto";
 
 const DEV = process.env.NODE_ENV !== "production";
@@ -54,6 +55,7 @@ export function makeServer(manifest: ResolutionManifest) {
   // Backend GIẢI per-cell từ manifest (Resolution Plane) — cell/frontend giữ nguyên.
   const backends = backendsFromManifest(manifest);
   const backendFor = (id: string) => backends.byCell.get(id) ?? backends.default;
+  const broker = createBroker();   // realtime pub/sub (Trục 4g, bản 1-node)
   return http.createServer(async (req, res) => {
     const url = new URL(req.url!, "http://localhost");
     const wantsJson = req.headers["x-fluxe"] === "1" || url.searchParams.get("json") === "1";
@@ -103,6 +105,15 @@ export function makeServer(manifest: ResolutionManifest) {
       });
       return res.end(`<p>Đã đăng xuất. <a href="/">trang chủ</a></p>`);
     }
+    if (url.pathname.startsWith("/__sse/")) {
+      // Realtime channel (SSE): giữ kết nối, đẩy event khi có publish trên topic.
+      const topic = decodeURIComponent(url.pathname.slice("/__sse/".length));
+      res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
+      res.write(`event: ready\ndata: {"topic":"${topic}"}\n\n`);
+      const off = broker.subscribe(topic, (data) => res.write(`data: ${JSON.stringify(data)}\n\n`));
+      req.on("close", off);
+      return;
+    }
     if (url.pathname.startsWith("/__action/") && req.method === "POST") {
       // CSRF: header x-csrf-token phải khớp cookie csrf (double-submit).
       if (!cookies.csrf || req.headers["x-csrf-token"] !== cookies.csrf) {
@@ -115,6 +126,7 @@ export function makeServer(manifest: ResolutionManifest) {
       const schema = (fn as any).inputSchema;
       if (schema) input = validateInput(schema, input);   // sai → FluxeError 400 (caught)
       const out = await fn({ input, backend: backendFor(cellId), session });
+      broker.publish(cellId, { action: name, out });   // realtime: báo client khác
       res.writeHead(200,{ "content-type":"application/json" }); return res.end(JSON.stringify(out));
     }
     const match = matchRoute(url.pathname);
