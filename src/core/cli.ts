@@ -27,7 +27,7 @@ export const COMMANDS: Record<string, Command> = {
   },
   test: {
     desc: "Chạy unit + integration",
-    shell: () => `node --import tsx --test 'src/**/*.test.ts' && tsx src/selftest2.ts`,
+    shell: () => `node --experimental-sqlite --import tsx --test 'src/**/*.test.ts' && tsx src/selftest2.ts`,
   },
 };
 

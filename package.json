@@ -8,8 +8,8 @@
     "dev": "npm run build:client && tsx src/server.tsx",
     "dev:remote": "npm run build:client && FLUXE_BACKEND=remote tsx src/server.tsx",
     "test": "tsx src/selftest2.ts",
-    "test:unit": "node --import tsx --test 'src/**/*.test.ts'",
-    "test:cells": "node --import tsx --test 'src/cells/**/*.test.ts'",
+    "test:unit": "node --experimental-sqlite --import tsx --test 'src/**/*.test.ts'",
+    "test:cells": "node --experimental-sqlite --import tsx --test 'src/cells/**/*.test.ts'",
     "test:all": "npm run test:unit && npm run test",
     "resolve": "tsx scripts/resolve.ts",
     "fx": "tsx bin/fx.ts"
