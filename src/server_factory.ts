@@ -5,6 +5,7 @@ import { renderToString } from "react-dom/server";
 import type { CellDef } from "./core/engine";
 import type { ResolutionManifest } from "./core/resolver";
 import { backendsFromManifest } from "./core/wiring.ts";
+import { renderResolutionPanel } from "./core/panel.ts";
 import home from "./cells/home/index";
 import todos from "./cells/todos/index";
 
@@ -29,6 +30,11 @@ export function makeServer(manifest: ResolutionManifest) {
     if (url.pathname === "/client.js") {
       if (existsSync("./dist/client.js")) { res.writeHead(200,{ "content-type":"text/javascript" }); return res.end(readFileSync("./dist/client.js")); }
       res.writeHead(404); return res.end("// no client");
+    }
+    if (url.pathname === "/_fluxe") {
+      // Panel RCA — đọc manifest, hiển thị mỗi cell giải trục nào. (Prod: gate sau auth.)
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      return res.end(renderResolutionPanel(manifest));
     }
     if (url.pathname.startsWith("/__action/") && req.method === "POST") {
       const [,,cellId,name] = url.pathname.split("/");
