@@ -8,7 +8,7 @@ import { backendsFromManifest } from "./core/wiring.ts";
 import { renderResolutionPanel } from "./core/panel.ts";
 import { makeRouter } from "./core/router.ts";
 import { layoutChain } from "./core/layouts.ts";
-import { layouts } from "./layouts/index";
+import { layouts } from "../app/layouts/index";
 import { renderHead, renderSitemap, renderRobots } from "./core/seo.ts";
 import { FluxeError, toErrorPayload, renderErrorPage } from "./core/errors.ts";
 import { signSession, verifySession, parseCookie, hasRole } from "./core/auth.ts";
@@ -24,11 +24,11 @@ function sendError(res: http.ServerResponse, wantsJson: boolean, err: unknown) {
   if (wantsJson) { res.writeHead(p.status, { "content-type": "application/json" }); res.end(JSON.stringify({ error: p })); }
   else { res.writeHead(p.status, { "content-type": "text/html; charset=utf-8" }); res.end(renderErrorPage(p)); }
 }
-import home from "./cells/home/index";
-import todos from "./cells/todos/index";
-import hello from "./cells/hello/index";
-import secret from "./cells/secret/index";
-import admin from "./cells/admin/index";
+import home from "../app/cells/home/index";
+import todos from "../app/cells/todos/index";
+import hello from "../app/cells/hello/index";
+import secret from "../app/cells/secret/index";
+import admin from "../app/cells/admin/index";
 
 const cells: CellDef<any, any>[] = [home, todos, hello, secret, admin];
 const matchRoute = makeRouter(cells);

@@ -1,7 +1,7 @@
 import { createElement as h, useState } from "react";
-import { defineCell } from "../../core/engine";
-import { rpc } from "../../core/client";
-import type { Todo } from "../../backends/types";
+import { defineCell } from "../../../src/core/engine";
+import { rpc } from "../../../src/core/client";
+import type { Todo } from "../../../src/backends/types";
 
 interface TodosData { todos: Todo[]; backendName: string }
 

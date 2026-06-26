@@ -1,5 +1,5 @@
 import { createElement as h, type ReactNode } from "react";
-import type { LayoutMeta } from "../core/layouts";
+import type { LayoutMeta } from "../../src/core/layouts";
 
 interface LayoutEntry extends LayoutMeta {
   component: (props: { children: ReactNode }) => ReactNode;

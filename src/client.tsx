@@ -2,9 +2,9 @@ import { createElement as h } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { fetchPageProps } from "./core/client";
 import { layoutChain } from "./core/layouts";
-import { layouts } from "./layouts/index";
-import home from "./cells/home/index";
-import todos from "./cells/todos/index";
+import { layouts } from "../app/layouts/index";
+import home from "../app/cells/home/index";
+import todos from "../app/cells/todos/index";
 
 const registry: Record<string, any> = { home, todos };
 

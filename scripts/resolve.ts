@@ -1,9 +1,9 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { resolve as resolveManifest, type CellDecl } from "../src/core/resolver";
-import { profiles } from "../src/profiles";
-import home from "../src/cells/home/index";
-import todos from "../src/cells/todos/index";
-import hello from "../src/cells/hello/index";
+import { profiles } from "../app/profiles";
+import home from "../app/cells/home/index";
+import todos from "../app/cells/todos/index";
+import hello from "../app/cells/hello/index";
 
 const name = process.argv[2] ?? process.env.FLUXE_PROFILE ?? "dev";
 const profile = profiles[name];

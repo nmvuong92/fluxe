@@ -1,6 +1,6 @@
 import { createElement as h } from "react";
-import { defineCell } from "../../core/engine";
-import { FluxeError } from "../../core/errors";
+import { defineCell } from "../../../src/core/engine";
+import { FluxeError } from "../../../src/core/errors";
 
 interface HelloData { name: string; backendName: string }
 

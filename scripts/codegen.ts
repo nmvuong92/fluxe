@@ -1,10 +1,10 @@
 /* Sinh types từ contract cho cả 3 ngôn ngữ → .fluxe/gen/. */
 import { writeFileSync, mkdirSync } from "node:fs";
 import { genTS, genGo, genRust } from "../src/core/codegen";
-import { contract } from "../src/contract";
+import { contract } from "../app/contract";
 
 mkdirSync(".fluxe/gen", { recursive: true });
-const banner = "// CODE SINH TỰ ĐỘNG từ src/contract.ts — đừng sửa tay.\n";
+const banner = "// CODE SINH TỰ ĐỘNG từ app/contract.ts — đừng sửa tay.\n";
 
 writeFileSync(".fluxe/gen/types.ts", banner + genTS(contract));
 writeFileSync(".fluxe/gen/contract.go", "// " + banner.slice(3) + genGo(contract));

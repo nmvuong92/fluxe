@@ -2,10 +2,10 @@
 import http from "node:http";
 import { makeServer } from "./server_factory";
 import { resolve, type CellDecl } from "./core/resolver";
-import { profiles } from "./profiles";
-import home from "./cells/home/index";
-import todos from "./cells/todos/index";
-import hello from "./cells/hello/index";
+import { profiles } from "../app/profiles";
+import home from "../app/cells/home/index";
+import todos from "../app/cells/todos/index";
+import hello from "../app/cells/hello/index";
 
 const cells: CellDecl[] = [home, todos, hello].map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
 

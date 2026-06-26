@@ -1,5 +1,5 @@
 import { createElement as h } from "react";
-import { defineCell } from "../../core/engine";
+import { defineCell } from "../../../src/core/engine";
 
 interface HomeData { title: string; backendName: string }
 

@@ -1,4 +1,4 @@
-import type { ResolutionProfile } from "./core/resolver";
+import type { ResolutionProfile } from "../src/core/resolver";
 
 export const profiles: Record<string, ResolutionProfile> = {
   dev: { name: "dev", backend: "memory" },
