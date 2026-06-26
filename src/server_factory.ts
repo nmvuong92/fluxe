@@ -6,11 +6,13 @@ import type { CellDef } from "./core/engine";
 import type { ResolutionManifest } from "./core/resolver";
 import { backendsFromManifest } from "./core/wiring.ts";
 import { renderResolutionPanel } from "./core/panel.ts";
+import { makeRouter } from "./core/router.ts";
 import home from "./cells/home/index";
 import todos from "./cells/todos/index";
+import hello from "./cells/hello/index";
 
-const cells: CellDef<any, any>[] = [home, todos];
-const byRoute = new Map(cells.map(c => [c.route, c]));
+const cells: CellDef<any, any>[] = [home, todos, hello];
+const matchRoute = makeRouter(cells);
 const byId = new Map(cells.map(c => [c.id, c]));
 
 function shell(cell: CellDef<any, any>, bodyHtml: string, data: unknown, shipClientJs: boolean) {
@@ -43,9 +45,10 @@ export function makeServer(manifest: ResolutionManifest) {
       const out = await fn({ input: JSON.parse((await readBody(req))||"{}"), backend: backendFor(cellId) });
       res.writeHead(200,{ "content-type":"application/json" }); return res.end(JSON.stringify(out));
     }
-    const cell = byRoute.get(url.pathname);
-    if (!cell) { res.writeHead(404); return res.end("404"); }
-    const data = await cell.loader({ input: {}, backend: backendFor(cell.id) });
+    const match = matchRoute(url.pathname);
+    if (!match) { res.writeHead(404); return res.end("404"); }
+    const cell = match.cell;
+    const data = await cell.loader({ input: match.params, backend: backendFor(cell.id) });
     const wantsJson = req.headers["x-fluxe"] === "1" || url.searchParams.get("json") === "1";
     if (wantsJson) { res.writeHead(200,{ "content-type":"application/json" }); return res.end(JSON.stringify({ cell: cell.id, data })); }
     const bodyHtml = renderToString(h(cell.view, { data }));

@@ -3,6 +3,7 @@ import { resolve as resolveManifest, type CellDecl } from "../src/core/resolver"
 import { profiles } from "../src/profiles";
 import home from "../src/cells/home/index";
 import todos from "../src/cells/todos/index";
+import hello from "../src/cells/hello/index";
 
 const name = process.argv[2] ?? process.env.FLUXE_PROFILE ?? "dev";
 const profile = profiles[name];
@@ -11,7 +12,7 @@ if (!profile) {
   process.exit(1);
 }
 
-const cells: CellDecl[] = [home, todos].map((c) => ({
+const cells: CellDecl[] = [home, todos, hello].map((c) => ({
   id: c.id,
   route: c.route,
   hydration: c.hydration,

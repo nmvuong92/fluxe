@@ -5,8 +5,9 @@ import { resolve, type CellDecl } from "./core/resolver";
 import { profiles } from "./profiles";
 import home from "./cells/home/index";
 import todos from "./cells/todos/index";
+import hello from "./cells/hello/index";
 
-const cells: CellDecl[] = [home, todos].map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
+const cells: CellDecl[] = [home, todos, hello].map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
 
 function get(port: number, path: string, headers: any = {}): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
@@ -38,6 +39,9 @@ async function run(profileName: string, port: number) {
     const panel = await get(port, "/_fluxe");
     check("[/_fluxe] panel RCA 200 + có cell todos + có 'RCA Resolution'",
       panel.status === 200 && panel.body.includes("RCA Resolution") && panel.body.includes("todos"));
+    const hello = JSON.parse((await get(port, "/hello/world?json=1")).body);
+    check("[route động /hello/[name]] param 'world' tới loader", hello.data?.name === "world");
+    check("[route động] no-match → 404", (await get(port, "/nope/x/y")).status === 404);
   } finally {
     srv.close();
     await new Promise((r) => setTimeout(r, 80));
