@@ -15,6 +15,7 @@ import { signSession, verifySession, parseCookie, hasRole, hashPassword, verifyP
 import { validateInput } from "./core/validate.ts";
 import { createBroker } from "./core/broker.ts";
 import { createRateLimiter } from "./core/ratelimit.ts";
+import { createRecorder } from "./core/observe.ts";
 import { randomUUID } from "node:crypto";
 
 const DEV = process.env.NODE_ENV !== "production";
@@ -58,8 +59,11 @@ export function makeServer(manifest: ResolutionManifest) {
   const backendFor = (id: string) => backends.byCell.get(id) ?? backends.default;
   const broker = createBroker();   // realtime pub/sub (Trục 4g, bản 1-node)
   const actionLimit = createRateLimiter({ capacity: 30, refillPerSec: 10 });   // per-IP cho action
+  const recorder = createRecorder();   // request log (observability)
   return http.createServer(async (req, res) => {
     const url = new URL(req.url!, "http://localhost");
+    const start = Date.now();
+    res.on("finish", () => recorder.record({ method: req.method ?? "?", path: url.pathname, status: res.statusCode, ms: Date.now() - start, ts: start }));
     const wantsJson = req.headers["x-fluxe"] === "1" || url.searchParams.get("json") === "1";
     const cookies = parseCookie(req.headers.cookie);
     const session = verifySession(cookies.session, SECRET);
@@ -70,6 +74,11 @@ export function makeServer(manifest: ResolutionManifest) {
     if (url.pathname === "/client.js") {
       if (existsSync("./dist/client.js")) { res.writeHead(200,{ "content-type":"text/javascript" }); return res.end(readFileSync("./dist/client.js")); }
       res.writeHead(404); return res.end("// no client");
+    }
+    if (url.pathname === "/_fluxe/requests") {
+      // Observability: log request gần đây (timing/status). Prod: gate sau auth.
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(JSON.stringify(recorder.recent()));
     }
     if (url.pathname === "/_fluxe") {
       // Panel RCA — đọc manifest, hiển thị mỗi cell giải trục nào. (Prod: gate sau auth.)

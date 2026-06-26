@@ -115,6 +115,11 @@ async function run(profileName: string, port: number) {
     );
     const limited = burst.filter((r) => r.status === 429).length;
     check(`[ratelimit] burst 50 → có ${limited} request bị 429`, limited > 0);
+    // Observability: request log ghi path/status/ms. Gọi marker ngay trước để nằm trong recent.
+    await get(port, "/todos");
+    const logs = JSON.parse((await get(port, "/_fluxe/requests")).body);
+    check("[observe] /_fluxe/requests log request (có /todos + status + ms)",
+      Array.isArray(logs) && logs.some((e: any) => e.path === "/todos" && typeof e.status === "number" && typeof e.ms === "number"));
   } finally {
     srv.close();
     await new Promise((r) => setTimeout(r, 80));
