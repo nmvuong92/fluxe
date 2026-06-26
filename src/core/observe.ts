@@ -1,6 +1,6 @@
-/* Observability — request log ring buffer (seed của debug bar 4l + dashboard 4j).
- * Ghi method/path/status/ms mỗi request; phơi ở /_fluxe/requests. Bản 1-node in-memory;
- * production: đẩy sang OTel/structured-log (gắn 4i), cùng điểm record. */
+/* Observability — request log Ring Buffer CIRCULAR (#17).
+ * Trước: push + shift (shift O(n) mỗi record khi đầy). Giờ: mảng vòng + con trỏ ghi →
+ * record O(1) (không dời mảng). recent O(n) chỉ trên số phần tử yêu cầu. */
 
 export interface ReqLog {
   method: string;
@@ -16,14 +16,23 @@ export interface Recorder {
 }
 
 export function createRecorder(max = 200): Recorder {
-  const buf: ReqLog[] = [];
+  const buf = new Array<ReqLog | undefined>(max);
+  let writeIdx = 0; // vị trí ghi tiếp theo
+  let size = 0;
+
   return {
     record(e) {
-      buf.push(e);
-      if (buf.length > max) buf.shift();
+      buf[writeIdx] = e;
+      writeIdx = (writeIdx + 1) % max;
+      if (size < max) size++;
     },
     recent(n = 50) {
-      return buf.slice(-n).reverse(); // mới nhất trước
+      const count = Math.min(n, size);
+      const out: ReqLog[] = [];
+      for (let i = 0; i < count; i++) {
+        out.push(buf[(writeIdx - 1 - i + max * 2) % max]!); // lùi từ mới nhất
+      }
+      return out; // newest-first
     },
   };
 }
