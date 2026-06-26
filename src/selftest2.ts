@@ -42,6 +42,12 @@ async function run(profileName: string, port: number) {
     const hello = JSON.parse((await get(port, "/hello/world?json=1")).body);
     check("[route động /hello/[name]] param 'world' tới loader", hello.data?.name === "world");
     check("[route động] no-match → 404", (await get(port, "/nope/x/y")).status === 404);
+    const homeHtml = (await get(port, "/")).body;
+    check("[SEO] home có <title> riêng + canonical", homeHtml.includes("<title>fluxe — fullstack tối giản</title>") && homeHtml.includes('rel="canonical"'));
+    const sm = await get(port, "/sitemap.xml");
+    check("[SEO] /sitemap.xml liệt kê route tĩnh, bỏ [param]", sm.status === 200 && sm.body.includes("/todos</loc>") && !sm.body.includes("[name]"));
+    const rb = await get(port, "/robots.txt");
+    check("[SEO] /robots.txt trỏ sitemap", rb.status === 200 && rb.body.includes("Sitemap:"));
   } finally {
     srv.close();
     await new Promise((r) => setTimeout(r, 80));

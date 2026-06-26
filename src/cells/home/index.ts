@@ -10,6 +10,13 @@ export default defineCell<{}, HomeData>({
   async loader({ backend }) {
     return { title: "fluxe — fullstack tối giản", backendName: backend.name };
   },
+  head: (data) => ({
+    title: data.title,
+    description: "Khung fullstack tối giản: SSR + island + switch backend polyglot.",
+    canonical: "/",
+    og: { title: data.title, type: "website" },
+    jsonLd: { "@context": "https://schema.org", "@type": "WebSite", name: "fluxe" },
+  }),
   view: ({ data }) =>
     h("div", { className: "card" },
       h("h1", null, data.title),

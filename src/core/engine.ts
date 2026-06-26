@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { Backend } from "../backends/types";
+import type { HeadMeta } from "./seo";
 
 /* ============================================================
  * fluxe core
@@ -20,6 +21,7 @@ export interface CellDef<I, O> {
   loader: Loader<I, O>;
   view: ComponentType<{ data: O }>;
   actions?: Record<string, Action<any, any>>;
+  head?: (data: O) => HeadMeta;   // SEO: title/meta/canonical/og/jsonLd per cell
 }
 
 export function defineCell<I, O>(c: CellDef<I, O>): CellDef<I, O> { return c; }

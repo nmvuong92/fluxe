@@ -7,6 +7,7 @@ import type { ResolutionManifest } from "./core/resolver";
 import { backendsFromManifest } from "./core/wiring.ts";
 import { renderResolutionPanel } from "./core/panel.ts";
 import { makeRouter } from "./core/router.ts";
+import { renderHead, renderSitemap, renderRobots } from "./core/seo.ts";
 import home from "./cells/home/index";
 import todos from "./cells/todos/index";
 import hello from "./cells/hello/index";
@@ -15,11 +16,12 @@ const cells: CellDef<any, any>[] = [home, todos, hello];
 const matchRoute = makeRouter(cells);
 const byId = new Map(cells.map(c => [c.id, c]));
 
-function shell(cell: CellDef<any, any>, bodyHtml: string, data: unknown, shipClientJs: boolean) {
+function shell(cell: CellDef<any, any>, bodyHtml: string, data: any, shipClientJs: boolean) {
   const island = shipClientJs
     ? `<script>window.__FLUXE__=${JSON.stringify({ cell: cell.id, data })};</script><script type="module" src="/client.js"></script>`
     : `<!-- static: 0 JS -->`;
-  return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>fluxe</title></head><body><div id="root">${bodyHtml}</div>${island}</body></html>`;
+  const headHtml = renderHead(cell.head ? cell.head(data) : {});
+  return `<!doctype html><html lang="vi"><head><meta charset="utf-8">${headHtml}</head><body><div id="root">${bodyHtml}</div>${island}</body></html>`;
 }
 const readBody = (req: http.IncomingMessage) => new Promise<string>(res => { let b=""; req.on("data",c=>b+=c); req.on("end",()=>res(b)); });
 
@@ -37,6 +39,16 @@ export function makeServer(manifest: ResolutionManifest) {
       // Panel RCA — đọc manifest, hiển thị mỗi cell giải trục nào. (Prod: gate sau auth.)
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       return res.end(renderResolutionPanel(manifest));
+    }
+    const baseUrl = "http://" + (req.headers.host ?? "localhost");
+    if (url.pathname === "/sitemap.xml") {
+      const staticRoutes = cells.map(c => c.route).filter(r => !r.includes("["));
+      res.writeHead(200, { "content-type": "application/xml; charset=utf-8" });
+      return res.end(renderSitemap(staticRoutes, baseUrl));
+    }
+    if (url.pathname === "/robots.txt") {
+      res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+      return res.end(renderRobots(baseUrl));
     }
     if (url.pathname.startsWith("/__action/") && req.method === "POST") {
       const [,,cellId,name] = url.pathname.split("/");
