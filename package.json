@@ -10,7 +10,7 @@
     "test": "tsx src/selftest2.ts",
     "test:unit": "node --experimental-sqlite --import tsx --test '{src,app}/**/*.test.ts'",
     "test:cells": "node --experimental-sqlite --import tsx --test 'app/cells/**/*.test.ts'",
-    "test:all": "npm run test:unit && npm run test",
+    "test:all": "npm run typecheck && npm run test:unit && npm run test",
     "resolve": "tsx scripts/resolve.ts",
     "fx": "tsx bin/fx.ts"
   },

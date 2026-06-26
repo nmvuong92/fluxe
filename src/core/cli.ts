@@ -34,8 +34,8 @@ export const COMMANDS: Record<string, Command> = {
     shell: (a) => `tsx scripts/resolve.ts ${p(a)} && ${ESBUILD} && tsx src/server.tsx`,
   },
   test: {
-    desc: "Chạy unit + integration",
-    shell: () => `node --experimental-sqlite --import tsx --test '{src,app}/**/*.test.ts' && tsx src/selftest2.ts`,
+    desc: "Chạy typecheck + unit + integration",
+    shell: () => `tsc --noEmit && node --experimental-sqlite --import tsx --test '{src,app}/**/*.test.ts' && tsx src/selftest2.ts`,
   },
 };
 
