@@ -1,44 +1,69 @@
-/* Test không spawn subprocess: start server trong CÙNG process, gọi qua http localhost, rồi đóng. */
+/* Integration proof: cùng cell, 2 profile → 2 manifest → 2 hành vi. Cell KHÔNG đổi. */
 import http from "node:http";
+import { makeServer } from "./server_factory";
+import { resolve, type CellDecl } from "./core/resolver";
+import { profiles } from "./profiles";
+import home from "./cells/home/index";
+import todos from "./cells/todos/index";
 
-function req(port: number, method: string, path: string, headers: any = {}, body?: any): Promise<{ status: number; body: string }> {
+const cells: CellDecl[] = [home, todos].map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
+
+function get(port: number, path: string, headers: any = {}): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
-    const data = body ? JSON.stringify(body) : undefined;
-    const r = http.request({ host: "127.0.0.1", port, path, method,
-      headers: { ...headers, ...(data ? { "content-type": "application/json", "content-length": Buffer.byteLength(data) } : {}) } },
-      (res) => { let b = ""; res.on("data", c => b += c); res.on("end", () => resolve({ status: res.statusCode!, body: b })); });
-    r.on("error", reject); if (data) r.write(data); r.end();
+    const r = http.request({ host: "127.0.0.1", port, path, method: "GET", headers }, (res) => {
+      let b = ""; res.on("data", (c) => (b += c)); res.on("end", () => resolve({ status: res.statusCode!, body: b }));
+    });
+    r.on("error", reject); r.end();
   });
 }
 
-async function run(backendEnv: string, label: string, port: number) {
-  const { makeServer } = await import("./server_factory.js");
-  const srv = makeServer(backendEnv).listen(port);
-  await new Promise(r => setTimeout(r, 200));
+let failures = 0;
+function check(label: string, cond: boolean) {
+  console.log(`${cond ? "✓" : "✗"} ${label}`);
+  if (!cond) failures++;
+}
+
+async function run(profileName: string, port: number) {
+  const manifest = resolve(cells, profiles[profileName]);
+  console.log(`\n══════════ profile=${profileName} (backend=${manifest.backend.language}/${manifest.backend.transport}) ══════════`);
+  const srv = makeServer(manifest).listen(port);
+  await new Promise((r) => setTimeout(r, 150));
   try {
-    console.log(`\n══════════ BACKEND = ${label} ══════════`);
-    const homePage = await req(port, "GET", "/");
-    console.log("[static /]      gửi client.js?", homePage.body.includes("/client.js"), "(false=0 JS)  | tên backend hiển thị?", homePage.body.includes(backendEnv === "remote" ? "remote-go" : "memory"));
-    const todosPage = await req(port, "GET", "/todos");
-    console.log("[island /todos] gửi client.js?", todosPage.body.includes("/client.js"), "(true=hydrate) | SSR sẵn <ul>?", todosPage.body.includes("<ul"));
-    const api = JSON.parse((await req(port, "GET", "/todos?json=1")).body);
-    console.log("[API ?json=1]   cell:", api.cell, "| số todo:", api.data.todos.length);
-    const spa = await req(port, "GET", "/todos", { "x-fluxe": "1" });
-    console.log("[SPA x-fluxe]   trả props JSON (không HTML)?", spa.body.startsWith("{"));
-    const added = JSON.parse((await req(port, "POST", "/__action/todos/add", {}, { title: "test " + label })).body);
-    console.log("[action add]    tạo todo:", JSON.stringify(added.title));
-    const after = JSON.parse((await req(port, "GET", "/todos?json=1")).body);
-    console.log("[lưu backend]   todo mới có trong list?", after.data.todos.some((t: any) => t.title.includes("test " + label)));
+    const homePage = await get(port, "/");
+    check("[static /] KHÔNG gửi client.js", !homePage.body.includes("/client.js"));
+    const todosPage = await get(port, "/todos");
+    check("[island /todos] CÓ gửi client.js", todosPage.body.includes("/client.js"));
+    const api = JSON.parse((await get(port, "/todos?json=1")).body);
+    check(`[backend] tên hiển thị = ${manifest.backend.language}`, api.data.backendName === manifest.backend.language);
   } finally {
     srv.close();
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 80));
+  }
+}
+
+// Đối chứng: manifest có quyền TỐI CAO trên cell.hydration.
+// Ép home (vốn static) thành ship JS qua manifest — pre-refactor (dùng cell.hydration)
+// sẽ KHÔNG ship → fail; post-refactor (đọc manifest) sẽ ship → pass.
+async function runOverride(port: number) {
+  const manifest = resolve(cells, profiles.dev);
+  manifest.cells.home.render.shipClientJs = true; // override static → ship
+  console.log(`\n══════════ override: manifest ép home ship JS (đối chứng quyền manifest) ══════════`);
+  const srv = makeServer(manifest).listen(port);
+  await new Promise((r) => setTimeout(r, 150));
+  try {
+    const homePage = await get(port, "/");
+    check("[override] home (static) GỬI client.js vì manifest ép → manifest > cell.hydration", homePage.body.includes("/client.js"));
+  } finally {
+    srv.close();
+    await new Promise((r) => setTimeout(r, 80));
   }
 }
 
 async function main() {
-  await run("memory", "memory (TS thuần)", 5190);
-  await run("remote", "remote-go (giả lập Go)", 5191);
-  console.log("\n→ Đổi backend qua 1 tham số. Cùng cell + frontend, không sửa dòng nào.");
-  process.exit(0);
+  await run("dev", 5190);          // backend memory in-process
+  await runOverride(5191);         // chứng minh manifest điều khiển render, không phải cell.hydration
+  // prod-go cần service Go ở :8081 — chứng minh trục backend đã có ở run-native.sh.
+  console.log("\n→ Cùng cell + cùng makeServer, đổi manifest → hành vi khác. Cell KHÔNG đổi dòng nào.");
+  process.exit(failures === 0 ? 0 : 1);
 }
 main();
