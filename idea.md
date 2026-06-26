@@ -204,7 +204,7 @@ fluxe nắm 3 thứ mà các framework top **không** có cùng lúc:
 1. **Biên `Backend` polyglot** — loader/action chỉ gọi interface `Backend`
    (`listTodos/addTodo/toggleTodo`), không biết phía sau là gì. Đã chứng minh:
    tráo sang **service Go thật** và **Rust thật** qua HTTP, frontend/cell không
-   đổi một dòng (`backends-native/`, `src/backends/http.ts`, `run-native.sh`).
+   đổi một dòng (`native/`, `src/backends/http.ts`, `run-native.sh`).
 2. **Cell model** — `static` = 0 JS, `island` = hydrate. Ship đúng JS cần thiết.
 3. **Inertia-style** — server chạy loader → props thẳng vào React, không fetch tay.
 

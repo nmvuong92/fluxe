@@ -1,5 +1,5 @@
 node_modules/
 dist/
 .fluxe/
-backends-native/rust/server
-backends-native/hot-rust/server
+native/rust/server
+native/hot-rust/server

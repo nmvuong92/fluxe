@@ -22,7 +22,7 @@ npm test                 # kiểm tra 6 yêu cầu với cả 2 backend
 
 ## Backend đa ngôn ngữ — service Go & Rust THẬT (đã chạy)
 
-Interface `Backend` là điểm switch. Ngoài 2 backend TS (memory, remote giả lập), có 2 service **thật** viết bằng ngôn ngữ khác, nói chuyện qua HTTP với cùng "hợp đồng":
+Interface `Backend` là điểm switch. Ngoài backend TS (memory), có service **thật** viết bằng ngôn ngữ khác (Go, Rust), nói chuyện qua HTTP với cùng "hợp đồng":
 
 ```
 GET  /todos               → Todo[]
@@ -30,8 +30,8 @@ POST /todos {title}       → Todo
 POST /todos/{id}/toggle   → Todo[]
 ```
 
-- `backends-native/go/`   — service Go (net/http, stdlib).        Port 8081.
-- `backends-native/rust/` — service Rust (TcpListener, std, 0 dep). Port 8082.
+- `native/go/`   — service Go (net/http, stdlib).        Port 8081.
+- `native/rust/` — service Rust (TcpListener, std, 0 dep). Port 8082.
 - `src/backends/http.ts`  — adapter TS `createHttpBackend()` implement interface `Backend` bằng `fetch`.
 
 Chứng minh (build + chạy cả 2 service, rồi chạy cùng một hàm qua interface trên cả 3):
@@ -41,7 +41,7 @@ Chứng minh (build + chạy cả 2 service, rồi chạy cùng một hàm qua i
 
 Dùng trong server SSR thật (sau `npm install`):
 ```bash
-( cd backends-native/go && PORT=8081 go run . ) &       # hoặc service Rust
+( cd native/go && PORT=8081 go run . ) &       # hoặc service Rust
 FLUXE_BACKEND=go npm run dev                             # frontend/cell KHÔNG đổi
 ```
 
