@@ -9,6 +9,10 @@ const ESBUILD = "esbuild src/client.tsx --bundle --format=esm --outfile=dist/cli
 const p = (a: string[]) => a[0] ?? "dev"; // profile mặc định
 
 export const COMMANDS: Record<string, Command> = {
+  gen: {
+    desc: "Codegen contract → types TS/Go/Rust (.fluxe/gen)",
+    shell: () => `tsx scripts/codegen.ts`,
+  },
   resolve: {
     desc: "Sinh .fluxe/resolution.json từ profile",
     shell: (a) => `tsx scripts/resolve.ts ${p(a)}`,
