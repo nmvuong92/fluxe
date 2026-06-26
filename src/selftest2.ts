@@ -65,7 +65,15 @@ async function run(profileName: string, port: number) {
     check("[auth] /login set cookie session", cookie.startsWith("session="));
     const secret = await get(port, "/secret", { cookie });
     check("[auth] /secret có cookie hợp lệ → 200 + tên user", secret.status === 200 && secret.body.includes("alice"));
-    check("[auth] cookie giả mạo → 401", (await get(port, "/secret", { cookie: "session=giả.mạo" })).status === 401);
+    check("[auth] cookie giả mạo → 401", (await get(port, "/secret", { cookie: "session=tampered.invalid" })).status === 401);
+    // RBAC: /admin cần role admin
+    const userLogin = await get(port, "/login?user=bob&roles=user");
+    const userCookie = String(userLogin.headers["set-cookie"]?.[0] ?? "").split(";")[0];
+    check("[rbac] login thường (role user) vào /admin → 403", (await get(port, "/admin", { cookie: userCookie })).status === 403);
+    const adminLogin = await get(port, "/login?user=alice&roles=admin,user");
+    const adminCookie = String(adminLogin.headers["set-cookie"]?.[0] ?? "").split(";")[0];
+    const adminPage = await get(port, "/admin", { cookie: adminCookie });
+    check("[rbac] login admin vào /admin → 200 + có roles", adminPage.status === 200 && adminPage.body.includes("admin"));
   } finally {
     srv.close();
     await new Promise((r) => setTimeout(r, 80));

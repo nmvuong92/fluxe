@@ -5,7 +5,12 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 export interface Session {
   user: string;
+  roles?: string[];
   [k: string]: unknown;
+}
+
+export function hasRole(session: Session | null, role: string): boolean {
+  return !!session?.roles?.includes(role);
 }
 
 export function signSession(payload: Session, secret: string): string {

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { signSession, verifySession, parseCookie } from "./auth.ts";
+import { signSession, verifySession, parseCookie, hasRole } from "./auth.ts";
 
 const SECRET = "test-secret";
 
@@ -28,4 +28,14 @@ test("token rỗng/hỏng → null", () => {
 test("parseCookie tách cặp", () => {
   assert.deepEqual(parseCookie("a=1; session=xyz; b=2").session, "xyz");
   assert.deepEqual(parseCookie(undefined), {});
+});
+
+test("hasRole: có role → true", () => {
+  assert.equal(hasRole({ user: "a", roles: ["admin", "user"] }, "admin"), true);
+});
+
+test("hasRole: thiếu role / không session → false", () => {
+  assert.equal(hasRole({ user: "a", roles: ["user"] }, "admin"), false);
+  assert.equal(hasRole({ user: "a" }, "admin"), false);
+  assert.equal(hasRole(null, "admin"), false);
 });

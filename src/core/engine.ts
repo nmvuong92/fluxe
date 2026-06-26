@@ -26,6 +26,7 @@ export interface CellDef<I, O> {
   head?: (data: O) => HeadMeta;   // SEO: title/meta/canonical/og/jsonLd per cell
   layout?: string;                // id layout bọc view (nested qua parent)
   requireAuth?: boolean;          // guard: cần session hợp lệ mới vào
+  requireRole?: string;           // guard RBAC: cần role này (ngầm cần auth)
 }
 
 export function defineCell<I, O>(c: CellDef<I, O>): CellDef<I, O> { return c; }

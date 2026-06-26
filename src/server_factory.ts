@@ -11,7 +11,7 @@ import { layoutChain } from "./core/layouts.ts";
 import { layouts } from "./layouts/index";
 import { renderHead, renderSitemap, renderRobots } from "./core/seo.ts";
 import { FluxeError, toErrorPayload, renderErrorPage } from "./core/errors.ts";
-import { signSession, verifySession, parseCookie } from "./core/auth.ts";
+import { signSession, verifySession, parseCookie, hasRole } from "./core/auth.ts";
 import { randomUUID } from "node:crypto";
 
 const DEV = process.env.NODE_ENV !== "production";
@@ -28,8 +28,9 @@ import home from "./cells/home/index";
 import todos from "./cells/todos/index";
 import hello from "./cells/hello/index";
 import secret from "./cells/secret/index";
+import admin from "./cells/admin/index";
 
-const cells: CellDef<any, any>[] = [home, todos, hello, secret];
+const cells: CellDef<any, any>[] = [home, todos, hello, secret, admin];
 const matchRoute = makeRouter(cells);
 const byId = new Map(cells.map(c => [c.id, c]));
 
@@ -73,7 +74,8 @@ export function makeServer(manifest: ResolutionManifest) {
     if (url.pathname === "/login") {
       // PoC: GET /login?user=alice → set cookie session ký HMAC (app thật sẽ POST credentials).
       const user = url.searchParams.get("user") ?? "guest";
-      const token = signSession({ user }, SECRET);
+      const roles = (url.searchParams.get("roles") ?? "").split(",").filter(Boolean);
+      const token = signSession({ user, roles }, SECRET);
       res.writeHead(200, {
         "content-type": "text/html; charset=utf-8",
         "set-cookie": `session=${token}; HttpOnly; Path=/; SameSite=Lax`,
@@ -97,8 +99,11 @@ export function makeServer(manifest: ResolutionManifest) {
     const match = matchRoute(url.pathname);
     if (!match) { res.writeHead(404); return res.end("404"); }
     const cell = match.cell;
-    if (cell.requireAuth && !session) {
+    if ((cell.requireAuth || cell.requireRole) && !session) {
       throw new FluxeError("unauthorized", "Cần đăng nhập (/login)", 401);
+    }
+    if (cell.requireRole && !hasRole(session, cell.requireRole)) {
+      throw new FluxeError("forbidden", `Cần quyền '${cell.requireRole}'`, 403);
     }
     const data = await cell.loader({ input: match.params, backend: backendFor(cell.id), session });
     if (wantsJson) { res.writeHead(200,{ "content-type":"application/json" }); return res.end(JSON.stringify({ cell: cell.id, data })); }
