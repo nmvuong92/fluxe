@@ -1,7 +1,8 @@
 import http from "node:http";
 import { readFileSync, existsSync } from "node:fs";
+import { PassThrough } from "node:stream";
 import { createElement as h } from "react";
-import { renderToString } from "react-dom/server";
+import { renderToPipeableStream } from "react-dom/server";
 import type { CellDef } from "./core/engine";
 import type { ResolutionManifest } from "./core/resolver";
 import { backendsFromManifest } from "./core/wiring.ts";
@@ -45,12 +46,16 @@ const cells: CellDef<any, any>[] = [home, todos, hello, secret, admin];
 const matchRoute = makeRouter(cells);
 const byId = new Map(cells.map(c => [c.id, c]));
 
-function shell(cell: CellDef<any, any>, bodyHtml: string, data: any, shipClientJs: boolean) {
+// Phần head (trước body) và tail (sau body) — body được STREAM ở giữa.
+function shellHead(cell: CellDef<any, any>, data: any): string {
+  const headHtml = renderHead(cell.head ? cell.head(data) : {});
+  return `<!doctype html><html lang="vi"><head><meta charset="utf-8">${headHtml}</head><body><div id="root">`;
+}
+function shellTail(cell: CellDef<any, any>, data: any, shipClientJs: boolean): string {
   const island = shipClientJs
     ? `<script>window.__FLUXE__=${JSON.stringify({ cell: cell.id, data })};</script><script type="module" src="/client.js"></script>`
     : `<!-- static: 0 JS -->`;
-  const headHtml = renderHead(cell.head ? cell.head(data) : {});
-  return `<!doctype html><html lang="vi"><head><meta charset="utf-8">${headHtml}</head><body><div id="root">${bodyHtml}</div>${island}</body></html>`;
+  return `</div>${island}</body></html>`;
 }
 const readBody = (req: http.IncomingMessage) => new Promise<string>(res => { let b=""; req.on("data",c=>b+=c); req.on("end",()=>res(b)); });
 
@@ -174,11 +179,19 @@ export function makeServer(manifest: ResolutionManifest) {
     for (const id of layoutChain(cell.layout, layouts)) {   // inner→outer: bọc dần
       node = h(layouts[id].component as any, { children: node });
     }
-    const bodyHtml = renderToString(node);
     const shipClientJs = manifest.cells[cell.id]?.render.shipClientJs ?? false;
     const pageHeaders: Record<string, string> = { "content-type": "text/html; charset=utf-8" };
     if (csrfCookie) pageHeaders["set-cookie"] = csrfCookie;   // gửi csrf token cho client
-    res.writeHead(200, pageHeaders); res.end(shell(cell, bodyHtml, data, shipClientJs));
+    // Streaming SSR: gửi head ngay → stream body (Suspense chảy dần) → tail khi xong.
+    res.writeHead(200, pageHeaders);
+    res.write(shellHead(cell, data));
+    const through = new PassThrough();
+    through.on("data", (c) => res.write(c));
+    through.on("end", () => { res.write(shellTail(cell, data, shipClientJs)); res.end(); });
+    const { pipe } = renderToPipeableStream(node, {
+      onShellReady() { pipe(through); },                       // shell sẵn → bắt đầu stream
+      onError(e) { console.error("[fluxe] ssr stream error:", e); },
+    });
     } catch (err) {
       // Error boundary ở biên request: domain → status/code; unexpected → 500 + errorId (không leak prod).
       // Action (rpc) luôn nhận lỗi dạng JSON.
