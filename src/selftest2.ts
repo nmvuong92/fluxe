@@ -51,8 +51,13 @@ async function run(profileName: string, port: number) {
     check("[static /] KHÔNG gửi client.js", !homePage.body.includes("/client.js"));
     const todosPage = await get(port, "/todos");
     check("[island /todos] CÓ gửi client.js", todosPage.body.includes("/client.js"));
-    const api = JSON.parse((await get(port, "/todos?json=1")).body);
+    const apiRes = await get(port, "/todos?json=1");
+    const api = JSON.parse(apiRes.body);
     check(`[backend] tên hiển thị = ${manifest.backend.language}`, api.data.backendName === manifest.backend.language);
+    // Render cache: ETag → If-None-Match khớp → 304 (không gửi lại body).
+    const etag = apiRes.headers.etag;
+    const notMod = await get(port, "/todos?json=1", { "if-none-match": etag });
+    check("[cache] JSON props ETag + If-None-Match → 304 (body rỗng)", typeof etag === "string" && notMod.status === 304 && notMod.body === "");
     const panel = await get(port, "/_fluxe");
     check("[/_fluxe] dashboard: RCA Resolution + cell todos + Recent requests",
       panel.status === 200 && panel.body.includes("RCA Resolution") && panel.body.includes("todos") && panel.body.includes("Recent requests"));

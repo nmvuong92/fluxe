@@ -18,6 +18,7 @@ import { createBroker } from "./core/broker.ts";
 import { createRateLimiter } from "./core/ratelimit.ts";
 import { createRecorder } from "./core/observe.ts";
 import { createPresence } from "./core/presence.ts";
+import { etagOf, etagMatches } from "./core/etag.ts";
 import { randomUUID } from "node:crypto";
 
 const DEV = process.env.NODE_ENV !== "production";
@@ -175,7 +176,12 @@ export function makeServer(manifest: ResolutionManifest) {
       throw new FluxeError("forbidden", `Cần quyền '${cell.requireRole}'`, 403);
     }
     const data = await cell.loader({ input: match.params, backend: backendFor(cell.id), session });
-    if (wantsJson) { res.writeHead(200,{ "content-type":"application/json" }); return res.end(JSON.stringify({ cell: cell.id, data })); }
+    if (wantsJson) {
+      const body = JSON.stringify({ cell: cell.id, data });
+      const etag = etagOf(body);   // render cache: 304 nếu props không đổi
+      if (etagMatches(req.headers["if-none-match"], etag)) { res.writeHead(304, { etag }); return res.end(); }
+      res.writeHead(200, { "content-type": "application/json", etag }); return res.end(body);
+    }
     let node: any = h(cell.view, { data });
     for (const id of layoutChain(cell.layout, layouts)) {   // inner→outer: bọc dần
       node = h(layouts[id].component as any, { children: node });
