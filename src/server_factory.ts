@@ -8,6 +8,18 @@ import { backendsFromManifest } from "./core/wiring.ts";
 import { renderResolutionPanel } from "./core/panel.ts";
 import { makeRouter } from "./core/router.ts";
 import { renderHead, renderSitemap, renderRobots } from "./core/seo.ts";
+import { FluxeError, toErrorPayload, renderErrorPage } from "./core/errors.ts";
+import { randomUUID } from "node:crypto";
+
+const DEV = process.env.NODE_ENV !== "production";
+
+function sendError(res: http.ServerResponse, wantsJson: boolean, err: unknown) {
+  const errorId = randomUUID();
+  const p = toErrorPayload(err, { dev: DEV, errorId });
+  if (!(err instanceof FluxeError)) console.error(`[fluxe] unexpected ${errorId}:`, err);
+  if (wantsJson) { res.writeHead(p.status, { "content-type": "application/json" }); res.end(JSON.stringify({ error: p })); }
+  else { res.writeHead(p.status, { "content-type": "text/html; charset=utf-8" }); res.end(renderErrorPage(p)); }
+}
 import home from "./cells/home/index";
 import todos from "./cells/todos/index";
 import hello from "./cells/hello/index";
@@ -31,6 +43,8 @@ export function makeServer(manifest: ResolutionManifest) {
   const backendFor = (id: string) => backends.byCell.get(id) ?? backends.default;
   return http.createServer(async (req, res) => {
     const url = new URL(req.url!, "http://localhost");
+    const wantsJson = req.headers["x-fluxe"] === "1" || url.searchParams.get("json") === "1";
+    try {
     if (url.pathname === "/client.js") {
       if (existsSync("./dist/client.js")) { res.writeHead(200,{ "content-type":"text/javascript" }); return res.end(readFileSync("./dist/client.js")); }
       res.writeHead(404); return res.end("// no client");
@@ -61,10 +75,13 @@ export function makeServer(manifest: ResolutionManifest) {
     if (!match) { res.writeHead(404); return res.end("404"); }
     const cell = match.cell;
     const data = await cell.loader({ input: match.params, backend: backendFor(cell.id) });
-    const wantsJson = req.headers["x-fluxe"] === "1" || url.searchParams.get("json") === "1";
     if (wantsJson) { res.writeHead(200,{ "content-type":"application/json" }); return res.end(JSON.stringify({ cell: cell.id, data })); }
     const bodyHtml = renderToString(h(cell.view, { data }));
     const shipClientJs = manifest.cells[cell.id]?.render.shipClientJs ?? false;
     res.writeHead(200,{ "content-type":"text/html; charset=utf-8" }); res.end(shell(cell, bodyHtml, data, shipClientJs));
+    } catch (err) {
+      // Error boundary ở biên request: domain → status/code; unexpected → 500 + errorId (không leak prod).
+      sendError(res, wantsJson, err);
+    }
   });
 }

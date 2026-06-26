@@ -48,6 +48,13 @@ async function run(profileName: string, port: number) {
     check("[SEO] /sitemap.xml liệt kê route tĩnh, bỏ [param]", sm.status === 200 && sm.body.includes("/todos</loc>") && !sm.body.includes("[name]"));
     const rb = await get(port, "/robots.txt");
     check("[SEO] /robots.txt trỏ sitemap", rb.status === 200 && rb.body.includes("Sitemap:"));
+    const dom = await get(port, "/hello/boom?json=1");
+    const domBody = JSON.parse(dom.body);
+    check("[err] domain FluxeError → status 403 + code forbidden", dom.status === 403 && domBody.error?.code === "forbidden");
+    const unx = await get(port, "/hello/crash?json=1");
+    const unxBody = JSON.parse(unx.body);
+    check("[err] unexpected → 500 + code internal + có errorId", unx.status === 500 && unxBody.error?.code === "internal" && !!unxBody.error?.errorId);
+    check("[err] một lỗi không sập server: request sau vẫn 200", (await get(port, "/hello/ok")).status === 200);
   } finally {
     srv.close();
     await new Promise((r) => setTimeout(r, 80));
