@@ -29,12 +29,18 @@ export function parseRpcError(status: number, body: string): RpcError {
   return new RpcError("http", `HTTP ${status}`, status);
 }
 
+function cookie(name: string): string {
+  if (typeof document === "undefined") return "";
+  const m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+  return m ? decodeURIComponent(m[1]) : "";
+}
+
 export async function rpc<T = any>(cell: string, action: string, input: unknown): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`/__action/${cell}/${action}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-csrf-token": cookie("csrf") },
       body: JSON.stringify(input),
     });
   } catch {

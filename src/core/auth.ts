@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual, scryptSync, randomBytes } from "node:crypto";
 
 /* Auth tối giản — session ký HMAC trong cookie (gắn 6b.F guard + 6b.I signed cookie).
  * Stateless: token = base64url(payload).base64url(HMAC). Đổi 1 byte → verify fail. */
@@ -31,6 +31,27 @@ export function verifySession(token: string | undefined, secret: string): Sessio
   } catch {
     return null;
   }
+}
+
+/* Password hashing — scrypt (built-in, memory-hard). Format: scrypt$salt$hash.
+ * (Production: Argon2id qua `npm i argon2`; scrypt là chuẩn built-in, an toàn.) */
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16);
+  const hash = scryptSync(password, salt, 32);
+  return `scrypt$${salt.toString("hex")}$${hash.toString("hex")}`;
+}
+
+export function verifyPassword(password: string, stored: string): boolean {
+  const [algo, saltHex, hashHex] = stored.split("$");
+  if (algo !== "scrypt" || !saltHex || !hashHex) return false;
+  const hash = scryptSync(password, Buffer.from(saltHex, "hex"), 32);
+  const expected = Buffer.from(hashHex, "hex");
+  return hash.length === expected.length && timingSafeEqual(hash, expected);
+}
+
+/* CSRF token (double-submit cookie): cookie csrf + header x-csrf-token phải khớp. */
+export function newCsrfToken(): string {
+  return randomBytes(24).toString("hex");
 }
 
 export function parseCookie(header: string | undefined): Record<string, string> {

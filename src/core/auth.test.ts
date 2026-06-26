@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { signSession, verifySession, parseCookie, hasRole } from "./auth.ts";
+import { signSession, verifySession, parseCookie, hasRole, hashPassword, verifyPassword } from "./auth.ts";
 
 const SECRET = "test-secret";
 
@@ -38,4 +38,18 @@ test("hasRole: thiếu role / không session → false", () => {
   assert.equal(hasRole({ user: "a", roles: ["user"] }, "admin"), false);
   assert.equal(hasRole({ user: "a" }, "admin"), false);
   assert.equal(hasRole(null, "admin"), false);
+});
+
+test("password: hash rồi verify đúng/sai", () => {
+  const stored = hashPassword("secret");
+  assert.equal(verifyPassword("secret", stored), true);
+  assert.equal(verifyPassword("wrong", stored), false);
+});
+
+test("password: cùng mật khẩu → hash KHÁC nhau (salt ngẫu nhiên)", () => {
+  assert.notEqual(hashPassword("secret"), hashPassword("secret"));
+});
+
+test("verifyPassword: format hỏng → false", () => {
+  assert.equal(verifyPassword("x", "rác"), false);
 });

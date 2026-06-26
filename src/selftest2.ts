@@ -18,15 +18,21 @@ function get(port: number, path: string, headers: any = {}): Promise<{ status: n
   });
 }
 
-function post(port: number, path: string, body: any, headers: any = {}): Promise<{ status: number; body: string }> {
+function post(port: number, path: string, body: any, headers: any = {}): Promise<{ status: number; body: string; headers: any }> {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
     const r = http.request({ host: "127.0.0.1", port, path, method: "POST",
       headers: { "content-type": "application/json", "content-length": Buffer.byteLength(data), ...headers } }, (res) => {
-      let b = ""; res.on("data", (c) => (b += c)); res.on("end", () => resolve({ status: res.statusCode!, body: b }));
+      let b = ""; res.on("data", (c) => (b += c)); res.on("end", () => resolve({ status: res.statusCode!, body: b, headers: res.headers }));
     });
     r.on("error", reject); r.write(data); r.end();
   });
+}
+
+// Lấy cookie csrf từ một page (set-cookie). Trả { pair: "csrf=abc", val: "abc" }.
+function getCsrf(setCookie: string[] | undefined) {
+  const pair = (setCookie ?? []).find((c) => c.startsWith("csrf="))?.split(";")[0] ?? "";
+  return { pair, val: pair.split("=")[1] ?? "" };
 }
 
 let failures = 0;
@@ -69,28 +75,29 @@ async function run(profileName: string, port: number) {
     const unxBody = JSON.parse(unx.body);
     check("[err] unexpected → 500 + code internal + có errorId", unx.status === 500 && unxBody.error?.code === "internal" && !!unxBody.error?.errorId);
     check("[err] một lỗi không sập server: request sau vẫn 200", (await get(port, "/hello/ok")).status === 200);
-    // Auth: /secret cần đăng nhập
+    // Auth: /secret cần đăng nhập (login = POST verify password hash)
     check("[auth] /secret chưa login → 401", (await get(port, "/secret")).status === 401);
-    const login = await get(port, "/login?user=alice");
-    const cookie = String(login.headers["set-cookie"]?.[0] ?? "").split(";")[0];
-    check("[auth] /login set cookie session", cookie.startsWith("session="));
-    const secret = await get(port, "/secret", { cookie });
-    check("[auth] /secret có cookie hợp lệ → 200 + tên user", secret.status === 200 && secret.body.includes("alice"));
+    check("[auth] login sai mật khẩu → 401", (await post(port, "/login", { user: "alice", password: "wrong" })).status === 401);
+    const login = await post(port, "/login", { user: "alice", password: "secret" });
+    const sessionCookie = String((login.headers["set-cookie"] ?? []).find((c: string) => c.startsWith("session=")) ?? "").split(";")[0];
+    check("[auth] login đúng mật khẩu → 200 + set session", login.status === 200 && sessionCookie.startsWith("session="));
+    const secret = await get(port, "/secret", { cookie: sessionCookie });
+    check("[auth] /secret có session → 200 + tên user", secret.status === 200 && secret.body.includes("alice"));
     check("[auth] cookie giả mạo → 401", (await get(port, "/secret", { cookie: "session=tampered.invalid" })).status === 401);
     // RBAC: /admin cần role admin
-    const userLogin = await get(port, "/login?user=bob&roles=user");
-    const userCookie = String(userLogin.headers["set-cookie"]?.[0] ?? "").split(";")[0];
-    check("[rbac] login thường (role user) vào /admin → 403", (await get(port, "/admin", { cookie: userCookie })).status === 403);
-    const adminLogin = await get(port, "/login?user=alice&roles=admin,user");
-    const adminCookie = String(adminLogin.headers["set-cookie"]?.[0] ?? "").split(";")[0];
-    const adminPage = await get(port, "/admin", { cookie: adminCookie });
-    check("[rbac] login admin vào /admin → 200 + có roles", adminPage.status === 200 && adminPage.body.includes("admin"));
-    // Validation: action add với input sai → 400 code=validation + details
-    const bad = await post(port, "/__action/todos/add", { title: "" });
-    const badBody = JSON.parse(bad.body);
-    check("[validate] add title rỗng → 400 + code=validation + details", bad.status === 400 && badBody.error?.code === "validation" && Array.isArray(badBody.error?.details));
-    const okAdd = await post(port, "/__action/todos/add", { title: "việc hợp lệ" });
-    check("[validate] add title hợp lệ → 200 + tạo todo", okAdd.status === 200 && JSON.parse(okAdd.body).title.includes("việc hợp lệ"));
+    const bobLogin = await post(port, "/login", { user: "bob", password: "secret" });
+    const bobCookie = String((bobLogin.headers["set-cookie"] ?? []).find((c: string) => c.startsWith("session=")) ?? "").split(";")[0];
+    check("[rbac] bob (role user) vào /admin → 403", (await get(port, "/admin", { cookie: bobCookie })).status === 403);
+    check("[rbac] alice (admin) vào /admin → 200", (await get(port, "/admin", { cookie: sessionCookie })).status === 200);
+    // CSRF: lấy token từ page, gắn vào action
+    const csrf = getCsrf(todosPage.headers["set-cookie"]);
+    check("[csrf] action KHÔNG có token → 403", (await post(port, "/__action/todos/add", { title: "x" })).status === 403);
+    const csrfHdr = { cookie: csrf.pair, "x-csrf-token": csrf.val };
+    // Validation (qua CSRF hợp lệ): input sai → 400 validation + details
+    const bad = await post(port, "/__action/todos/add", { title: "" }, csrfHdr);
+    check("[validate] add title rỗng → 400 + code=validation + details", bad.status === 400 && JSON.parse(bad.body).error?.code === "validation" && Array.isArray(JSON.parse(bad.body).error?.details));
+    const okAdd = await post(port, "/__action/todos/add", { title: "việc hợp lệ" }, csrfHdr);
+    check("[validate] add title hợp lệ (csrf ok) → 200 + tạo todo", okAdd.status === 200 && JSON.parse(okAdd.body).title.includes("việc hợp lệ"));
   } finally {
     srv.close();
     await new Promise((r) => setTimeout(r, 80));
