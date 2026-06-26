@@ -11,9 +11,11 @@ import { layoutChain } from "./core/layouts.ts";
 import { layouts } from "./layouts/index";
 import { renderHead, renderSitemap, renderRobots } from "./core/seo.ts";
 import { FluxeError, toErrorPayload, renderErrorPage } from "./core/errors.ts";
+import { signSession, verifySession, parseCookie } from "./core/auth.ts";
 import { randomUUID } from "node:crypto";
 
 const DEV = process.env.NODE_ENV !== "production";
+const SECRET = process.env.FLUXE_SECRET ?? "dev-secret-change-me";
 
 function sendError(res: http.ServerResponse, wantsJson: boolean, err: unknown) {
   const errorId = randomUUID();
@@ -25,8 +27,9 @@ function sendError(res: http.ServerResponse, wantsJson: boolean, err: unknown) {
 import home from "./cells/home/index";
 import todos from "./cells/todos/index";
 import hello from "./cells/hello/index";
+import secret from "./cells/secret/index";
 
-const cells: CellDef<any, any>[] = [home, todos, hello];
+const cells: CellDef<any, any>[] = [home, todos, hello, secret];
 const matchRoute = makeRouter(cells);
 const byId = new Map(cells.map(c => [c.id, c]));
 
@@ -46,6 +49,7 @@ export function makeServer(manifest: ResolutionManifest) {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url!, "http://localhost");
     const wantsJson = req.headers["x-fluxe"] === "1" || url.searchParams.get("json") === "1";
+    const session = verifySession(parseCookie(req.headers.cookie).session, SECRET);
     try {
     if (url.pathname === "/client.js") {
       if (existsSync("./dist/client.js")) { res.writeHead(200,{ "content-type":"text/javascript" }); return res.end(readFileSync("./dist/client.js")); }
@@ -66,17 +70,37 @@ export function makeServer(manifest: ResolutionManifest) {
       res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
       return res.end(renderRobots(baseUrl));
     }
+    if (url.pathname === "/login") {
+      // PoC: GET /login?user=alice → set cookie session ký HMAC (app thật sẽ POST credentials).
+      const user = url.searchParams.get("user") ?? "guest";
+      const token = signSession({ user }, SECRET);
+      res.writeHead(200, {
+        "content-type": "text/html; charset=utf-8",
+        "set-cookie": `session=${token}; HttpOnly; Path=/; SameSite=Lax`,
+      });
+      return res.end(`<p>Đã đăng nhập: ${user}. <a href="/secret">/secret</a></p>`);
+    }
+    if (url.pathname === "/logout") {
+      res.writeHead(200, {
+        "content-type": "text/html; charset=utf-8",
+        "set-cookie": "session=; HttpOnly; Path=/; Max-Age=0",
+      });
+      return res.end(`<p>Đã đăng xuất. <a href="/">trang chủ</a></p>`);
+    }
     if (url.pathname.startsWith("/__action/") && req.method === "POST") {
       const [,,cellId,name] = url.pathname.split("/");
       const fn = byId.get(cellId)?.actions?.[name];
       if (!fn) { res.writeHead(404); return res.end("no action"); }
-      const out = await fn({ input: JSON.parse((await readBody(req))||"{}"), backend: backendFor(cellId) });
+      const out = await fn({ input: JSON.parse((await readBody(req))||"{}"), backend: backendFor(cellId), session });
       res.writeHead(200,{ "content-type":"application/json" }); return res.end(JSON.stringify(out));
     }
     const match = matchRoute(url.pathname);
     if (!match) { res.writeHead(404); return res.end("404"); }
     const cell = match.cell;
-    const data = await cell.loader({ input: match.params, backend: backendFor(cell.id) });
+    if (cell.requireAuth && !session) {
+      throw new FluxeError("unauthorized", "Cần đăng nhập (/login)", 401);
+    }
+    const data = await cell.loader({ input: match.params, backend: backendFor(cell.id), session });
     if (wantsJson) { res.writeHead(200,{ "content-type":"application/json" }); return res.end(JSON.stringify({ cell: cell.id, data })); }
     let node: any = h(cell.view, { data });
     for (const id of layoutChain(cell.layout, layouts)) {   // inner→outer: bọc dần

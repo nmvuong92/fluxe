@@ -9,10 +9,10 @@ import hello from "./cells/hello/index";
 
 const cells: CellDecl[] = [home, todos, hello].map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
 
-function get(port: number, path: string, headers: any = {}): Promise<{ status: number; body: string }> {
+function get(port: number, path: string, headers: any = {}): Promise<{ status: number; body: string; headers: any }> {
   return new Promise((resolve, reject) => {
     const r = http.request({ host: "127.0.0.1", port, path, method: "GET", headers }, (res) => {
-      let b = ""; res.on("data", (c) => (b += c)); res.on("end", () => resolve({ status: res.statusCode!, body: b }));
+      let b = ""; res.on("data", (c) => (b += c)); res.on("end", () => resolve({ status: res.statusCode!, body: b, headers: res.headers }));
     });
     r.on("error", reject); r.end();
   });
@@ -58,6 +58,14 @@ async function run(profileName: string, port: number) {
     const unxBody = JSON.parse(unx.body);
     check("[err] unexpected → 500 + code internal + có errorId", unx.status === 500 && unxBody.error?.code === "internal" && !!unxBody.error?.errorId);
     check("[err] một lỗi không sập server: request sau vẫn 200", (await get(port, "/hello/ok")).status === 200);
+    // Auth: /secret cần đăng nhập
+    check("[auth] /secret chưa login → 401", (await get(port, "/secret")).status === 401);
+    const login = await get(port, "/login?user=alice");
+    const cookie = String(login.headers["set-cookie"]?.[0] ?? "").split(";")[0];
+    check("[auth] /login set cookie session", cookie.startsWith("session="));
+    const secret = await get(port, "/secret", { cookie });
+    check("[auth] /secret có cookie hợp lệ → 200 + tên user", secret.status === 200 && secret.body.includes("alice"));
+    check("[auth] cookie giả mạo → 401", (await get(port, "/secret", { cookie: "session=giả.mạo" })).status === 401);
   } finally {
     srv.close();
     await new Promise((r) => setTimeout(r, 80));
