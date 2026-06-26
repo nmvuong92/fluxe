@@ -109,6 +109,16 @@ async function run(profileName: string, port: number) {
     await new Promise((r) => setTimeout(r, 120));
     check("[sse] client nhận event live sau khi add", sseEvents.join("").includes("todo realtime"));
     sseReq.destroy();
+    // Presence: client A mở SSE với ?id, client B join → A nhận presence có cả 2.
+    const aEvents: string[] = [];
+    const aReq = http.request({ host: "127.0.0.1", port, path: "/__sse/room?id=alice", method: "GET" }, (res) => res.on("data", (c) => aEvents.push(c.toString())));
+    aReq.end();
+    await new Promise((r) => setTimeout(r, 80));
+    const bReq = http.request({ host: "127.0.0.1", port, path: "/__sse/room?id=bob", method: "GET" }, () => {});
+    bReq.end();
+    await new Promise((r) => setTimeout(r, 120));
+    check("[presence] A nhận presence chứa alice + bob khi B join", aEvents.join("").includes("alice") && aEvents.join("").includes("bob"));
+    aReq.destroy(); bReq.destroy();
     // Rate limit: bắn 50 action đồng thời → vượt capacity → có 429.
     const burst = await Promise.all(
       Array.from({ length: 50 }, () => post(port, "/__action/todos/toggle", { id: "1" }, csrfHdr)),

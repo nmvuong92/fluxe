@@ -16,6 +16,7 @@ import { validateInput } from "./core/validate.ts";
 import { createBroker } from "./core/broker.ts";
 import { createRateLimiter } from "./core/ratelimit.ts";
 import { createRecorder } from "./core/observe.ts";
+import { createPresence } from "./core/presence.ts";
 import { randomUUID } from "node:crypto";
 
 const DEV = process.env.NODE_ENV !== "production";
@@ -60,6 +61,7 @@ export function makeServer(manifest: ResolutionManifest) {
   const broker = createBroker();   // realtime pub/sub (Trục 4g, bản 1-node)
   const actionLimit = createRateLimiter({ capacity: 30, refillPerSec: 10 });   // per-IP cho action
   const recorder = createRecorder();   // request log (observability)
+  const presence = createPresence();   // ai đang online per topic (Trục 4g)
   return http.createServer(async (req, res) => {
     const url = new URL(req.url!, "http://localhost");
     const start = Date.now();
@@ -117,12 +119,22 @@ export function makeServer(manifest: ResolutionManifest) {
       return res.end(`<p>Đã đăng xuất. <a href="/">trang chủ</a></p>`);
     }
     if (url.pathname.startsWith("/__sse/")) {
-      // Realtime channel (SSE): giữ kết nối, đẩy event khi có publish trên topic.
+      // Realtime channel (SSE): giữ kết nối, đẩy event khi publish trên topic. ?id= → presence.
       const topic = decodeURIComponent(url.pathname.slice("/__sse/".length));
+      const id = url.searchParams.get("id");
       res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
       res.write(`event: ready\ndata: {"topic":"${topic}"}\n\n`);
-      const off = broker.subscribe(topic, (data) => res.write(`data: ${JSON.stringify(data)}\n\n`));
-      req.on("close", off);
+      const offBroker = broker.subscribe(topic, (data) => res.write(`data: ${JSON.stringify(data)}\n\n`));
+      let offPresence = () => {};
+      if (id) {
+        offPresence = presence.join(topic, id);
+        broker.publish(topic, { presence: presence.members(topic) });  // báo mọi người trong topic
+      }
+      req.on("close", () => {
+        offBroker();
+        offPresence();
+        if (id) broker.publish(topic, { presence: presence.members(topic) });
+      });
       return;
     }
     if (url.pathname.startsWith("/__action/") && req.method === "POST") {
