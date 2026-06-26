@@ -11,13 +11,13 @@ cleanup() { for p in "${pids[@]:-}"; do kill "$p" 2>/dev/null || true; done; }
 trap cleanup EXIT
 
 echo "▸ Build service Rust (rustc -O)…"
-rustc -O native/rust/main.rs -o native/rust/server
+rustc -O app/native/rust/main.rs -o app/native/rust/server
 
 echo "▸ Start service Go   (go run .) trên :$GO_PORT"
-( cd native/go && PORT=$GO_PORT go run . ) & pids+=($!)
+( cd app/native/go && PORT=$GO_PORT go run . ) & pids+=($!)
 
 echo "▸ Start service Rust trên :$RUST_PORT"
-PORT=$RUST_PORT native/rust/server & pids+=($!)
+PORT=$RUST_PORT app/native/rust/server & pids+=($!)
 
 echo "▸ Chờ 2 service sẵn sàng…"
 for url in "http://127.0.0.1:$GO_PORT/health" "http://127.0.0.1:$RUST_PORT/health"; do

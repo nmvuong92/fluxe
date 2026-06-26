@@ -9,10 +9,10 @@ cleanup() { for p in "${pids[@]:-}"; do kill "$p" 2>/dev/null || true; done; }
 trap cleanup EXIT
 
 echo "▸ build Rust hot-path (rustc -O)…"
-rustc -O native/hot-rust/main.rs -o native/hot-rust/server
+rustc -O app/native/hot-rust/main.rs -o app/native/hot-rust/server
 
 echo "▸ start Rust search :$PORT"
-PORT=$PORT native/hot-rust/server >/tmp/fluxe-hot.log 2>&1 & pids+=($!)
+PORT=$PORT app/native/hot-rust/server >/tmp/fluxe-hot.log 2>&1 & pids+=($!)
 
 for i in $(seq 1 50); do curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null 2>&1 && break; sleep 0.2; done
 

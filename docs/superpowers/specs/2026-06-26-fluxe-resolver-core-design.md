@@ -11,7 +11,7 @@
 fluxe là khung fullstack tối giản đã có (xem `README.md`, `src/`). Triết lý di sản
 **RCA — Resolved Cell Architecture**: *logic chỉ phụ thuộc HỢP ĐỒNG, mọi quyết định vận
 hành là kết quả được GIẢI (resolved)*. Hiện đã chứng minh được biên `Backend` polyglot
-(memory ↔ Go ↔ Rust qua HTTP, cell không đổi — xem `native/`, `run-native.sh`).
+(memory ↔ Go ↔ Rust qua HTTP, cell không đổi — xem `app/native/`, `run-native.sh`).
 
 PoC này chứng minh **Resolver** — bộ não của Resolution Plane — là khả thi, biến các
 quyết định vận hành đang nằm rải rác (if-check trong `server_factory.ts`) thành **một pass

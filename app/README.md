@@ -11,6 +11,20 @@ là của bạn. **Engine (`src/core/*` + runtime) là Resolution Plane — KHÔ
 | `app/layouts/` | Layout dùng chung (nested) bọc view |
 | `app/profiles.ts` | **Chọn backend** cho từng môi trường (memory / go / rust …) + per-cell |
 | `app/contract.ts` | Schema dữ liệu → codegen ra types TS/Go/Rust (`fx gen`) |
+| `app/native/` | **Service Go/Rust của bạn** (backend / host / hot-path) — dev sở hữu |
+
+## `app/native/` — service polyglot của dev
+
+| Thư mục | Tầng | Trạng thái demo |
+|---------|------|------------------|
+| `app/native/rust/` | **Backend** (Todo CRUD, Rust) | ✅ **đang dùng** — demo hướng Rust (`backend: "rust"` trong profile) |
+| `app/native/go/` | Backend (Todo CRUD, Go) | 💤 dormant — proof polyglot, chưa chọn |
+| `app/native/host-go/` | Host/edge (Go) | demo `run-host.sh` |
+| `app/native/hot-rust/` | Hot compute (Rust) | demo `run-hot.sh` |
+
+> **Quan trọng:** "backend nào ĐANG chạy" do `app/profiles.ts` quyết (config), **KHÔNG**
+> phải do vị trí folder. Rust active vì profile chọn `rust`; Go nằm đây sẵn nhưng dormant.
+> Đổi backend = sửa profile, không di chuyển file.
 
 ## Ví dụ: dev chọn backend = Rust
 

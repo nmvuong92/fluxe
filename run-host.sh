@@ -19,7 +19,7 @@ echo "▸ start Node SSR tier :$NODE_PORT (worker — render React)"
 PORT=$NODE_PORT npx tsx src/server.tsx >/tmp/fluxe-node.log 2>&1 & pids+=($!)
 
 echo "▸ start Go host :$HOST_PORT (edge → proxy Node)"
-( cd native/host-go && PORT=$HOST_PORT FLUXE_UPSTREAM=http://127.0.0.1:$NODE_PORT FLUXE_MANIFEST=../../.fluxe/resolution.json FLUXE_STATIC=../../.fluxe/static.json go run . ) >/tmp/fluxe-host.log 2>&1 & pids+=($!)
+( cd app/native/host-go && PORT=$HOST_PORT FLUXE_UPSTREAM=http://127.0.0.1:$NODE_PORT FLUXE_MANIFEST=../../.fluxe/resolution.json FLUXE_STATIC=../../.fluxe/static.json go run . ) >/tmp/fluxe-host.log 2>&1 & pids+=($!)
 
 echo "▸ chờ Go host sẵn sàng…"
 for i in $(seq 1 60); do curl -fsS "http://127.0.0.1:$HOST_PORT/healthz" >/dev/null 2>&1 && break; sleep 0.2; done

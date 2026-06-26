@@ -1,5 +1,5 @@
 node_modules/
 dist/
 .fluxe/
-native/rust/server
-native/hot-rust/server
+app/native/rust/server
+app/native/hot-rust/server

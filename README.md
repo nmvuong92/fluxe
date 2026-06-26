@@ -30,8 +30,8 @@ POST /todos {title}       → Todo
 POST /todos/{id}/toggle   → Todo[]
 ```
 
-- `native/go/`   — service Go (net/http, stdlib).        Port 8081.
-- `native/rust/` — service Rust (TcpListener, std, 0 dep). Port 8082.
+- `app/native/go/`   — service Go (net/http, stdlib).        Port 8081.
+- `app/native/rust/` — service Rust (TcpListener, std, 0 dep). Port 8082.
 - `src/backends/http.ts`  — adapter TS `createHttpBackend()` implement interface `Backend` bằng `fetch`.
 
 Chứng minh (build + chạy cả 2 service, rồi chạy cùng một hàm qua interface trên cả 3):
@@ -41,7 +41,7 @@ Chứng minh (build + chạy cả 2 service, rồi chạy cùng một hàm qua i
 
 Dùng trong server SSR thật (sau `npm install`):
 ```bash
-( cd native/go && PORT=8081 go run . ) &       # hoặc service Rust
+( cd app/native/go && PORT=8081 go run . ) &       # hoặc service Rust
 FLUXE_BACKEND=go npm run dev                             # frontend/cell KHÔNG đổi
 ```
 
