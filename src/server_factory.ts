@@ -84,6 +84,11 @@ export function makeServer(manifest: ResolutionManifest) {
       if (existsSync("./dist/client.js")) { res.writeHead(200,{ "content-type":"text/javascript" }); return res.end(readFileSync("./dist/client.js")); }
       res.writeHead(404); return res.end("// no client");
     }
+    if (url.pathname === "/_fluxe/stats") {
+      const m = process.memoryUsage(); const c = process.cpuUsage();
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ rss: m.rss, heapUsed: m.heapUsed, cpuUser: c.user, cpuSystem: c.system, uptimeMs: Math.round(process.uptime() * 1000) }));
+    }
     if (url.pathname === "/_fluxe/requests") {
       // Observability: log request gần đây (timing/status). Prod: gate sau auth.
       res.writeHead(200, { "content-type": "application/json" });
