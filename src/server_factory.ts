@@ -12,6 +12,7 @@ import { layouts } from "../app/layouts/index";
 import { renderHead, renderSitemap, renderRobots } from "./core/seo.ts";
 import { FluxeError, toErrorPayload, renderErrorPage } from "./core/errors.ts";
 import { signSession, verifySession, parseCookie, hasRole } from "./core/auth.ts";
+import { validateInput } from "./core/validate.ts";
 import { randomUUID } from "node:crypto";
 
 const DEV = process.env.NODE_ENV !== "production";
@@ -93,7 +94,10 @@ export function makeServer(manifest: ResolutionManifest) {
       const [,,cellId,name] = url.pathname.split("/");
       const fn = byId.get(cellId)?.actions?.[name];
       if (!fn) { res.writeHead(404); return res.end("no action"); }
-      const out = await fn({ input: JSON.parse((await readBody(req))||"{}"), backend: backendFor(cellId), session });
+      let input = JSON.parse((await readBody(req)) || "{}");
+      const schema = (fn as any).inputSchema;
+      if (schema) input = validateInput(schema, input);   // sai → FluxeError 400 (caught)
+      const out = await fn({ input, backend: backendFor(cellId), session });
       res.writeHead(200,{ "content-type":"application/json" }); return res.end(JSON.stringify(out));
     }
     const match = matchRoute(url.pathname);
@@ -116,7 +120,8 @@ export function makeServer(manifest: ResolutionManifest) {
     res.writeHead(200,{ "content-type":"text/html; charset=utf-8" }); res.end(shell(cell, bodyHtml, data, shipClientJs));
     } catch (err) {
       // Error boundary ở biên request: domain → status/code; unexpected → 500 + errorId (không leak prod).
-      sendError(res, wantsJson, err);
+      // Action (rpc) luôn nhận lỗi dạng JSON.
+      sendError(res, wantsJson || url.pathname.startsWith("/__action/"), err);
     }
   });
 }

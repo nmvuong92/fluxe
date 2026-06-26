@@ -18,6 +18,17 @@ function get(port: number, path: string, headers: any = {}): Promise<{ status: n
   });
 }
 
+function post(port: number, path: string, body: any, headers: any = {}): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body);
+    const r = http.request({ host: "127.0.0.1", port, path, method: "POST",
+      headers: { "content-type": "application/json", "content-length": Buffer.byteLength(data), ...headers } }, (res) => {
+      let b = ""; res.on("data", (c) => (b += c)); res.on("end", () => resolve({ status: res.statusCode!, body: b }));
+    });
+    r.on("error", reject); r.write(data); r.end();
+  });
+}
+
 let failures = 0;
 function check(label: string, cond: boolean) {
   console.log(`${cond ? "✓" : "✗"} ${label}`);
@@ -74,6 +85,12 @@ async function run(profileName: string, port: number) {
     const adminCookie = String(adminLogin.headers["set-cookie"]?.[0] ?? "").split(";")[0];
     const adminPage = await get(port, "/admin", { cookie: adminCookie });
     check("[rbac] login admin vào /admin → 200 + có roles", adminPage.status === 200 && adminPage.body.includes("admin"));
+    // Validation: action add với input sai → 400 code=validation + details
+    const bad = await post(port, "/__action/todos/add", { title: "" });
+    const badBody = JSON.parse(bad.body);
+    check("[validate] add title rỗng → 400 + code=validation + details", bad.status === 400 && badBody.error?.code === "validation" && Array.isArray(badBody.error?.details));
+    const okAdd = await post(port, "/__action/todos/add", { title: "việc hợp lệ" });
+    check("[validate] add title hợp lệ → 200 + tạo todo", okAdd.status === 200 && JSON.parse(okAdd.body).title.includes("việc hợp lệ"));
   } finally {
     srv.close();
     await new Promise((r) => setTimeout(r, 80));

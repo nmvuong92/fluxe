@@ -1,5 +1,7 @@
 import { createElement as h, useState } from "react";
+import { z } from "zod";
 import { defineCell } from "../../../src/core/engine";
+import { withInput } from "../../../src/core/validate";
 import { rpc } from "../../../src/core/client";
 import type { Todo } from "../../../src/backends/types";
 
@@ -55,8 +57,14 @@ export default defineCell<{}, TodosData>({
     return { todos: await backend.listTodos(), backendName: backend.name };
   },
   actions: {
-    async add({ input, backend }) { return backend.addTodo(input.title); },
-    async toggle({ input, backend }) { return backend.toggleTodo(input.id); },
+    add: withInput(
+      z.object({ title: z.string().min(1, "Tiêu đề không được rỗng").max(200) }),
+      async ({ input, backend }) => backend.addTodo(input.title),
+    ),
+    toggle: withInput(
+      z.object({ id: z.string().min(1) }),
+      async ({ input, backend }) => backend.toggleTodo(input.id),
+    ),
   },
   view: View,
 });

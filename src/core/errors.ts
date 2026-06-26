@@ -5,11 +5,13 @@
 export class FluxeError extends Error {
   code: string;
   status: number;
-  constructor(code: string, message: string, status = 400) {
+  details?: unknown;            // vd: danh sách lỗi field (validation)
+  constructor(code: string, message: string, status = 400, details?: unknown) {
     super(message);
     this.name = "FluxeError";
     this.code = code;
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -19,11 +21,14 @@ export interface ErrorPayload {
   message: string;
   errorId?: string;
   detail?: string;
+  details?: unknown;
 }
 
 export function toErrorPayload(err: unknown, opts: { dev: boolean; errorId: string }): ErrorPayload {
   if (err instanceof FluxeError) {
-    return { status: err.status, code: err.code, message: err.message };
+    const p: ErrorPayload = { status: err.status, code: err.code, message: err.message };
+    if (err.details !== undefined) p.details = err.details;
+    return p;
   }
   const e = err as Error;
   const p: ErrorPayload = { status: 500, code: "internal", message: "Internal Server Error", errorId: opts.errorId };
