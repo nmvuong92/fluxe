@@ -2,7 +2,7 @@ import { createElement as h, useState } from "react";
 import { z } from "zod";
 import { defineCell } from "../../../src/core/engine";
 import { withInput } from "../../../src/core/validate";
-import { rpc } from "../../../src/core/client";
+import { rpc, mutate, RpcError } from "../../../src/core/client";
 import type { Todo } from "../../../src/backends/types";
 
 interface TodosData { todos: Todo[]; backendName: string }
@@ -11,20 +11,41 @@ function View({ data }: { data: TodosData }) {
   const [todos, setTodos] = useState(data.todos);
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
 
   async function add() {
-    if (!title.trim()) return;
+    setErr("");
     setBusy(true);
-    const created: Todo = await rpc("todos", "add", { title });   // gọi action server
-    setTodos((t) => [...t, created]);
-    setTitle("");
-    setBusy(false);
+    const tmp: Todo = { id: "tmp-" + Date.now(), title, done: false };
+    try {
+      const created = await mutate<Todo>({
+        optimistic: () => setTodos((t) => [...t, tmp]),          // hiện ngay
+        run: () => rpc<Todo>("todos", "add", { title }),
+        rollback: () => setTodos((t) => t.filter((x) => x.id !== tmp.id)),
+      });
+      setTodos((t) => t.map((x) => (x.id === tmp.id ? created : x))); // thay tạm bằng thật
+      setTitle("");
+    } catch (e) {
+      // Lỗi validation từ server (#1) → hiện field-level; lỗi khác → thông báo chung.
+      if (e instanceof RpcError && e.code === "validation") {
+        setErr((e.details as any)?.[0]?.message ?? e.message);
+      } else {
+        setErr("Lỗi: " + (e as Error).message);
+      }
+    } finally {
+      setBusy(false);
+    }
   }
   async function toggle(id: string) {
     setBusy(true);
-    const next: Todo[] = await rpc("todos", "toggle", { id });
-    setTodos(next);
-    setBusy(false);
+    try {
+      const next: Todo[] = await rpc("todos", "toggle", { id });
+      setTodos(next);
+    } catch (e) {
+      setErr("Lỗi: " + (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return h("div", { className: "card" },
@@ -38,6 +59,7 @@ function View({ data }: { data: TodosData }) {
       }),
       h("button", { onClick: add, disabled: busy }, "Thêm")
     ),
+    err ? h("p", { className: "err", style: { color: "crimson" } }, err) : null,
     h("ul", { className: "list" },
       todos.map((t) =>
         h("li", { key: t.id, onClick: () => toggle(t.id), className: t.done ? "done" : "" },
