@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createQueue } from "./jobs.ts";
+import { createQueue, drain } from "./jobs.ts";
 
 test("enqueue + process thành công → done", async () => {
   const q = createQueue();
@@ -39,6 +39,16 @@ test("thiếu handler → coi như lỗi (retry/dead)", async () => {
   q.enqueue("unknown", {});
   const j = await q.processNext({}, { maxAttempts: 1 });
   assert.equal(j?.status, "dead");
+});
+
+test("drain: xử lý cạn (1 done + 1 dead) rồi dừng", async () => {
+  const q = createQueue();
+  q.enqueue("ok", {});
+  q.enqueue("bad", {});
+  const n = await drain(q, { ok: async () => {}, bad: async () => { throw new Error("x"); } }, { maxAttempts: 2 });
+  assert.equal(q.pending(), 0);
+  assert.equal(q.dead(), 1);
+  assert.ok(n >= 2); // ok(1 lần) + bad(2 lần retry)
 });
 
 test("DURABLE: enqueue rồi mở lại file vẫn còn job pending", async () => {

@@ -17,6 +17,10 @@ export const COMMANDS: Record<string, Command> = {
     desc: "Sinh .fluxe/resolution.json từ profile",
     shell: (a) => `tsx scripts/resolve.ts ${p(a)}`,
   },
+  jobs: {
+    desc: "Demo job queue (enqueue + worker drain + dead-letter)",
+    shell: () => `node --experimental-sqlite --import tsx scripts/jobs-demo.ts`,
+  },
   prerender: {
     desc: "Prerender cell static → .fluxe/static.json",
     shell: (a) => `tsx scripts/prerender.ts ${p(a)}`,

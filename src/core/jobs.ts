@@ -15,6 +15,20 @@ export interface Job {
 
 export type JobHandler = (payload: any) => Promise<void>;
 
+export interface Queue {
+  enqueue(type: string, payload: unknown): Job;
+  pending(): number;
+  dead(): number;
+  processNext(handlers: Record<string, JobHandler>, opts?: { maxAttempts?: number }): Promise<Job | null>;
+}
+
+/* Worker: xử lý cạn job pending (retry → dead-letter bao bọc nên luôn kết thúc). */
+export async function drain(queue: Queue, handlers: Record<string, JobHandler>, opts?: { maxAttempts?: number }): Promise<number> {
+  let n = 0;
+  while (await queue.processNext(handlers, opts)) n++;
+  return n;
+}
+
 export function createQueue(path = ":memory:") {
   const db = new DatabaseSync(path);
   db.exec(`CREATE TABLE IF NOT EXISTS jobs (
