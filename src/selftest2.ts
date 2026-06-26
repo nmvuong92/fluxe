@@ -119,6 +119,20 @@ async function run(profileName: string, port: number) {
     await new Promise((r) => setTimeout(r, 120));
     check("[presence] A nhận presence chứa alice + bob khi B join", aEvents.join("").includes("alice") && aEvents.join("").includes("bob"));
     aReq.destroy(); bReq.destroy();
+    // Streaming SSR: /slow có Suspense — shell gửi NGAY (TTFB nhỏ), slow content stream ~150ms sau.
+    const chunks: { t: number; s: string }[] = [];
+    const t0 = Date.now();
+    await new Promise<void>((resolve) => {
+      http.get({ host: "127.0.0.1", port, path: "/slow" }, (res) => {
+        res.on("data", (c) => chunks.push({ t: Date.now() - t0, s: c.toString() }));
+        res.on("end", () => resolve());
+      });
+    });
+    const firstT = chunks[0]?.t ?? 999;
+    const totalT = chunks.at(-1)?.t ?? 0;
+    const full = chunks.map((c) => c.s).join("");
+    check(`[stream] shell sớm (TTFB ${firstT}ms) < slow content (${totalT}ms) — streaming thật`,
+      full.includes("shell gửi ngay") && full.includes("nội dung chậm") && firstT < 90 && firstT < totalT - 50);
     // Rate limit: bắn 50 action đồng thời → vượt capacity → có 429.
     const burst = await Promise.all(
       Array.from({ length: 50 }, () => post(port, "/__action/todos/toggle", { id: "1" }, csrfHdr)),

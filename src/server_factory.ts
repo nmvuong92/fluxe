@@ -41,8 +41,9 @@ import todos from "../app/cells/todos/index";
 import hello from "../app/cells/hello/index";
 import secret from "../app/cells/secret/index";
 import admin from "../app/cells/admin/index";
+import slow from "../app/cells/slow/index";
 
-const cells: CellDef<any, any>[] = [home, todos, hello, secret, admin];
+const cells: CellDef<any, any>[] = [home, todos, hello, secret, admin, slow];
 const matchRoute = makeRouter(cells);
 const byId = new Map(cells.map(c => [c.id, c]));
 
