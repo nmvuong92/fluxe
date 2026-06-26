@@ -9,8 +9,9 @@ export interface CellDecl {
 
 export interface ResolutionProfile {
   name: string;
-  backend: BackendKind;
+  backend: BackendKind;                          // default app-level
   endpoints?: { go?: string; rust?: string };
+  cellBackends?: Record<string, BackendKind>;    // override theo cell
 }
 
 export interface BackendResolution {
@@ -23,6 +24,7 @@ export interface CellResolution {
   id: string;
   route: string;
   render: { mode: RenderMode; shipClientJs: boolean };
+  backend: BackendResolution;                    // backend riêng của cell
 }
 
 export interface ResolutionManifest {
@@ -34,21 +36,29 @@ export interface ResolutionManifest {
 
 const ALLOWED: BackendKind[] = ["memory", "go", "rust"];
 
+// Giải một BackendKind → BackendResolution (validate endpoint nếu http). Dùng chung
+// cho default app-level lẫn override per-cell.
+function resolveBackend(kind: BackendKind, profile: ResolutionProfile): BackendResolution {
+  if (!ALLOWED.includes(kind)) {
+    throw new Error(`profile "${profile.name}": backend không hợp lệ: ${kind}`);
+  }
+  if (kind === "memory") return { language: "memory", transport: "in-process" };
+  const endpoint = profile.endpoints?.[kind];
+  if (!endpoint) {
+    throw new Error(`profile "${profile.name}": backend "${kind}" cần endpoints.${kind}`);
+  }
+  return { language: kind, transport: "http", endpoint };
+}
+
 export function resolve(cells: CellDecl[], profile: ResolutionProfile): ResolutionManifest {
-  if (!ALLOWED.includes(profile.backend)) {
-    throw new Error(`profile "${profile.name}": backend không hợp lệ: ${profile.backend}`);
+  const ids = new Set(cells.map((c) => c.id));
+  for (const id of Object.keys(profile.cellBackends ?? {})) {
+    if (!ids.has(id)) {
+      throw new Error(`profile "${profile.name}": cellBackends trỏ cell không tồn tại: ${id}`);
+    }
   }
 
-  let backend: BackendResolution;
-  if (profile.backend === "memory") {
-    backend = { language: "memory", transport: "in-process" };
-  } else {
-    const endpoint = profile.endpoints?.[profile.backend];
-    if (!endpoint) {
-      throw new Error(`profile "${profile.name}": backend "${profile.backend}" cần endpoints.${profile.backend}`);
-    }
-    backend = { language: profile.backend, transport: "http", endpoint };
-  }
+  const backend = resolveBackend(profile.backend, profile); // default app-level
 
   const out: Record<string, CellResolution> = {};
   const seenRoutes = new Set<string>();
@@ -56,10 +66,12 @@ export function resolve(cells: CellDecl[], profile: ResolutionProfile): Resoluti
     if (out[c.id]) throw new Error(`cell id trùng: ${c.id}`);
     if (seenRoutes.has(c.route)) throw new Error(`route trùng: ${c.route}`);
     seenRoutes.add(c.route);
+    const kind = profile.cellBackends?.[c.id] ?? profile.backend;
     out[c.id] = {
       id: c.id,
       route: c.route,
       render: { mode: c.hydration, shipClientJs: c.hydration === "island" },
+      backend: resolveBackend(kind, profile),
     };
   }
 

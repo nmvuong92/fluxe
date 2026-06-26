@@ -45,3 +45,37 @@ test("fail-fast: duplicate id", () => {
   ];
   assert.throws(() => resolve(dup, { name: "dev", backend: "memory" }), /id trùng/);
 });
+
+test("per-cell backend: mỗi cell mang backend riêng, fallback về default", () => {
+  const m = resolve(cells, {
+    name: "mixed", backend: "memory",
+    endpoints: { go: "http://127.0.0.1:8081" },
+    cellBackends: { todos: "go" },
+  });
+  // top-level = default
+  assert.deepEqual(m.backend, { language: "memory", transport: "in-process" });
+  // todos override → go
+  assert.deepEqual(m.cells.todos.backend, { language: "go", transport: "http", endpoint: "http://127.0.0.1:8081" });
+  // home fallback → memory
+  assert.deepEqual(m.cells.home.backend, { language: "memory", transport: "in-process" });
+});
+
+test("per-cell backend: không override → mọi cell = default", () => {
+  const m = resolve(cells, { name: "dev", backend: "memory" });
+  assert.deepEqual(m.cells.home.backend, { language: "memory", transport: "in-process" });
+  assert.deepEqual(m.cells.todos.backend, { language: "memory", transport: "in-process" });
+});
+
+test("fail-fast: per-cell backend go thiếu endpoint", () => {
+  assert.throws(
+    () => resolve(cells, { name: "bad", backend: "memory", cellBackends: { todos: "go" } }),
+    /endpoints\.go/,
+  );
+});
+
+test("fail-fast: cellBackends trỏ cell không tồn tại", () => {
+  assert.throws(
+    () => resolve(cells, { name: "bad", backend: "memory", cellBackends: { ghost: "memory" } }),
+    /cellBackends.*ghost/,
+  );
+});
