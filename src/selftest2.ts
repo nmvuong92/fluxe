@@ -109,6 +109,12 @@ async function run(profileName: string, port: number) {
     await new Promise((r) => setTimeout(r, 120));
     check("[sse] client nhận event live sau khi add", sseEvents.join("").includes("todo realtime"));
     sseReq.destroy();
+    // Rate limit: bắn 50 action đồng thời → vượt capacity → có 429.
+    const burst = await Promise.all(
+      Array.from({ length: 50 }, () => post(port, "/__action/todos/toggle", { id: "1" }, csrfHdr)),
+    );
+    const limited = burst.filter((r) => r.status === 429).length;
+    check(`[ratelimit] burst 50 → có ${limited} request bị 429`, limited > 0);
   } finally {
     srv.close();
     await new Promise((r) => setTimeout(r, 80));

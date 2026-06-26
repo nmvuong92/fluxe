@@ -14,6 +14,7 @@ import { FluxeError, toErrorPayload, renderErrorPage } from "./core/errors.ts";
 import { signSession, verifySession, parseCookie, hasRole, hashPassword, verifyPassword, newCsrfToken } from "./core/auth.ts";
 import { validateInput } from "./core/validate.ts";
 import { createBroker } from "./core/broker.ts";
+import { createRateLimiter } from "./core/ratelimit.ts";
 import { randomUUID } from "node:crypto";
 
 const DEV = process.env.NODE_ENV !== "production";
@@ -56,6 +57,7 @@ export function makeServer(manifest: ResolutionManifest) {
   const backends = backendsFromManifest(manifest);
   const backendFor = (id: string) => backends.byCell.get(id) ?? backends.default;
   const broker = createBroker();   // realtime pub/sub (Trục 4g, bản 1-node)
+  const actionLimit = createRateLimiter({ capacity: 30, refillPerSec: 10 });   // per-IP cho action
   return http.createServer(async (req, res) => {
     const url = new URL(req.url!, "http://localhost");
     const wantsJson = req.headers["x-fluxe"] === "1" || url.searchParams.get("json") === "1";
@@ -115,6 +117,13 @@ export function makeServer(manifest: ResolutionManifest) {
       return;
     }
     if (url.pathname.startsWith("/__action/") && req.method === "POST") {
+      // Rate limit per-IP → 429 + Retry-After (bảo vệ trước CSRF/handler).
+      const ip = req.socket.remoteAddress ?? "?";
+      const rl = actionLimit.take("act:" + ip);
+      if (!rl.ok) {
+        res.writeHead(429, { "content-type": "application/json", "retry-after": String(rl.retryAfter) });
+        return res.end(JSON.stringify({ error: { status: 429, code: "rate_limited", message: "Quá nhiều request" } }));
+      }
       // CSRF: header x-csrf-token phải khớp cookie csrf (double-submit).
       if (!cookies.csrf || req.headers["x-csrf-token"] !== cookies.csrf) {
         throw new FluxeError("csrf", "CSRF token không hợp lệ", 403);
