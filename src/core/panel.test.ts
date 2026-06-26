@@ -35,3 +35,17 @@ test("panel là HTML hợp lệ (doctype + bảng)", () => {
   assert.match(html, /^<!doctype html>/i);
   assert.match(html, /<table/);
 });
+
+test("panel có section Recent requests khi truyền log", () => {
+  const html = renderResolutionPanel(mixed, [
+    { method: "GET", path: "/todos", status: 200, ms: 5, ts: 0 },
+  ]);
+  assert.match(html, /Recent requests/);
+  assert.match(html, /\/todos/);
+  assert.match(html, /200/);
+  assert.match(html, /5ms/);
+});
+
+test("panel KHÔNG có section requests khi rỗng", () => {
+  assert.doesNotMatch(renderResolutionPanel(mixed), /Recent requests/);
+});

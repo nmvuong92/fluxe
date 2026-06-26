@@ -83,7 +83,7 @@ export function makeServer(manifest: ResolutionManifest) {
     if (url.pathname === "/_fluxe") {
       // Panel RCA — đọc manifest, hiển thị mỗi cell giải trục nào. (Prod: gate sau auth.)
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-      return res.end(renderResolutionPanel(manifest));
+      return res.end(renderResolutionPanel(manifest, recorder.recent(20)));
     }
     const baseUrl = "http://" + (req.headers.host ?? "localhost");
     if (url.pathname === "/sitemap.xml") {

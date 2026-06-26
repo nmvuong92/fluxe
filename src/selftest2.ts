@@ -54,8 +54,8 @@ async function run(profileName: string, port: number) {
     const api = JSON.parse((await get(port, "/todos?json=1")).body);
     check(`[backend] tên hiển thị = ${manifest.backend.language}`, api.data.backendName === manifest.backend.language);
     const panel = await get(port, "/_fluxe");
-    check("[/_fluxe] panel RCA 200 + có cell todos + có 'RCA Resolution'",
-      panel.status === 200 && panel.body.includes("RCA Resolution") && panel.body.includes("todos"));
+    check("[/_fluxe] dashboard: RCA Resolution + cell todos + Recent requests",
+      panel.status === 200 && panel.body.includes("RCA Resolution") && panel.body.includes("todos") && panel.body.includes("Recent requests"));
     const hello = JSON.parse((await get(port, "/hello/world?json=1")).body);
     check("[route động /hello/[name]] param 'world' tới loader", hello.data?.name === "world");
     check("[route động] no-match → 404", (await get(port, "/nope/x/y")).status === 404);

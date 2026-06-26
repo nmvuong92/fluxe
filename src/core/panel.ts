@@ -1,8 +1,11 @@
 import type { ResolutionManifest } from "./resolver.ts";
+import type { ReqLog } from "./observe.ts";
 
-/* Panel RCA — render manifest thành HTML đọc-được (string builder thuần, testable).
- * Mầm của RCA Resolution view (Trục 4j/4n): cho thấy mỗi cell được giải trục nào. */
-export function renderResolutionPanel(m: ResolutionManifest): string {
+const esc = (s: unknown) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/* Dashboard fluxe (Trục 4j): RCA Resolution (mỗi cell giải trục nào) + Recent requests
+ * (observe: timing/status). String builder thuần, testable. */
+export function renderResolutionPanel(m: ResolutionManifest, requests: ReqLog[] = []): string {
   const rows = Object.values(m.cells).map((c) => `
       <tr>
         <td><code>${c.id}</code></td>
@@ -35,5 +38,14 @@ export function renderResolutionPanel(m: ResolutionManifest): string {
     </tbody>
   </table>
   <p class="sub" style="margin-top:1.5rem">Đọc từ <code>.fluxe/resolution.json</code> — mỗi cell được Resolution Plane giải độc lập.</p>
+  ${requests.length ? `
+  <h1 style="font-size:1.1rem;margin:2rem 0 .2rem">Recent requests</h1>
+  <div class="sub">${requests.length} request gần nhất (observe)</div>
+  <table>
+    <thead><tr><th>method</th><th>path</th><th>status</th><th>ms</th></tr></thead>
+    <tbody>${requests.map((r) => `
+      <tr><td>${esc(r.method)}</td><td><code>${esc(r.path)}</code></td><td>${r.status}</td><td>${r.ms}ms</td></tr>`).join("")}
+    </tbody>
+  </table>` : ""}
 </body></html>`;
 }
