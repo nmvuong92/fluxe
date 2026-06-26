@@ -4,7 +4,7 @@ import { createElement as h } from "react";
 import { renderToString } from "react-dom/server";
 import type { CellDef } from "./core/engine";
 import type { ResolutionManifest } from "./core/resolver";
-import { backendFromManifest } from "./core/wiring.ts";
+import { backendsFromManifest } from "./core/wiring.ts";
 import home from "./cells/home/index";
 import todos from "./cells/todos/index";
 
@@ -21,8 +21,9 @@ function shell(cell: CellDef<any, any>, bodyHtml: string, data: unknown, shipCli
 const readBody = (req: http.IncomingMessage) => new Promise<string>(res => { let b=""; req.on("data",c=>b+=c); req.on("end",()=>res(b)); });
 
 export function makeServer(manifest: ResolutionManifest) {
-  // Backend được GIẢI từ manifest (Resolution Plane) — cell/frontend giữ nguyên.
-  const backend = backendFromManifest(manifest);
+  // Backend GIẢI per-cell từ manifest (Resolution Plane) — cell/frontend giữ nguyên.
+  const backends = backendsFromManifest(manifest);
+  const backendFor = (id: string) => backends.byCell.get(id) ?? backends.default;
   return http.createServer(async (req, res) => {
     const url = new URL(req.url!, "http://localhost");
     if (url.pathname === "/client.js") {
@@ -33,12 +34,12 @@ export function makeServer(manifest: ResolutionManifest) {
       const [,,cellId,name] = url.pathname.split("/");
       const fn = byId.get(cellId)?.actions?.[name];
       if (!fn) { res.writeHead(404); return res.end("no action"); }
-      const out = await fn({ input: JSON.parse((await readBody(req))||"{}"), backend });
+      const out = await fn({ input: JSON.parse((await readBody(req))||"{}"), backend: backendFor(cellId) });
       res.writeHead(200,{ "content-type":"application/json" }); return res.end(JSON.stringify(out));
     }
     const cell = byRoute.get(url.pathname);
     if (!cell) { res.writeHead(404); return res.end("404"); }
-    const data = await cell.loader({ input: {}, backend });
+    const data = await cell.loader({ input: {}, backend: backendFor(cell.id) });
     const wantsJson = req.headers["x-fluxe"] === "1" || url.searchParams.get("json") === "1";
     if (wantsJson) { res.writeHead(200,{ "content-type":"application/json" }); return res.end(JSON.stringify({ cell: cell.id, data })); }
     const bodyHtml = renderToString(h(cell.view, { data }));
