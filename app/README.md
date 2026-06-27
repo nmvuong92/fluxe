@@ -13,27 +13,34 @@ chỉ là **driver data TS in-process**: `memory` | `sqlite` (engine tự dựng
 |--------------|------------|
 | `app/cells/` | Trang/feature: mỗi cell = route + loader + view (+ action/head/layout/guard) |
 | `app/layouts/` | Layout dùng chung (nested) bọc view |
-| `app/profiles.ts` | **Chọn backend data** cho từng môi trường (memory / sqlite / postgres) + per-cell |
+| `app/backend.ts` | **Tầng data của bạn**: interface domain + chọn driver (memory / sqlite / postgres) |
+| `app/profiles.ts` | Profile resolve render mode (static/island) per môi trường |
 | `app/contract.ts` | Schema dữ liệu → codegen ra types TS (`fx gen`) |
 
-## Profiles — chọn backend data
+## `app/backend.ts` — tầng data của bạn
 
-`app/profiles.ts` quyết "backend data nào ĐANG chạy" (config), **KHÔNG** phải vị trí folder.
-Đổi backend = sửa profile.
+Bạn định nghĩa **interface domain** của mình + **chọn driver** ngay tại đây, rồi inject vào engine
+qua `makeServer(manifest, cells, layouts, { backend })`. Cell chỉ thấy interface.
 
 ```ts
-export const profiles = {
-  dev:    { name: "dev",    backend: "memory" },               // dev: 0 hạ tầng
-  sqlite: { name: "sqlite", backend: "sqlite" },               // persist ra file
-  // per-cell: cell todos dùng sqlite, còn lại memory
-  mixed:  { name: "mixed",  backend: "memory",
-            cellBackends: { todos: "sqlite" } },
-};
+import { createMemoryBackend, createSqliteBackend } from "@nmvuong92/fluxe";
+
+export interface Todo { id: string; title: string; done: boolean }
+export interface Backend {
+  name: string;
+  listTodos(): Promise<Todo[]>;
+  addTodo(title: string): Promise<Todo>;
+  toggleTodo(id: string): Promise<Todo[]>;
+}
+
+// Đổi 1 dòng = đổi nơi lưu (memory ↔ sqlite ↔ postgres):
+export const backend: Backend = process.env.FLUXE_SQLITE_PATH
+  ? createSqliteBackend(process.env.FLUXE_SQLITE_PATH)
+  : createMemoryBackend();
 ```
 
-Đổi `backend` / `cellBackends` → engine tự giải (Resolution Plane) ra wiring. **Cell,
-frontend, core: KHÔNG đổi một dòng.** Đó là RCA. `postgres` cần bạn `npm i pg` +
-inject client qua `DATABASE_URL`.
+Đổi driver = sửa một dòng trong `app/backend.ts`. **Cell, frontend, core: KHÔNG đổi một dòng.**
+`postgres` cần bạn `npm i pg` + inject client (qua `DATABASE_URL`) bằng `createPostgresBackend(client)`.
 
 ## Ranh giới (vì sao tách)
 
