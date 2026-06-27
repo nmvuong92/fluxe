@@ -9,16 +9,16 @@ const cells = [
   { id: "todos", route: "/todos", hydration: "island" as const },
 ];
 
-test("memory profile → in-process, no endpoint", () => {
+test("memory profile → in-process", () => {
   const m = resolve(cells, { name: "dev", backend: "memory" });
   assert.equal(m.version, 1);
   assert.equal(m.profile, "dev");
-  assert.deepEqual(m.backend, { language: "memory", transport: "in-process" });
+  assert.deepEqual(m.backend, { language: "memory" });
 });
 
-test("go profile → http + endpoint", () => {
-  const m = resolve(cells, { name: "prod-go", backend: "go", endpoints: { go: "http://127.0.0.1:8081" } });
-  assert.deepEqual(m.backend, { language: "go", transport: "http", endpoint: "http://127.0.0.1:8081" });
+test("sqlite profile → in-process", () => {
+  const m = resolve(cells, { name: "sqlite", backend: "sqlite" });
+  assert.deepEqual(m.backend, { language: "sqlite" });
 });
 
 test("render flags map per hydration", () => {
@@ -28,8 +28,9 @@ test("render flags map per hydration", () => {
   assert.equal(m.cells.todos.route, "/todos");
 });
 
-test("fail-fast: go without endpoint", () => {
-  assert.throws(() => resolve(cells, { name: "bad", backend: "go" }), /endpoints\.go/);
+test("fail-fast: backend không hợp lệ", () => {
+  // @ts-expect-error — ép kind ngoài union để kiểm validate runtime
+  assert.throws(() => resolve(cells, { name: "bad", backend: "go" }), /không hợp lệ/);
 });
 
 test("fail-fast: duplicate route", () => {
@@ -51,28 +52,20 @@ test("fail-fast: duplicate id", () => {
 test("per-cell backend: mỗi cell mang backend riêng, fallback về default", () => {
   const m = resolve(cells, {
     name: "mixed", backend: "memory",
-    endpoints: { go: "http://127.0.0.1:8081" },
-    cellBackends: { todos: "go" },
+    cellBackends: { todos: "sqlite" },
   });
   // top-level = default
-  assert.deepEqual(m.backend, { language: "memory", transport: "in-process" });
-  // todos override → go
-  assert.deepEqual(m.cells.todos.backend, { language: "go", transport: "http", endpoint: "http://127.0.0.1:8081" });
+  assert.deepEqual(m.backend, { language: "memory" });
+  // todos override → sqlite
+  assert.deepEqual(m.cells.todos.backend, { language: "sqlite" });
   // home fallback → memory
-  assert.deepEqual(m.cells.home.backend, { language: "memory", transport: "in-process" });
+  assert.deepEqual(m.cells.home.backend, { language: "memory" });
 });
 
 test("per-cell backend: không override → mọi cell = default", () => {
   const m = resolve(cells, { name: "dev", backend: "memory" });
-  assert.deepEqual(m.cells.home.backend, { language: "memory", transport: "in-process" });
-  assert.deepEqual(m.cells.todos.backend, { language: "memory", transport: "in-process" });
-});
-
-test("fail-fast: per-cell backend go thiếu endpoint", () => {
-  assert.throws(
-    () => resolve(cells, { name: "bad", backend: "memory", cellBackends: { todos: "go" } }),
-    /endpoints\.go/,
-  );
+  assert.deepEqual(m.cells.home.backend, { language: "memory" });
+  assert.deepEqual(m.cells.todos.backend, { language: "memory" });
 });
 
 test("fail-fast: cellBackends trỏ cell không tồn tại", () => {

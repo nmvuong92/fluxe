@@ -9,37 +9,37 @@ const base = (backend: ResolutionManifest["backend"]): ResolutionManifest => ({
   version: 1, profile: "t", backend, cells: {},
 });
 
-const MEM: BackendResolution = { language: "memory", transport: "in-process" };
-const GO: BackendResolution = { language: "go", transport: "http", endpoint: "http://127.0.0.1:8081" };
+const MEM: BackendResolution = { language: "memory" };
+const SQLITE: BackendResolution = { language: "sqlite" };
 const cell = (id: string, backend: BackendResolution): CellResolution => ({
   id, route: "/" + id, render: { mode: "static", shipClientJs: false }, backend,
 });
 
 test("memory manifest → memory backend", () => {
-  const b = backendFromManifest(base({ language: "memory", transport: "in-process" }));
+  const b = backendFromManifest(base({ language: "memory" }));
   assert.equal(b.name, "memory");
 });
 
-test("go manifest → http backend named 'go'", () => {
-  const b = backendFromManifest(base({ language: "go", transport: "http", endpoint: "http://127.0.0.1:8081" }));
-  assert.equal(b.name, "go");
+test("sqlite manifest → sqlite backend", () => {
+  const b = backendFromManifest(base({ language: "sqlite" }));
+  assert.equal(b.name, "sqlite");
 });
 
-test("fail-fast: http language without endpoint", () => {
+test("fail-fast: postgres không dựng được tự động (cần inject client)", () => {
   assert.throws(
-    () => backendFromManifest(base({ language: "rust", transport: "http" })),
-    /thiếu endpoint/,
+    () => backendFromManifest(base({ language: "postgres" })),
+    /không dựng được tự động/,
   );
 });
 
 test("backendsFromManifest: per-cell backend đúng tên", () => {
   const m: ResolutionManifest = {
     version: 1, profile: "mixed", backend: MEM,
-    cells: { home: cell("home", MEM), todos: cell("todos", GO) },
+    cells: { home: cell("home", MEM), todos: cell("todos", SQLITE) },
   };
   const { byCell, default: def } = backendsFromManifest(m);
   assert.equal(byCell.get("home")!.name, "memory");
-  assert.equal(byCell.get("todos")!.name, "go");
+  assert.equal(byCell.get("todos")!.name, "sqlite");
   assert.equal(def.name, "memory");
 });
 

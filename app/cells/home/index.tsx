@@ -10,7 +10,7 @@ export default defineCell<{}, HomeData>({
   },
   head: (data) => ({
     title: data.title,
-    description: "Khung fullstack tối giản: SSR + island + switch backend polyglot.",
+    description: "Khung fullstack tối giản: SSR + island, một runtime TS.",
     canonical: "/",
     og: { title: data.title, type: "website" },
     jsonLd: { "@context": "https://schema.org", "@type": "WebSite", name: "fluxe" },

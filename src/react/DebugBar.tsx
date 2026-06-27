@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createElement as h, useState, useSyncExternalStore } from "react";
 import { debug, type DebugEvent } from "./store";
-import { setChaos, getChaos, setDevBackend, getDevBackend } from "../core/client";
+import { setChaos, getChaos } from "../core/client";
 import { reproTest } from "./repro";
 
 const EMPTY: DebugEvent[] = [];
@@ -37,14 +37,10 @@ export function DebugBar() {
   }
 
   const chaosOn = getChaos() !== "";
-  const be = getDevBackend();
 
-  // #1 Chaos toggle + #5 backend swap
+  // #1 Chaos toggle
   const controls = h("div", { style: { display: "flex", gap: 6, alignItems: "center", padding: "6px 10px", background: "#0d1117", borderBottom: "1px solid #21262d", flexWrap: "wrap" } },
     h("button", { onClick: () => { setChaos(chaosOn ? "" : CHAOS); force((x) => x + 1); }, style: ctrlBtn(chaosOn), title: CHAOS }, chaosOn ? "🔥 Chaos ON" : "Chaos"),
-    h("span", { style: { color: "#7d8590" } }, "backend:"),
-    ...["", "memory", "go", "rust"].map((v) =>
-      h("button", { key: v || "auto", onClick: () => { setDevBackend(v); force((x) => x + 1); }, style: ctrlBtn(be === v) }, v || "auto")),
   );
 
   const rows = events.length === 0

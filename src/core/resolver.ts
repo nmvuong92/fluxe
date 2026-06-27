@@ -1,7 +1,8 @@
 // Copyright (c) 2026 nmvuong92
 // SPDX-License-Identifier: Apache-2.0
 export type RenderMode = "static" | "island";
-export type BackendKind = "memory" | "go" | "rust";
+// Backend = driver data THUẦN TS, luôn in-process (không polyglot/sidecar).
+export type BackendKind = "memory" | "sqlite" | "postgres";
 
 export interface CellDecl {
   id: string;
@@ -12,14 +13,11 @@ export interface CellDecl {
 export interface ResolutionProfile {
   name: string;
   backend: BackendKind;                          // default app-level
-  endpoints?: { go?: string; rust?: string };
   cellBackends?: Record<string, BackendKind>;    // override theo cell
 }
 
 export interface BackendResolution {
-  language: BackendKind;
-  transport: "in-process" | "http";
-  endpoint?: string;
+  language: BackendKind;   // driver TS in-process
 }
 
 export interface CellResolution {
@@ -36,20 +34,15 @@ export interface ResolutionManifest {
   cells: Record<string, CellResolution>;
 }
 
-const ALLOWED: BackendKind[] = ["memory", "go", "rust"];
+const ALLOWED: BackendKind[] = ["memory", "sqlite", "postgres"];
 
-// Giải một BackendKind → BackendResolution (validate endpoint nếu http). Dùng chung
-// cho default app-level lẫn override per-cell.
+// Giải một BackendKind → BackendResolution. Mọi driver TS đều in-process (0 roundtrip).
+// Dùng chung cho default app-level lẫn override per-cell.
 function resolveBackend(kind: BackendKind, profile: ResolutionProfile): BackendResolution {
   if (!ALLOWED.includes(kind)) {
     throw new Error(`profile "${profile.name}": backend không hợp lệ: ${kind}`);
   }
-  if (kind === "memory") return { language: "memory", transport: "in-process" };
-  const endpoint = profile.endpoints?.[kind];
-  if (!endpoint) {
-    throw new Error(`profile "${profile.name}": backend "${kind}" cần endpoints.${kind}`);
-  }
-  return { language: kind, transport: "http", endpoint };
+  return { language: kind };
 }
 
 export function resolve(cells: CellDecl[], profile: ResolutionProfile): ResolutionManifest {

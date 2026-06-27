@@ -10,7 +10,7 @@ const Schema = z.object({
   env: z.enum(["development", "production", "test"]),
   secret: z.string().min(8),
   port: z.coerce.number().int().positive(),
-  defaultBackend: z.enum(["memory", "go", "rust"]),
+  defaultBackend: z.enum(["memory", "sqlite", "postgres"]),
   rateLimit: z.object({
     capacity: z.coerce.number().int().positive(),
     refillPerSec: z.coerce.number().positive(),

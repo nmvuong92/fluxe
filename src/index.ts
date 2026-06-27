@@ -16,7 +16,7 @@ export * from "./core/seo.ts";           // renderHead, renderSitemap, renderRob
 export * from "./core/broker.ts";        // pub/sub
 export * from "./core/presence.ts";      // ai online theo topic
 export * from "./core/ratelimit.ts";     // token-bucket + LRU
-export * from "./core/codegen.ts";       // genTS/genGo/genRust
+export * from "./core/codegen.ts";       // genTS
 export * from "./core/layouts.ts";       // layoutChain, LayoutMeta
 export * from "./core/router.ts";        // makeRouter
 export * from "./core/testing.ts";       // createTestBackend
@@ -26,6 +26,6 @@ export { createMemoryStorage } from "./storage/memory.ts";
 export { createLocalStorage } from "./storage/local.ts";
 export { createS3Storage } from "./storage/s3.ts";   // adapter tham chiếu (cần @aws-sdk/client-s3)
 export { createMemoryBackend } from "./backends/memory.ts";
-export { createHttpBackend } from "./backends/http.ts";
-export { createPostgresBackend } from "./backends/postgres.ts";
+export { createSqliteBackend } from "./backends/sqlite.ts";
+export { createPostgresBackend } from "./backends/postgres.ts";   // user tự inject client `pg`
 export { makeServer } from "./server_factory.ts";

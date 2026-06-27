@@ -31,23 +31,7 @@ import { resolveLocale, makeT, type I18n, type TFn } from "./core/i18n.ts";
 import { parseMultipart, boundaryFromContentType } from "./core/multipart.ts";
 import { makeKey, type Storage } from "./storage/types.ts";
 import { loadConfig, type FluxeConfig } from "./core/config.ts";
-import { createMemoryBackend } from "./backends/memory.ts";
-import { createHttpBackend } from "./backends/http.ts";
 
-// Build backend theo ngôn ngữ (cho live swap trong devtools).
-// Map ngôn ngữ → service HTTP demo (cùng hợp đồng list/add/toggle). Override bằng <LANG>_URL.
-const DEV_BACKENDS: Record<string, string> = {
-  go: "http://127.0.0.1:8081",
-  rust: "http://127.0.0.1:8082",
-  python: "http://127.0.0.1:8083",
-  hono: "http://127.0.0.1:8084",
-  dotnet: "http://127.0.0.1:8085",
-  java: "http://127.0.0.1:8086",
-};
-function devBackend(lang: string) {
-  const url = process.env[`${lang.toUpperCase()}_URL`] ?? DEV_BACKENDS[lang];
-  return url ? createHttpBackend(lang, url) : createMemoryBackend();
-}
 import { randomUUID, randomBytes } from "node:crypto";
 
 const DEV = process.env.NODE_ENV !== "production";
@@ -265,15 +249,10 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
       const fn = byId.get(cellId)?.actions?.[name];
       if (!fn) { res.writeHead(404); return res.end("no action"); }
       const t0 = Date.now();
-      // DevTools (DEV): #5 live backend swap + #3 resolution.
-      let backend = backendFor(cellId);
+      // DevTools (DEV): #3 resolution (backend TS in-process do manifest giải).
+      const backend = backendFor(cellId);
       const r = manifest.cells[cellId]?.backend;
-      let resolution = r ? `${r.language}/${r.transport}` : "memory/in-process";
-      if (DEV && req.headers["x-fluxe-backend"]) {
-        const lang = String(req.headers["x-fluxe-backend"]);
-        backend = devBackend(lang);
-        resolution = `${lang}/${lang === "memory" ? "in-process" : "http"} (swap)`;
-      }
+      const resolution = r ? `${r.language}/in-process` : "memory/in-process";
       // #1 Chaos (DEV): inject delay + lỗi giả lập để test UX.
       if (DEV && req.headers["x-fluxe-chaos"]) {
         const c = parseChaos(String(req.headers["x-fluxe-chaos"]));

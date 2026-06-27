@@ -37,13 +37,10 @@ function cookie(name: string): string {
   return m ? decodeURIComponent(m[1]) : "";
 }
 
-/* DevTools config (chỉ ảnh hưởng dev): chaos injection + live backend swap. DebugBar set. */
+/* DevTools config (chỉ ảnh hưởng dev): chaos injection. DebugBar set. */
 let _chaos = "";        // vd "delay=600;fail=0.3"
-let _devBackend = "";   // vd "go" | "rust" | "memory"
 export const setChaos = (v: string) => { _chaos = v; };
 export const getChaos = () => _chaos;
-export const setDevBackend = (v: string) => { _devBackend = v; };
-export const getDevBackend = () => _devBackend;
 
 /* Meta của rpc gần nhất (resolution + timing server) — hook đọc ngay sau await để log. */
 export interface RpcMeta { resolution?: string; serverMs?: number; clientMs?: number }
@@ -54,7 +51,6 @@ export async function rpc<T = any>(cell: string, action: string, input: unknown)
   const t0 = typeof performance !== "undefined" ? performance.now() : 0;
   const headers: Record<string, string> = { "content-type": "application/json", "x-csrf-token": cookie("csrf") };
   if (_chaos) headers["x-fluxe-chaos"] = _chaos;            // #1 chaos
-  if (_devBackend) headers["x-fluxe-backend"] = _devBackend; // #5 live swap
   let res: Response;
   try {
     res = await fetch(`/__action/${cell}/${action}`, { method: "POST", headers, body: JSON.stringify(input) });

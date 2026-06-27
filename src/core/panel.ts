@@ -15,8 +15,6 @@ export function renderResolutionPanel(m: ResolutionManifest, requests: ReqLog[] 
         <td>${c.render.mode}</td>
         <td>${c.render.shipClientJs ? "✓ JS" : "0 JS"}</td>
         <td><span class="badge ${c.backend.language}">${c.backend.language}</span></td>
-        <td>${c.backend.transport}</td>
-        <td>${c.backend.endpoint ?? "—"}</td>
       </tr>`).join("");
 
   return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>fluxe — RCA Resolution</title>
@@ -29,13 +27,13 @@ export function renderResolutionPanel(m: ResolutionManifest, requests: ReqLog[] 
   th{color:#8a8aa0;font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
   code{background:#1a1a2e;padding:.1rem .35rem;border-radius:4px;color:#a0a0ff}
   .badge{display:inline-block;padding:.1rem .55rem;border-radius:99px;font-size:.78rem}
-  .go{background:#00add833;color:#5fd3f0}.rust{background:#dea58433;color:#e8b48f}.memory{background:#7c7cff33;color:#a0a0ff}
+  .memory{background:#7c7cff33;color:#a0a0ff}.sqlite{background:#00add833;color:#5fd3f0}.postgres{background:#dea58433;color:#e8b48f}
 </style></head>
 <body>
   <h1>RCA Resolution</h1>
-  <div class="sub">profile <b>${m.profile}</b> · default backend <b>${m.backend.language}</b> (${m.backend.transport})</div>
+  <div class="sub">profile <b>${m.profile}</b> · default backend <b>${m.backend.language}</b> (in-process)</div>
   <table>
-    <thead><tr><th>cell</th><th>route</th><th>render</th><th>JS</th><th>backend</th><th>transport</th><th>endpoint</th></tr></thead>
+    <thead><tr><th>cell</th><th>route</th><th>render</th><th>JS</th><th>backend</th></tr></thead>
     <tbody>${rows}
     </tbody>
   </table>

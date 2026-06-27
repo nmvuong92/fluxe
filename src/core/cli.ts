@@ -29,7 +29,7 @@ export const COMMANDS: Record<string, Command> = {
     shell: () => `tsx scripts/config.ts`,
   },
   gen: {
-    desc: "Codegen contract → types TS/Go/Rust (.fluxe/gen)",
+    desc: "Codegen contract → types TS (.fluxe/gen)",
     shell: () => `tsx scripts/codegen.ts`,
   },
   resolve: {

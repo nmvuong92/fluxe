@@ -18,7 +18,7 @@ test("renderUsage liệt kê lệnh", () => {
 
 test("resolve dùng profile mặc định dev, override được", () => {
   assert.match(COMMANDS.resolve.shell([]), /scripts\/resolve\.ts dev/);
-  assert.match(COMMANDS.resolve.shell(["prod-go"]), /prod-go/);
+  assert.match(COMMANDS.resolve.shell(["sqlite"]), /sqlite/);
 });
 
 test("build gồm resolve + prerender + bundle", () => {

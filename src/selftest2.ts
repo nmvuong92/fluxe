@@ -44,7 +44,7 @@ function check(label: string, cond: boolean) {
 
 async function run(profileName: string, port: number) {
   const manifest = resolve(cells, profiles[profileName]);
-  console.log(`\n══════════ profile=${profileName} (backend=${manifest.backend.language}/${manifest.backend.transport}) ══════════`);
+  console.log(`\n══════════ profile=${profileName} (backend=${manifest.backend.language}) ══════════`);
   const srv = makeServer(manifest, appCells, layouts).listen(port);
   await new Promise((r) => setTimeout(r, 150));
   try {
@@ -177,7 +177,6 @@ async function runOverride(port: number) {
 async function main() {
   await run("dev", 5190);          // backend memory in-process
   await runOverride(5191);         // chứng minh manifest điều khiển render, không phải cell.hydration
-  // prod-go cần service Go ở :8081 — chứng minh trục backend đã có ở run-native.sh.
   console.log("\n→ Cùng cell + cùng makeServer, đổi manifest → hành vi khác. Cell KHÔNG đổi dòng nào.");
   process.exit(failures === 0 ? 0 : 1);
 }
