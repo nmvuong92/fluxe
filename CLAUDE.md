@@ -49,6 +49,7 @@ realtime, parsing)** — phải:
 - **View-only client bundle:** `client.tsx` chỉ import `app/views.ts` (registry view default, do `fx sync` sinh) → loader/actions/zod/backend **KHÔNG** ship xuống browser. Layout do server gửi kèm payload (`window.__FLUXE__.layout` + `fetchPageProps`). Đừng cho `client.tsx`/`nav-client.ts` import `app/app.ts` hay cell `index.tsx` (sẽ kéo server code vào client).
 - **`app/backend/` = backend CỦA USER (thư mục)**: `app/backend/server.ts` (entry framework — Express/Hono/Nest, mount fluxe) + `app/backend/data.ts` (tầng data/service: user định nghĩa interface domain + tự implement node:sqlite/pg/ORM, export `backend`). Inject qua `makeServer/createHandler(…, { backend })`. Engine `Ctx<I,B>` generic (`defineCell<I,O,B>`), **KHÔNG ship driver/domain data nào** (đã gỡ `src/backends/*`). **Đừng** đóng-cứng domain backend vào engine lại.
 - **Server entry = `app/backend/server.ts` (user-owned)**: user chọn framework + ghi logic backend của họ; fluxe mount **catch-all** lo concerns. Lõi request = `createHandler(manifest, cells, layouts, opts)` → handler Node `(req,res)`; `makeServer` = `http.createServer(createHandler(...))` (zero-config). 3 adapter subpath: `@nmvuong92/fluxe/express|hono|nest` (framework = **peerDependency optional**). `fx dev` chạy `app/backend/server.ts` (mặc định Express). **Đừng** bắt buộc framework — `makeServer` node:http vẫn là đường zero-dep.
+- **Contract DSL: `app/contract.ts` (`defineContract` types/queries/mutations) → `fx gen` (tự chạy trong sync, không gõ tay) sinh `.fluxe/gen/*` (types+Zod+client `api`+`Resolvers`); runtime `/__rpc/<op>` validate+CSRF(mutation); resolvers tiêm `{ resolvers }` (fallback `{ backend }`); DB ẩn sau resolver — `actions/rpc` cũ giữ nguyên (lớp THÊM).**
 
 ## Tài liệu Starlight — LUÔN sync (BẮT BUỘC)
 
@@ -59,6 +60,7 @@ Chọn Starlight vì khớp triết lý fluxe: static-first, 0 JS mặc định,
 
 | Đổi gì | Cập nhật trang |
 |--------|----------------|
+| Thêm/sửa contract DSL/codegen/__rpc | `reference/contract.md` |
 | RCA / resolution / manifest / 5 trục | `docs-site/.../guides/rca.md` |
 | Thêm/sửa backend driver TS (memory/sqlite/postgres) | `reference/data.md` |
 | Thêm/sửa adapter server (`src/adapters/*`), `createHandler`, `app/backend/server.ts` | `guides/server-framework.mdx` |

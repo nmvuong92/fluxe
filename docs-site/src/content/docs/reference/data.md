@@ -5,11 +5,16 @@ sidebar:
   order: 3
 ---
 
-Backend là **tầng data của BẠN** — sống ở `app/backend/data.ts`, **không phải trong engine**. Engine
-`@nmvuong92/fluxe` **không ship driver data nào** và không biết gì về DB của bạn. Bạn tự định
-nghĩa **interface domain** + **tự implement** (dùng `node:sqlite`/`pg`/ORM trực tiếp), rồi inject
-vào engine. Cell/loader/action chỉ thấy interface đó; đổi nơi lưu = thay một dòng, cell &
-frontend không đổi.
+Backend là **nghiệp vụ của BẠN nằm sau một CONTRACT** — sống ở `app/backend/`, **không phải trong
+engine**. Engine `@nmvuong92/fluxe` **không prescribe driver/DB nào**: nơi khai báo operations là
+[Contract DSL](/reference/contract/) (`app/contract.ts`), còn **DB chỉ là chi tiết ẩn bên trong
+resolver/implement của bạn**. Bạn tự định nghĩa **interface domain** + **tự implement**, rồi inject
+vào engine. Cell/loader/action chỉ thấy interface (hay `api` từ contract) — đổi nơi lưu = thay một
+dòng implement, cell & frontend không đổi.
+
+> Khai báo operations ở đâu? → **[Contract DSL](/reference/contract/)** (`defineContract` → `fx gen`
+> sinh types + Zod + client `api` + `Resolvers`). Trang này tả phần implement bên dưới — chọn cách
+> lưu trữ là **tùy bạn**, các driver dưới đây chỉ là ví dụ, không phải khái niệm của fluxe.
 
 ## `app/backend/data.ts` — bạn sở hữu file này
 

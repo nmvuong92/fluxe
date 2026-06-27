@@ -20,6 +20,16 @@ const todo = await backend.addTodo(title);   // memory | sqlite | postgres
 ```
 Cùng interface `Backend`, đổi bằng profile. → [Backends](/reference/data/)
 
+## Contract DSL (cell↔backend)
+```ts
+export const contract = defineContract({
+  queries: { todos: { out: "Todo[]" } },
+  mutations: { addTodo: { in: { title: "string" }, out: "Todo" } },
+});
+// fx gen → types + Zod + client api + Resolvers; gọi: await api.todos()
+```
+Khai báo nghiệp vụ một nơi → tự sinh types/validate/client/resolver. DB ẩn sau resolver. → [Contract DSL](/reference/contract/)
+
 ## Server framework (Express/Hono/Nest)
 ```ts
 import { fluxe } from "@nmvuong92/fluxe/express";
