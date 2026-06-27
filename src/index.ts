@@ -22,5 +22,5 @@ export * from "./storage/types.ts";      // Storage, PutResult, GetResult, safeK
 export { createMemoryStorage } from "./storage/memory.ts";
 export { createLocalStorage } from "./storage/local.ts";
 export { createS3Storage } from "./storage/s3.ts";   // adapter tham chiếu (cần @aws-sdk/client-s3)
-export { makeServer } from "./server_factory.ts";
+export { makeServer, createHandler, type NodeHandler, type MakeServerOpts } from "./server_factory.ts";
 // Backend = USER-OWNED (app/backend.ts) — engine KHÔNG ship driver/domain data nào.

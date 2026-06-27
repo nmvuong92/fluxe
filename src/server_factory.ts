@@ -80,7 +80,12 @@ function renderBodyToString(node: any): Promise<string> {
   });
 }
 
-export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}, opts: { i18n?: I18n; storage?: Storage; config?: FluxeConfig; backend?: unknown } = {}) {
+export interface MakeServerOpts { i18n?: I18n; storage?: Storage; config?: FluxeConfig; backend?: unknown }
+export type NodeHandler = (req: http.IncomingMessage, res: http.ServerResponse) => Promise<unknown>;
+
+/* createHandler — lõi request framework-agnostic: trả về handler Node (req,res).
+ * Dùng trực tiếp cho adapter Express/Hono/Nest; makeServer chỉ bọc bằng http.createServer. */
+export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}, opts: MakeServerOpts = {}): NodeHandler {
   const i18n = opts.i18n;
   const storage = opts.storage;
   const config = opts.config ?? loadConfig();   // default ← ENV (FLUXE_*) ← override
@@ -110,7 +115,7 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
   const recorder = createRecorder();   // request log — chạy mỗi request → eager (luôn dùng)
   const renderCache = createRenderCache({ maxKeys: config.renderCache.maxKeys });   // FLUXE_RENDERCACHE_MAX_KEYS
   let clientJs: Buffer | undefined;    // ý A: đọc dist/client.js 1 lần (zero-copy: tái dùng buffer)
-  return http.createServer(async (req, res) => {
+  return async (req, res) => {
     const url = new URL(req.url!, "http://localhost");
     const start = Date.now();
     res.on("finish", () => recorder.record({ method: req.method ?? "?", path: url.pathname, status: res.statusCode, ms: Date.now() - start, ts: start }));
@@ -318,5 +323,10 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
       // Action (rpc) luôn nhận lỗi dạng JSON.
       sendError(res, wantsJson || url.pathname.startsWith("/__action/"), err);
     }
-  });
+  };
+}
+
+/* makeServer — đường zero-config: bọc createHandler bằng http.createServer (giữ API cũ). */
+export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}, opts: MakeServerOpts = {}) {
+  return http.createServer(createHandler(manifest, cells, layouts, opts));
 }
