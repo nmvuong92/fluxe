@@ -4,8 +4,9 @@
 là của bạn. **Engine (`src/core/*` + runtime) là Resolution Plane — KHÔNG đụng.**
 
 Engine là **một runtime TypeScript duy nhất** chạy trên `node:http` zero-dep — **không ship
-driver data nào**. Backend là **tầng data của bạn** ở `app/backend.ts`: bạn tự implement
+driver data nào**. Backend là **tầng data của bạn** ở `app/backend/data.ts`: bạn tự implement
 TS in-process bằng `memory` (object in-RAM) | `sqlite` (`node:sqlite`) | `postgres` (`npm i pg`).
+Entry server (`app/backend/server.ts`) mount fluxe (catch-all) + route riêng — đây là backend Express của bạn.
 
 ## Bạn sửa gì trong `app/`
 
@@ -13,17 +14,20 @@ TS in-process bằng `memory` (object in-RAM) | `sqlite` (`node:sqlite`) | `post
 |--------------|------------|
 | `app/cells/` | Trang/feature: mỗi cell = route + loader + view (+ action/head/layout/guard) |
 | `app/layouts/` | Layout dùng chung (nested) bọc view |
-| `app/backend.ts` | **Tầng data của bạn**: interface domain + chọn driver (memory / sqlite / postgres) |
+| `app/backend/server.ts` | **Entry server** của bạn: mount fluxe (catch-all) + route riêng (Express/Hono/Nest) |
+| `app/backend/data.ts` | **Tầng data của bạn**: interface domain + chọn driver (memory / sqlite / postgres) |
 | `app/profiles.ts` | Profile resolve render mode (static/island) per môi trường |
 | `app/contract.ts` | Schema dữ liệu → codegen ra types TS (`fx gen`) |
 
-## `app/backend.ts` — tầng data của bạn
+## `app/backend/` — backend của bạn
 
-Bạn định nghĩa **interface domain** của mình + **chọn driver** ngay tại đây, rồi inject vào engine
+Thư mục `app/backend/` = backend Express/Hono/Nest của bạn: `server.ts` (entry — mount fluxe
+catch-all + route riêng) + `data.ts` (tầng data/service). Ở `app/backend/data.ts` bạn định nghĩa
+**interface domain** của mình + **chọn driver** ngay tại đây, rồi inject vào engine
 qua `makeServer(manifest, cells, layouts, { backend })`. Cell chỉ thấy interface.
 
 ```ts
-// engine không biết gì — bạn tự implement
+// app/backend/data.ts — engine không biết gì, bạn tự implement
 import { DatabaseSync } from "node:sqlite";
 
 export interface Todo { id: string; title: string; done: boolean }
@@ -58,7 +62,7 @@ export const backend: Backend = process.env.FLUXE_SQLITE_PATH
   : memoryBackend();
 ```
 
-Đổi driver = sửa một dòng trong `app/backend.ts`. **Cell, frontend, core: KHÔNG đổi một dòng.**
+Đổi driver = sửa một dòng trong `app/backend/data.ts`. **Cell, frontend, core: KHÔNG đổi một dòng.**
 `postgres` cần bạn `npm i pg` + tự implement `Backend` bằng `Pool`/`Client` (qua `DATABASE_URL`).
 
 ## Ranh giới (vì sao tách)

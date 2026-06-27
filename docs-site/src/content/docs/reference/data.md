@@ -1,20 +1,20 @@
 ---
 title: Backends
-description: Tầng data user-owned — định nghĩa interface domain + tự implement (memory/SQLite/Postgres) ở app/backend.ts, inject qua makeServer.
+description: Tầng data user-owned — định nghĩa interface domain + tự implement (memory/SQLite/Postgres) ở app/backend/data.ts, inject qua makeServer.
 sidebar:
   order: 3
 ---
 
-Backend là **tầng data của BẠN** — sống ở `app/backend.ts`, **không phải trong engine**. Engine
+Backend là **tầng data của BẠN** — sống ở `app/backend/data.ts`, **không phải trong engine**. Engine
 `@nmvuong92/fluxe` **không ship driver data nào** và không biết gì về DB của bạn. Bạn tự định
 nghĩa **interface domain** + **tự implement** (dùng `node:sqlite`/`pg`/ORM trực tiếp), rồi inject
 vào engine. Cell/loader/action chỉ thấy interface đó; đổi nơi lưu = thay một dòng, cell &
 frontend không đổi.
 
-## `app/backend.ts` — bạn sở hữu file này
+## `app/backend/data.ts` — bạn sở hữu file này
 
 ```ts
-// app/backend.ts — user sở hữu; engine không biết gì
+// app/backend/data.ts — user sở hữu; engine không biết gì
 import { DatabaseSync } from "node:sqlite";
 
 // 1) Interface domain CỦA BẠN (Note/User/Order… — ví dụ Todo):
@@ -79,7 +79,7 @@ export const backend: Backend = process.env.FLUXE_SQLITE_PATH
 
 ```ts
 import { makeServer } from "@nmvuong92/fluxe";
-import { backend } from "../app/backend";
+import { backend } from "../app/backend/data";
 
 makeServer(manifest, cells, layouts, { backend }).listen(5180);
 ```
@@ -87,7 +87,7 @@ makeServer(manifest, cells, layouts, { backend }).listen(5180);
 Cell nhận `backend` trong loader/action; thêm tham số kiểu thứ 3 để `ctx.backend` **có kiểu**:
 
 ```ts
-import type { Backend } from "../../backend";
+import type { Backend } from "../../backend/data";
 
 export default defineCell<{}, TodosData, Backend>({
   loader: async ({ backend }) => ({ todos: await backend.listTodos() }),   // gợi ý + check kiểu

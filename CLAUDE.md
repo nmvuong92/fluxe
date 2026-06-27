@@ -47,8 +47,8 @@ realtime, parsing)** — phải:
 - **Cell tách 2 file** (giao-diện-vs-server, như SvelteKit/Astro): `view.tsx` = giao diện thuần (`export function <Comp>` + `export default <Comp>` + `export interface <Comp>Data`); `index.tsx` = `defineCell` route/loader/actions/head, `import { <Comp>, type <Comp>Data } from "./view"`. `fx new` sinh sẵn — đừng gộp lại 1 file, **đừng bỏ `export default` ở view** (client bundle import default).
 - **`hydration` MẶC ĐỊNH "island"** (interactive) — cell/doc/tutorial **KHÔNG khai báo** `hydration`. Chỉ khai báo `hydration: "static"` khi opt-in tối ưu 0-JS (`fx new --static`). Static là **topic riêng** (`guides/static-cells.md`), không nhắc trong doc/tutorial chính.
 - **View-only client bundle:** `client.tsx` chỉ import `app/views.ts` (registry view default, do `fx sync` sinh) → loader/actions/zod/backend **KHÔNG** ship xuống browser. Layout do server gửi kèm payload (`window.__FLUXE__.layout` + `fetchPageProps`). Đừng cho `client.tsx`/`nav-client.ts` import `app/app.ts` hay cell `index.tsx` (sẽ kéo server code vào client).
-- **Backend = tầng data USER-OWNED ở `app/backend.ts`**: user định nghĩa interface domain + tự implement (node:sqlite/pg/ORM trực tiếp), inject qua `makeServer/createHandler(…, { backend })`. Engine `Ctx<I,B>` generic (`defineCell<I,O,B>`), **KHÔNG ship driver/domain data nào** (đã gỡ `src/backends/*`). **Đừng** đóng-cứng domain backend vào engine lại.
-- **Server entry = `app/server.ts` (user-owned)**: user chọn framework. Lõi request = `createHandler(manifest, cells, layouts, opts)` → handler Node `(req,res)`; `makeServer` = `http.createServer(createHandler(...))` (zero-config). 3 adapter subpath nhúng vào framework user chọn: `@nmvuong92/fluxe/express|hono|nest` (framework = **peerDependency optional**). `fx dev` chạy `app/server.ts` (mặc định Express). Mount **catch-all** (route host trước, fluxe sau). **Đừng** bắt buộc framework — `makeServer` node:http vẫn là đường zero-dep.
+- **`app/backend/` = backend CỦA USER (thư mục)**: `app/backend/server.ts` (entry framework — Express/Hono/Nest, mount fluxe) + `app/backend/data.ts` (tầng data/service: user định nghĩa interface domain + tự implement node:sqlite/pg/ORM, export `backend`). Inject qua `makeServer/createHandler(…, { backend })`. Engine `Ctx<I,B>` generic (`defineCell<I,O,B>`), **KHÔNG ship driver/domain data nào** (đã gỡ `src/backends/*`). **Đừng** đóng-cứng domain backend vào engine lại.
+- **Server entry = `app/backend/server.ts` (user-owned)**: user chọn framework + ghi logic backend của họ; fluxe mount **catch-all** lo concerns. Lõi request = `createHandler(manifest, cells, layouts, opts)` → handler Node `(req,res)`; `makeServer` = `http.createServer(createHandler(...))` (zero-config). 3 adapter subpath: `@nmvuong92/fluxe/express|hono|nest` (framework = **peerDependency optional**). `fx dev` chạy `app/backend/server.ts` (mặc định Express). **Đừng** bắt buộc framework — `makeServer` node:http vẫn là đường zero-dep.
 
 ## Tài liệu Starlight — LUÔN sync (BẮT BUỘC)
 
@@ -61,7 +61,7 @@ Chọn Starlight vì khớp triết lý fluxe: static-first, 0 JS mặc định,
 |--------|----------------|
 | RCA / resolution / manifest / 5 trục | `docs-site/.../guides/rca.md` |
 | Thêm/sửa backend driver TS (memory/sqlite/postgres) | `reference/data.md` |
-| Thêm/sửa adapter server (`src/adapters/*`), `createHandler`, `app/server.ts` | `guides/server-framework.mdx` |
+| Thêm/sửa adapter server (`src/adapters/*`), `createHandler`, `app/backend/server.ts` | `guides/server-framework.mdx` |
 | Render cache / cell static / tối ưu perf (kèm số đo mới) | `guides/static-cache.md` |
 | Endpoint runtime (`/_fluxe*`), ETag | `reference/observability.md` |
 | DebugBar, header `x-fluxe-*`, chaos | `reference/devtools.md` |

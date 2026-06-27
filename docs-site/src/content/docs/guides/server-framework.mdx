@@ -7,7 +7,7 @@ sidebar:
 
 import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
 
-fluxe **không bắt bạn dùng server của nó**. `app/server.ts` chính là **backend CỦA BẠN** —
+fluxe **không bắt bạn dùng server của nó**. `app/backend/server.ts` chính là **backend CỦA BẠN** —
 một app Express / Hono / Nest mà `fx init` đã **wire sẵn adapter fluxe**. Bạn ghi toàn bộ logic
 backend ở đó (route API, middleware, service, auth riêng…); fluxe mount **catch-all** ở cuối, và
 **core của nó lo các vấn đề xuyên suốt** cho backend đó:
@@ -22,7 +22,7 @@ Không muốn framework nào? `makeServer(...)` (node:http, zero-dep) vẫn là 
 cùng core, cùng concerns.
 </Aside>
 
-## `app/server.ts` — entry của bạn
+## `app/backend/server.ts` — entry của bạn
 
 Mỗi adapter là một subpath riêng; framework là **peerDependency** (chỉ cài cái bạn dùng).
 
@@ -34,14 +34,14 @@ npm i express
 ```
 
 ```ts
-// app/server.ts
+// app/backend/server.ts
 import express from "express";
 import { readFileSync } from "node:fs";
 import { fluxe } from "@nmvuong92/fluxe/express";
 import type { ResolutionManifest } from "@nmvuong92/fluxe";
-import { cells } from "./app";
-import { layouts } from "./layouts/index";
-import { backend } from "./backend";
+import { cells } from "../app";
+import { layouts } from "../layouts/index";
+import { backend } from "./data";
 
 const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
 const app = express();
@@ -61,15 +61,15 @@ npm i hono @hono/node-server
 ```
 
 ```ts
-// app/server.ts
+// app/backend/server.ts
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { readFileSync } from "node:fs";
 import { fluxe } from "@nmvuong92/fluxe/hono";
 import type { ResolutionManifest } from "@nmvuong92/fluxe";
-import { cells } from "./app";
-import { layouts } from "./layouts/index";
-import { backend } from "./backend";
+import { cells } from "../app";
+import { layouts } from "../layouts/index";
+import { backend } from "./data";
 
 const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
 const app = new Hono();
@@ -94,16 +94,16 @@ npm i @nestjs/common @nestjs/core @nestjs/platform-express reflect-metadata
 ```
 
 ```ts
-// app/server.ts
+// app/backend/server.ts
 import "reflect-metadata";
 import { Module } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { readFileSync } from "node:fs";
 import { fluxeMiddleware } from "@nmvuong92/fluxe/nest";
 import type { ResolutionManifest } from "@nmvuong92/fluxe";
-import { cells } from "./app";
-import { layouts } from "./layouts/index";
-import { backend } from "./backend";
+import { cells } from "../app";
+import { layouts } from "../layouts/index";
+import { backend } from "./data";
 
 @Module({ /* controllers/providers riêng của bạn */ })
 class AppModule {}

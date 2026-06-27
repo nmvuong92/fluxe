@@ -9,7 +9,7 @@ RCA tách rạch ròi **cái gì** (logic) khỏi **chạy thế nào** (vận h
 
 Một `Cell` khai báo `loader` (lấy data) + `view` (render). Nó **không** biết mình render
 static hay island, cũng không biết `backend` bên dưới là memory/sqlite/postgres — chỉ thấy
-**interface** bạn định nghĩa ở `app/backend.ts` (data được **tiêm vào** qua DI).
+**interface** bạn định nghĩa ở `app/backend/data.ts` (data được **tiêm vào** qua DI).
 
 ```ts
 // app/cells/home/index.ts — cell KHÔNG chứa quyết định vận hành
@@ -47,14 +47,14 @@ Runtime đọc manifest này để định tuyến. **Cùng một cell + cùng m
 | Khía cạnh | Giá trị | Ai quyết |
 |------|---------|----------|
 | **Render** (được *resolve*) | static · island | `hydration` (gợi ý) + manifest override theo profile |
-| **Data** (không resolve — **DI**) | backend bạn implement | bạn inject qua `makeServer(…, { backend })` từ `app/backend.ts` |
+| **Data** (không resolve — **DI**) | backend bạn implement | bạn inject qua `makeServer(…, { backend })` từ `app/backend/data.ts` |
 
 Engine **không ship driver data** và không biết gì về DB của bạn — nó chỉ *resolve render*. Backend
-là **interface user-owned** ở `app/backend.ts`, tiêm vào runtime; profile/manifest không đụng tới.
+là **interface user-owned** ở `app/backend/data.ts`, tiêm vào runtime; profile/manifest không đụng tới.
 
 ## Vì sao quan trọng
 
-- **Đổi nơi lưu không đụng logic** — chuyển `todos` từ memory sang sqlite = sửa 1 dòng `app/backend.ts`.
+- **Đổi nơi lưu không đụng logic** — chuyển `todos` từ memory sang sqlite = sửa 1 dòng `app/backend/data.ts`.
 - **Test cực dễ** — mock `Backend` là xong, cell không ràng buộc hạ tầng.
 - **Tối ưu đúng tầng** — cell static được resolve sang render-cache mà code cell giữ nguyên.
 

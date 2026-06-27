@@ -71,7 +71,7 @@ ENV_KEYS   // map biến ENV → field (dùng cho fx config + docs)
 NODE_ENV=production
 FLUXE_SECRET=$(openssl rand -hex 32)
 PORT=8080
-DATABASE_URL=postgres://user:pass@10.0.0.5:5432/app   # env của app bạn, đọc trong app/backend.ts
+DATABASE_URL=postgres://user:pass@10.0.0.5:5432/app   # env của app bạn, đọc trong app/backend/data.ts
 FLUXE_RATELIMIT_CAPACITY=100
 FLUXE_UPLOAD_MAX_BYTES=52428800
 ```

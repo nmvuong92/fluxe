@@ -18,10 +18,11 @@ import vào, không cần đụng nội bộ của nó.
       - index.tsx **cell**: route + loader + actions, gắn view
     - about/ …
   - layouts/index.tsx master layout (header/nav/footer + DebugBar)
-  - server.ts **server entry** — chọn framework Express/Hono/Nest, mount fluxe
+  - backend/ **backend của bạn** (Express/Hono/Nest + fluxe)
+    - server.ts entry: mount fluxe (catch-all) + route riêng của bạn
+    - data.ts tầng data/service (interface + implement); export `backend`
   - theme.ts design tokens (CSS biến, light/dark)
   - nav.ts menu khai báo
-  - backend.ts **tầng data của bạn** — interface domain + chọn driver (memory/sqlite/postgres)
   - profiles.ts profile resolve render (static/island) per môi trường
   - env.ts biến môi trường có kiểu (fail-fast)
   - app.ts **registry cell — sinh tự động** (`fx sync`), đừng sửa
@@ -38,9 +39,9 @@ import vào, không cần đụng nội bộ của nó.
 | `app/cells/<id>/view.tsx` | Giao diện thuần (component + kiểu data) | `fx new` |
 | `app/cells/<id>/index.tsx` | Cell: route + `loader` + `actions`, gắn view | `fx new` |
 | `app/layouts/index.tsx` | Master layout + DebugBar | `fx init` |
-| `app/server.ts` | Server entry — chọn framework Express/Hono/Nest, mount fluxe | `fx init` |
+| `app/backend/server.ts` | Server entry — chọn framework Express/Hono/Nest, mount fluxe | `fx init` |
 | `app/theme.ts` · `app/nav.ts` | Design tokens · menu | `fx init` |
-| `app/backend.ts` | **Tầng data của bạn**: interface domain + chọn driver (memory/sqlite/postgres) | `fx init` |
+| `app/backend/data.ts` | **Tầng data của bạn**: interface domain + chọn driver (memory/sqlite/postgres) | `fx init` |
 | `app/profiles.ts` | Profile resolve render mode cho mỗi môi trường | `fx init` |
 | `app/env.ts` | Biến môi trường có kiểu | `fx init` |
 | `app/app.ts` | Registry cell | **`fx sync` sinh — đừng sửa** |
