@@ -110,6 +110,15 @@ fx config   # in config đã giải (default ← ENV FLUXE_* ← override)
 ```
 Mọi tham số core có default + override ENV, validate fail-fast. → [Configuration](/reference/configuration/)
 
+## Container (DI lười)
+```ts
+const c = createContainer();
+c.register("broker", () => createBroker());   // chưa tạo
+c.get("broker");                              // lần đầu mới tạo + memoize (singleton)
+```
+Chỉ module được **dùng** mới bootstrap; engine lazy broker/presence. `/_fluxe/stats.bootstrapped`
+liệt kê thứ đã tạo. → [Container](/reference/container/)
+
 ## Codegen polyglot & CLI
 ```bash
 fx gen        # 1 schema → types TS + Go + Rust

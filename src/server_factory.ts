@@ -19,10 +19,11 @@ import { renderHead, renderSitemap, renderRobots } from "./core/seo.ts";
 import { FluxeError, toErrorPayload, renderErrorPage } from "./core/errors.ts";
 import { signSession, verifySession, parseCookie, hasRole, hashPassword, verifyPassword, newCsrfToken } from "./core/auth.ts";
 import { validateInput } from "./core/validate.ts";
-import { createBroker } from "./core/broker.ts";
+import { createBroker, type Broker } from "./core/broker.ts";
+import { createContainer } from "./core/container.ts";
 import { createRateLimiter } from "./core/ratelimit.ts";
 import { createRecorder } from "./core/observe.ts";
-import { createPresence } from "./core/presence.ts";
+import { createPresence, type Presence } from "./core/presence.ts";
 import { etagOf, etagMatches } from "./core/etag.ts";
 import { createRenderCache } from "./core/rendercache.ts";
 import { parseChaos } from "./core/chaos.ts";
@@ -117,10 +118,13 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
   // Backend GIẢI per-cell từ manifest (Resolution Plane) — cell/frontend giữ nguyên.
   const backends = backendsFromManifest(manifest);
   const backendFor = (id: string) => backends.byCell.get(id) ?? backends.default;
-  const broker = createBroker();   // realtime pub/sub (Trục 4g, bản 1-node)
+  // Resolved Container: service realtime đăng ký LƯỜI — chỉ tạo khi thật sự dùng (SSE/action).
+  // App không realtime → broker/presence KHÔNG bao giờ bootstrap. resolved() ở /_fluxe/stats.
+  const container = createContainer();
+  container.register("broker", () => createBroker());
+  container.register("presence", () => createPresence());
   const actionLimit = createRateLimiter(config.rateLimit);   // per-IP cho action (FLUXE_RATELIMIT_*)
-  const recorder = createRecorder();   // request log (observability)
-  const presence = createPresence();   // ai đang online per topic (Trục 4g)
+  const recorder = createRecorder();   // request log — chạy mỗi request → eager (luôn dùng)
   const renderCache = createRenderCache({ maxKeys: config.renderCache.maxKeys });   // FLUXE_RENDERCACHE_MAX_KEYS
   let clientJs: Buffer | undefined;    // ý A: đọc dist/client.js 1 lần (zero-copy: tái dùng buffer)
   return http.createServer(async (req, res) => {
@@ -155,7 +159,7 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
     if (url.pathname === "/_fluxe/stats") {
       const m = process.memoryUsage(); const c = process.cpuUsage();
       res.writeHead(200, { "content-type": "application/json" });
-      return res.end(JSON.stringify({ rss: m.rss, heapUsed: m.heapUsed, cpuUser: c.user, cpuSystem: c.system, uptimeMs: Math.round(process.uptime() * 1000) }));
+      return res.end(JSON.stringify({ rss: m.rss, heapUsed: m.heapUsed, cpuUser: c.user, cpuSystem: c.system, uptimeMs: Math.round(process.uptime() * 1000), bootstrapped: container.resolved() }));
     }
     if (url.pathname === "/_fluxe/requests") {
       // Observability: log request gần đây (timing/status). Prod: gate sau auth.
@@ -229,6 +233,9 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
       const id = url.searchParams.get("id");
       res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
       res.write(`event: ready\ndata: {"topic":"${topic}"}\n\n`);
+      // Lần đầu có client SSE → broker + presence mới bootstrap (lazy qua container).
+      const broker = container.get<Broker>("broker");
+      const presence = container.get<Presence>("presence");
       const offBroker = broker.subscribe(topic, (data) => res.write(`data: ${JSON.stringify(data)}\n\n`));
       let offPresence = () => {};
       if (id) {
@@ -277,7 +284,7 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
       const schema = (fn as any).inputSchema;
       if (schema) input = validateInput(schema, input);   // sai → FluxeError 400 (caught)
       const out = await fn({ input, backend, session });
-      broker.publish(cellId, { action: name, out });   // realtime: báo client khác
+      container.get<Broker>("broker").publish(cellId, { action: name, out });   // realtime: báo client khác (broker lazy)
       res.writeHead(200, { "content-type": "application/json", "x-fluxe-resolution": resolution, "x-fluxe-server-ms": String(Date.now() - t0) });
       return res.end(JSON.stringify(out));
     }
