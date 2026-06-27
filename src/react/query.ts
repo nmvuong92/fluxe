@@ -8,6 +8,17 @@ import { lastRpcMeta } from "../core/client";
  * loading/error/data, refetch, log tracing (resolution/timing). */
 const cache = new Map<string, unknown>();
 const inflight = new Map<string, Promise<unknown>>();
+/* Registry query đang mount: key → set refetch. Cho phép mutation invalidate → refetch live. */
+const active = new Map<string, Set<() => void>>();
+
+/* invalidateQueries — xoá cache + refetch mọi query đang mount khớp. `keys` so khớp:
+ *  - exact: key === k
+ *  - prefix: key bắt đầu bằng `k + ":"` (contract-aware key = `op:JSON(input)` → invalidate theo op). */
+export function invalidateQueries(keys: string[]): void {
+  const match = (key: string) => keys.some((k) => key === k || key.startsWith(k + ":"));
+  for (const key of [...cache.keys(), ...active.keys()]) if (match(key)) cache.delete(key);
+  for (const [key, fns] of active) if (match(key)) for (const fn of fns) fn();
+}
 
 export function useQuery<T>(
   key: string,
@@ -58,7 +69,15 @@ export function useQuery<T>(
   useEffect(() => {
     if (opts.enabled === false) return;
     if (opts.initial !== undefined && cache.get(key) === undefined) cache.set(key, opts.initial);
+    // Đăng ký vào registry để invalidateQueries() refetch được component này.
+    let set = active.get(key);
+    if (!set) active.set(key, (set = new Set()));
+    set.add(run);
     run();
+    return () => {
+      set!.delete(run);
+      if (set!.size === 0) active.delete(key);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 

@@ -97,11 +97,15 @@ subscribe("todos", (data) => refetch());                   // client (SSE)
 ```
 `GET /__sse/<topic>` + presence (ai online). → [Realtime](/reference/realtime/)
 
-## React: data fetching + SPA nav
+## React: data fetching + forms + SPA nav
+
+`createHooks<typeof contract>()` bind hook vào contract (typed, 0 schema xuống browser):
 ```tsx
-const { data } = useQuery("todos", () => rpc("todos", "list", {}), { initial });
-const add = useMutation("todos.add", (t) => rpc("todos", "add", { title: t }));
-<Link href="/about" preserveScroll>About</Link>   // SPA nav + scroll restoration
+const api = createHooks<AppContract>();
+const q = api.todos.useQuery({ initial });                          // cache + dedup + refetch
+const form = api.addTodo.useForm({ invalidates: ["todos"] });       // field typed; lỗi server → field
+const toggle = api.toggleTodo.useMutation({ invalidates: ["todos"], optimistic });
+<Link href="/about" preserveScroll>About</Link>                     // SPA nav + scroll restoration
 ```
 → [Data fetching](/reference/data-fetching/) · [Navigation](/reference/navigation/)
 

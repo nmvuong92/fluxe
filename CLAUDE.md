@@ -68,6 +68,7 @@ Chọn Starlight vì khớp triết lý fluxe: static-first, 0 JS mặc định,
 | Thêm/sửa backend driver TS (memory/sqlite/postgres) | `reference/data.md` |
 | Thêm/sửa adapter server (`src/adapters/*`), `createHandler`, `app/backend/server.ts` | `guides/server-framework.mdx` |
 | Auth integration (`src/auth/*` bridgeSession/protect, `/__session`, `useSession`, op `auth`, cell `requireRole`) | `reference/auth.md` |
+| Client hook (`src/react/*` createHooks/useQuery/useMutation/useForm/invalidateQueries) | `reference/data-fetching.md` |
 | Render cache / cell static / tối ưu perf (kèm số đo mới) | `guides/static-cache.md` |
 | Endpoint runtime (`/_fluxe*`), ETag | `reference/observability.md` |
 | DebugBar, header `x-fluxe-*`, chaos | `reference/devtools.md` |

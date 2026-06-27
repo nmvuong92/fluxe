@@ -1,95 +1,107 @@
 ---
 title: Data fetching
-description: useQuery, useMutation, rpc client, repro→test.
+description: createHooks (contract-aware) — useQuery/useMutation/useForm typed; primitives useQuery/useMutation string-based; rpc client.
 sidebar:
   order: 40
 ---
 
 ## Định nghĩa
 
-Trong fluxe, **cell island** lấy dữ liệu từ server bằng cách gọi **action** qua `rpc()`. Hai hook
-`@nmvuong92/fluxe/react` bọc `rpc()` để cho DX "chỉ khai báo là xong":
-
-- **`useQuery`** — react-query-lite: cache theo key, **dedup in-flight** (chống refetch storm),
-  trạng thái `loading/error/data`, `refetch`, tự log tracing (resolution + timing) vào DebugBar.
-- **`useMutation`** — gọi action ghi dữ liệu, log input + resolution + timing, lỗi có cấu trúc.
-
-Cả hai dựa trên `rpc()`, hàm này ném `RpcError` **có cấu trúc**
-(`code`/`status`/`details`) khi server trả lỗi — nên UI bắt được đúng loại lỗi thay vì chuỗi mơ hồ.
+Cell **island** lấy/ghi dữ liệu qua **contract** (`/__rpc/<op>`). `createHooks<typeof contract>()`
+bind hook React vào contract **một lần** (như `createClient`) — typed tức thì, op name đủ để gọi
+(**KHÔNG** schema xuống browser).
 
 ```ts
-import { useQuery, useMutation } from "@nmvuong92/fluxe/react";
+// app/api.ts — client-safe: contract import TYPE-ONLY → 0 zod xuống browser
+import { createHooks } from "@nmvuong92/fluxe/react";
+import type { AppContract } from "./contract";
+export const api = createHooks<AppContract>();
 ```
 
-## Cơ chế trong fluxe
+Mỗi op → hook hợp **kind**:
 
-- **`rpc()`** POST tới action, tự đính `x-csrf-token`, đo thời gian client/server và đọc resolution
-  từ response header (để DebugBar hiển thị). Khi server trả lỗi, nó ném `RpcError` với
-  `code`/`status`/`details` (parse từ body `{error:{code,message,details}}`); mất kết nối → `RpcError`
-  code `network`.
-- **`useQuery`** cache kết quả theo `key` và **dedup in-flight**: nếu đã có một fetch cùng `key` đang
-  bay thì dùng chung promise đó, không bắn request mới. `opts.initial` cho phép hydrate từ data SSR →
-  không "nhấp nháy" loading lần đầu.
-- **`useMutation`** gọi action ghi dữ liệu, quản lý `loading`/`error`, và khi lỗi ưu tiên
-  `details[0].message` (thông điệp field đầu tiên từ validation) trước khi rơi về `message`.
+| Op kind | Hook | Trả về |
+|---------|------|--------|
+| `query` | `api.todos.useQuery(opts?)` | `{ data, error, loading, refetch }` (typed output) |
+| `mutation` | `api.addTodo.useMutation(opts?)` | `{ mutate, loading, error }` |
+| `mutation` | `api.addTodo.useForm(opts?)` | form state + per-field errors |
 
-## Ví dụ
+## useQuery — cache + dedup + invalidate
 
-Cell `todos` (island) dùng `useQuery` làm nguồn sự thật, `useMutation` cho add/toggle, và
-realtime để revalidate khi client khác đổi:
+- Cache theo op, **dedup in-flight** (chống refetch storm), `loading/error/data`, `refetch`, tự log
+  tracing (resolution + timing) vào DebugBar.
+- `opts.initial` hydrate từ data SSR → không "nhấp nháy" loading lần đầu.
+
+## useMutation — optimistic + invalidate
+
+```ts
+const toggle = api.toggleTodo.useMutation({
+  invalidates: ["todos"],                       // refetch query op `todos` sau success
+  optimistic: (input) => { /* … */ return () => { /* rollback khi lỗi */ }; },
+});
+await toggle.mutate({ id });
+```
+
+`invalidates` gọi `invalidateQueries([...])` (xoá cache + refetch mọi `useQuery` đang mount khớp op).
+`optimistic(input)` chạy ngay, trả hàm **rollback** (gọi nếu mutation lỗi).
+
+## useForm — type-safe, server-validated
+
+Field name suy từ input op (typed). Nguồn-sự-thật validation = **server (Zod)**: submit → nếu 400
+`code=validation`, map `details[].path` → `errors[field]` (giữ "0 schema xuống browser"). Tuỳ chọn
+`{ schema }` để validate client trước submit.
 
 ```tsx
 // app/cells/todos/view.tsx
-const q = useQuery<Todo[]>("todos", () => rpc("todos", "list", {}), { initial: data.todos });
-const add = useMutation("todos.add", (t: string) => rpc<Todo>("todos", "add", { title: t }));
-const toggle = useMutation("todos.toggle", (id: string) => rpc<Todo[]>("todos", "toggle", { id }));
-const todos = q.data ?? [];
+const q = api.todos.useQuery({ initial: data.todos });
+const form = api.addTodo.useForm({ invalidates: ["todos"], onSuccess: () => form.reset() });
+const toggle = api.toggleTodo.useMutation({ invalidates: ["todos"] });
 
-// Realtime: client khác đổi → revalidate.
-useEffect(() => subscribe("todos", () => q.refetch()), []);
+useEffect(() => subscribe("todos", () => q.refetch()), []);   // realtime → refetch
 
-async function onAdd() {
-  try { await add.mutate(title); setTitle(""); q.refetch(); } catch { /* lỗi đã ở add.error */ }
-}
+const title = form.register("title");
+return (
+  <form onSubmit={form.handleSubmit}>
+    <input {...title} placeholder="Việc mới..." />
+    {form.errors.title ? <p className="err">{form.errors.title}</p> : null}
+    <button type="submit" disabled={form.submitting}>Thêm</button>
+  </form>
+);
 ```
 
-Bắt lỗi có kiểu (sau `rpc`/`mutate`):
+## Primitives (string-based)
+
+`createHooks` bọc 2 hook cấp thấp — dùng trực tiếp khi không qua contract (vd action `/__action`):
 
 ```ts
-try { await rpc("hello", "x", {}); }
-catch (e) { /* e.code, e.status, e.details — xem Errors */ }
+useQuery<T>(key, fetcher, opts?)              // key thủ công + fetcher bất kỳ
+useMutation<I,O>(label, fn)                    // fn bất kỳ (vd rpc("cell","action",input))
+invalidateQueries(keys: string[])             // xoá cache + refetch query khớp (exact | prefix `op:`)
 ```
 
 ## API
 
 ```ts
 // @nmvuong92/fluxe/react
-useQuery<T>(
-  key: string,
-  fetcher: () => Promise<T>,
-  opts?: { initial?: T; enabled?: boolean },
-): { data?: T; error: string; loading: boolean; refetch: () => Promise<void> }
-
-useMutation<I, O>(
-  label: string,
-  fn: (input: I) => Promise<O>,
-): { mutate: (input: I) => Promise<O | undefined>; loading: boolean; error: string }
+createHooks<C>(client?): Hooks<C>             // api.<op>.useQuery/useMutation/useForm
+api.<query>.useQuery(opts?: { initial?; enabled? }): { data?; error; loading; refetch }
+api.<mutation>.useMutation(opts?: { invalidates?; optimistic?; onSuccess? }): { mutate; loading; error }
+api.<mutation>.useForm(opts?: { initial?; onSuccess?; onError?; schema?; invalidates? }): FormApi
+// FormApi: { values, errors, formError, submitting, register, setValue, handleSubmit, reset }
+invalidateQueries(keys: string[]): void
 
 // @nmvuong92/fluxe/client
-rpc<T>(cell: string, action: string, input: unknown): Promise<T>   // POST /__action/…, ném RpcError
-class RpcError extends Error { code: string; status: number; details?: unknown }
-mutate<T>({ optimistic?, run, rollback? }): Promise<T>             // optimistic + rollback khi lỗi
-revalidate(): Promise<{ cell; data }>                             // refetch props trang hiện tại
-subscribe(topic, onData): () => void                             // realtime qua SSE
+createClient<C>(): Client<C>                   // await api.todos() — POST /__rpc/<op>, Proxy typed
+rpc<T>(cell, action, input): Promise<T>        // POST /__action/…, ném RpcError
+class RpcError extends Error { code; status; details? }
+mutate<T>({ optimistic?, run, rollback? }): Promise<T>
+subscribe(topic, onData): () => void           // realtime qua SSE
 ```
 
 ## Lưu ý
 
-- `cache`/`inflight` của `useQuery` là **module-level** (`Map` toàn cục) — key dùng chung giữa các
-  component cùng `key`. Đây là cái cho phép dedup, nhưng nghĩa là 2 nơi cùng `key` chia sẻ cùng data.
-- `useEffect` của `useQuery` chỉ refetch khi `key` đổi (deps `[key]`); đổi `fetcher` không tự refetch
-  (đã giữ qua `fetcherRef`). Muốn nạp lại thủ công → gọi `refetch()`.
-- `useMutation` ưu tiên `e.details?.[0]?.message` → lỗi validation hiện thông điệp field đầu tiên.
-  Xem [Validation](/reference/validation/) và [Errors](/reference/errors/).
-- CSRF là việc của **host** (middleware mount trước fluxe) — nếu host yêu cầu token, đính kèm ở
-  `fetcher` của bạn. Engine `/__rpc`/`/__action` không tự kiểm CSRF.
+- `cache`/`inflight`/registry của `useQuery` là **module-level** — query cùng key chia sẻ data; đó là
+  cái cho phép dedup + `invalidateQueries` refetch live mọi component đang mount.
+- `useForm` không ship Zod xuống browser: validation sâu là **server**. Muốn validate client → truyền
+  `{ schema }` (user chủ động ship 1 zod). Xem [Validation](/reference/validation/), [Errors](/reference/errors/).
+- CSRF là việc của **host** (middleware mount trước fluxe). Engine `/__rpc`/`/__action` không tự kiểm.
