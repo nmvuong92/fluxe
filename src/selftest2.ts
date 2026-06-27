@@ -8,6 +8,9 @@ import { profiles } from "../app/profiles";
 import { cells as appCells } from "../app/app";
 import { layouts } from "../app/layouts/index";
 import { backend } from "../app/backend/data";   // data user-owned (DI)
+import { resolvers } from "../app/backend/index";   // contract resolvers (/__rpc)
+import { contract } from "../app/contract";
+import { validators } from "../.fluxe/gen/validators";
 
 const cells: CellDecl[] = appCells.map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
 
@@ -46,11 +49,19 @@ function check(label: string, cond: boolean) {
 async function run(profileName: string, port: number) {
   const manifest = resolve(cells, profiles[profileName]);
   console.log(`\n══════════ profile=${profileName} (backend=${backend.name}) ══════════`);
-  const srv = makeServer(manifest, appCells, layouts, { backend }).listen(port);
+  const srv = makeServer(manifest, appCells, layouts, { backend, resolvers, contract, validators }).listen(port);
   await new Promise((r) => setTimeout(r, 150));
   try {
     const homePage = await get(port, "/");
     check("[static /] KHÔNG gửi client.js", !homePage.body.includes("/client.js"));
+    // Contract DSL: /__rpc/<op> từ contract thật + resolvers (DB ẩn). query không cần CSRF.
+    const rpcTodos = await post(port, "/__rpc/todos", {});
+    const todosOut = JSON.parse(rpcTodos.body);
+    check("[contract] /__rpc/todos (query) → mảng todo từ resolver", rpcTodos.status === 200 && Array.isArray(todosOut));
+    const rpcBad = await post(port, "/__rpc/addTodo", { title: 123 }, { cookie: "csrf=t", "x-csrf-token": "t" });
+    check("[contract] /__rpc/addTodo title sai kiểu → 400 (Zod sinh từ contract)", rpcBad.status === 400);
+    const rpcNoCsrf = await post(port, "/__rpc/addTodo", { title: "x" });
+    check("[contract] /__rpc/addTodo (mutation) thiếu CSRF → 403", rpcNoCsrf.status === 403);
     const todosPage = await get(port, "/todos");
     check("[island /todos] CÓ gửi client.js", todosPage.body.includes("/client.js"));
     const apiRes = await get(port, "/todos?json=1");

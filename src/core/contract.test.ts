@@ -38,6 +38,8 @@ test("genZod: input schema per op", () => {
   assert.match(out, /qty: z\.number\(\)\.optional\(\)/);
   assert.match(out, /export const orderInput = z\.object/);
   assert.doesNotMatch(out, /pingInput/);
+  assert.match(out, /export const validators = \{/);
+  assert.match(out, /addTodo: addTodoInput,/);
 });
 
 test("genServer: Resolvers interface + OPS kind + createApi", () => {

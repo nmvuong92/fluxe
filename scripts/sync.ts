@@ -50,3 +50,11 @@ ${viewMap}
 
 writeFileSync("app/views.ts", viewsOut);
 console.log(`[sync] ${dirs.length} cell → app/app.ts + app/views.ts (${withView.length} view)${missing.length ? ` ⚠ thiếu view.tsx: ${missing.join(", ")}` : ""}`);
+
+// Auto-gen contract (magic — dev không gõ `fx gen` tay). Bỏ qua nếu app chưa có contract.
+if (existsSync("app/contract.ts")) {
+  try {
+    const { execSync } = await import("node:child_process");
+    execSync("node --experimental-sqlite --import tsx scripts/codegen.ts", { stdio: "inherit" });
+  } catch (e) { console.warn("[sync] contract codegen bỏ qua:", (e as Error).message); }
+}

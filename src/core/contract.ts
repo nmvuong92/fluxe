@@ -61,12 +61,16 @@ function zodExpr(expr: string): string {
 export function genZod(c: Contract): string {
   const ops = { ...(c.queries ?? {}), ...(c.mutations ?? {}) };
   const blocks: string[] = [];
+  const withIn: string[] = [];
   for (const [op, def] of Object.entries(ops)) {
     if (!def.in) continue;
     const fields = Object.entries(def.in).map(([f, t]) => `  ${f}: ${zodExpr(t)},`).join("\n");
     blocks.push(`export const ${op}Input = z.object({\n${fields}\n});`);
+    withIn.push(op);
   }
-  return `import { z } from "zod";\n\n${blocks.join("\n\n")}\n`;
+  // Map keyed-by-op để wire thẳng: makeServer(..., { validators }).
+  const map = `export const validators = {\n${withIn.map((op) => `  ${op}: ${op}Input,`).join("\n")}\n};`;
+  return `import { z } from "zod";\n\n${blocks.join("\n\n")}\n\n${map}\n`;
 }
 
 function sigOf(op: string, def: OpDef): string {
