@@ -75,8 +75,6 @@ export function renderResolutionPanel(m: ResolutionManifest, requests: ReqLog[] 
         <td>${c.render.mode}</td>
         <td>${c.render.shipClientJs ? "✓ JS" : "0 JS"}</td>
         <td><span class="badge ${c.backend.language}">${c.backend.language}</span></td>
-        <td>${c.backend.transport}</td>
-        <td>${c.backend.endpoint ?? "—"}</td>
       </tr>`).join("");
   // … dựng <table> + bảng "Recent requests" từ `requests`
 }

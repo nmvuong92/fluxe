@@ -32,7 +32,7 @@ export interface CellDef<I, O> {
 ```ts
 interface Ctx<I> {
   input: I;                  // route params (loader) hoặc body đã validate (action)
-  backend: Backend;          // ← inject, cell không biết memory/Go/Rust
+  backend: Backend;          // ← inject, cell không biết memory/sqlite/postgres
   session?: Session | null;  // ← đã verify HMAC
 }
 ```

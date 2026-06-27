@@ -32,7 +32,7 @@ Cell `home` khai báo `head(data)` đầy đủ (title/description/canonical/og/
 // app/cells/home/index.tsx
 head: (data) => ({
   title: data.title,
-  description: "Khung fullstack tối giản: SSR + island + switch backend polyglot.",
+  description: "Khung fullstack tối giản: SSR + island + backend data linh hoạt.",
   canonical: "/",
   og: { title: data.title, type: "website" },
   jsonLd: { "@context": "https://schema.org", "@type": "WebSite", name: "fluxe" },
@@ -43,7 +43,7 @@ head: (data) => ({
 
 ```html
 <title>fluxe — fullstack tối giản</title>
-<meta name="description" content="Khung fullstack tối giản: SSR + island + switch backend polyglot.">
+<meta name="description" content="Khung fullstack tối giản: SSR + island + backend data linh hoạt.">
 <link rel="canonical" href="/">
 <meta property="og:title" content="fluxe — fullstack tối giản">
 <meta property="og:type" content="website">

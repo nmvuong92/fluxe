@@ -14,11 +14,11 @@ defineCell({ id: "user", route: "/user/[id]", loader: ({ input }) => ({ id: inpu
 ```
 Route động `[id]`, loader chạy server. → [Cells](/reference/cells/)
 
-## Data & Switch backend
+## Data & backend
 ```ts
-const todo = await backend.addTodo(title);   // memory | sqlite | postgres | go | rust | …
+const todo = await backend.addTodo(title);   // memory | sqlite | postgres
 ```
-Cùng interface `Backend`, đổi bằng profile. → [Backends](/reference/data/) · [Switch backend](/guides/switch-backend/)
+Cùng interface `Backend`, đổi bằng profile. → [Backends](/reference/data/)
 
 ## Validation (Zod)
 ```ts
@@ -96,7 +96,7 @@ head: (d) => ({ title: d.title, description, canonical: "/", og: {...}, jsonLd: 
 
 ## Observability & Devtools
 - `/_fluxe` portal · `/_fluxe/stats` (RAM/CPU) · `/_fluxe/requests` (ring buffer).
-- DebugBar: chaos toggle, live backend swap, RCA badge, trace timing, copy-as-test.
+- DebugBar: chaos toggle, RCA badge, trace timing, copy-as-test.
 - ETag/304 cho props. → [Observability](/reference/observability/) · [Devtools](/reference/devtools/)
 
 ## Performance (opt-in)
@@ -119,9 +119,9 @@ c.get("broker");                              // lần đầu mới tạo + memo
 Chỉ module được **dùng** mới bootstrap; engine lazy broker/presence. `/_fluxe/stats.bootstrapped`
 liệt kê thứ đã tạo. → [Container](/reference/container/)
 
-## Codegen polyglot & CLI
+## Codegen TS & CLI
 ```bash
-fx gen        # 1 schema → types TS + Go + Rust
+fx gen        # 1 schema → types TS (.fluxe/gen/types.ts)
 fx new <id>   # scaffold cell ; fx init ; fx dev ; fx config ; fx bench
 ```
 → [CLI](/reference/cli/) · [Codegen](/reference/codegen/)
@@ -134,6 +134,6 @@ Trung thực — **chưa có trong core**, đừng dùng nhầm:
 |-----------|-----------|
 | **WebSocket** | ✗ — realtime hiện chỉ **SSE** (1 chiều server→client). WS hai chiều chưa có. |
 | **Mail / SMTP** | ✗ — chưa có; có thể làm qua job queue + lib ngoài. |
-| **Full-text search** | ~ — chỉ có adapter stub `createRustSearch` (gọi service Rust), chưa có engine. |
+| **Full-text search** | ✗ — chưa có engine search tích hợp. |
 
 Muốn cái nào? Mở issue hoặc xem `idea.md` để biết hướng.

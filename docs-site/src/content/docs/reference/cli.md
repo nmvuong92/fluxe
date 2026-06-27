@@ -29,7 +29,7 @@ lạ → in usage (`renderUsage()`) và thoát mã 1. Nhiều lệnh (`dev`/`res
 | `fx init` | Scaffold `app/` mới (env, profiles, layout, cell home) — chỉ tạo file còn thiếu |
 | `fx new <id> [--island]` | Tạo cell mới từ template; auto-discovery tự đăng ký |
 | `fx sync` | Quét `app/cells/*` → sinh `app/app.ts` + `app/views.ts` (dev/resolve tự gọi) |
-| `fx gen` | Codegen contract → types TS/Go/Rust (`.fluxe/gen`) |
+| `fx gen` | Codegen contract → types TS (`.fluxe/gen/types.ts`) |
 | `fx resolve [profile]` | Sinh `.fluxe/resolution.json` từ profile |
 | `fx prerender [profile]` | Prerender cell static → `.fluxe/static.json` |
 | `fx build [profile]` | sync + resolve + prerender + bundle client |
@@ -44,7 +44,7 @@ lạ → in usage (`renderUsage()`) và thoát mã 1. Nhiều lệnh (`dev`/`res
 fx init                # dựng app/ (env, profiles, layout, cell home)
 fx new blog --island   # cell island mới → auto-discovery đăng ký
 fx dev                 # sync + resolve + build client + chạy server (profile dev)
-fx build prod-go       # build với profile prod-go
+fx build sqlite        # build với profile sqlite
 fx help                # in usage (renderUsage)
 ```
 

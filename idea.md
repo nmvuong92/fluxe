@@ -3,6 +3,13 @@
 > Tài liệu gom toàn bộ ý tưởng để phát triển fluxe thành một framework fullstack
 > mạnh, có khác biệt thật, đủ sức cạnh tranh top đầu và thu hút dev.
 
+> ⚠️ **LỖI THỜI MỘT PHẦN (2026-06-27):** Trục **polyglot** (backend Go/Rust/Java, HTTP
+> sidecar, codegen đa-ngôn-ngữ) đã **GỠ** — fluxe là **một runtime TS duy nhất** (memory/
+> sqlite/postgres, in-process). Xem quyết định:
+> `docs/superpowers/specs/2026-06-27-remove-polyglot-single-ts-backend-design.md`.
+> Các tenet **vẫn còn hiệu lực**: đo-đừng-đoán (§3/§4f), thực dụng DSA, RCA (render + data).
+> Mọi đoạn nói "polyglot/Go/Rust/sidecar/single-binary compiled" dưới đây = bối cảnh lịch sử.
+
 ---
 
 ## ★ Tầm nhìn — Unified framework, all-in-one mạnh nhất hiện nay

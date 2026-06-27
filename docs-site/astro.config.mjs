@@ -9,7 +9,7 @@ export default defineConfig({
     site: 'https://fluxe.dev',   // đổi sang domain thật khi deploy (bật sitemap/canonical)
     integrations: [starlight({
         title: 'fluxe',
-        description: 'Khung fullstack tối giản polyglot — RCA: Resolved Cell Architecture.',
+        description: 'Khung fullstack tối giản, một runtime TS — RCA: Resolved Cell Architecture.',
         social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/' }],
         sidebar: [
             {
@@ -20,12 +20,6 @@ export default defineConfig({
                     { label: 'Tổng quan tính năng', slug: 'guides/features' },
                     { label: 'Tutorial: từ 0 tới app nhỏ', slug: 'guides/tutorial', badge: 'Start' },
                     { label: 'RCA — Resolved Cell Architecture', slug: 'guides/rca' },
-                ],
-            },
-            {
-                label: 'Hướng dẫn',
-                items: [
-                    { label: 'Switch backend (polyglot)', slug: 'guides/switch-backend' },
                 ],
             },
             {

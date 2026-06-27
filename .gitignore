@@ -10,13 +10,6 @@ dist/
 docs-site/dist/
 docs-site/.astro/
 
-# native build artifacts
-**/target/
-app/native/rust/server
-app/native/hot-rust/server
-app/native/**/*.node
-app/native/dotnet/bin/
-app/native/dotnet/obj/
 
 # misc
 *.log

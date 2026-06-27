@@ -7,8 +7,8 @@ RCA tách rạch ròi **cái gì** (logic) khỏi **chạy thế nào** (vận h
 
 ## Cell — chỉ là hợp đồng
 
-Một `Cell` khai báo `loader` (lấy data) + `view` (render). Nó **không** biết mình chạy
-ngôn ngữ nào, render static hay island, data đến từ backend nào.
+Một `Cell` khai báo `loader` (lấy data) + `view` (render). Nó **không** biết mình render
+static hay island, data đến từ driver nào (memory/sqlite/postgres).
 
 ```ts
 // app/cells/home/index.ts — cell KHÔNG chứa quyết định vận hành
@@ -19,7 +19,7 @@ export default defineCell<{}, HomeData>({
   async loader({ backend }) {
     return { title: "fluxe", backendName: backend.name };
   },
-  view: ({ data }) => h("h1", null, data.title),
+  view: ({ data }) => <h1>{data.title}</h1>,
 });
 ```
 
@@ -33,7 +33,7 @@ Lúc build, engine giải từng cell **độc lập** theo profile, ghi ra `.fl
   "cells": {
     "home":  { "render": { "mode": "static", "shipClientJs": false } },
     "todos": { "render": { "mode": "island" },
-               "backend": { "language": "go", "transport": "http" } }
+               "backend": "sqlite" }
   }
 }
 ```
@@ -41,20 +41,17 @@ Lúc build, engine giải từng cell **độc lập** theo profile, ghi ra `.fl
 Runtime đọc manifest này để định tuyến. **Cùng một cell + cùng một `makeServer`,
 đổi manifest → hành vi khác.** Đó là toàn bộ phép màu.
 
-## 5 trục được giải
+## 2 trục được giải
 
 | Trục | Giá trị | Ai quyết |
 |------|---------|----------|
-| Language | TS · Go · Rust | profile / per-cell |
 | Render | static · island | `hydration` + manifest override |
-| Transport | in-process · http · sse | resolver |
-| Backend | memory · go · rust | profile `backend` / `cellBackends` |
-| Scale | 1-node · cluster · edge | profile (tương lai) |
+| Data (backend) | memory · sqlite · postgres | profile `backend` / `cellBackends` |
 
 ## Vì sao quan trọng
 
-- **Đổi hạ tầng không đụng logic** — chuyển `todos` từ memory sang Rust = sửa 1 dòng config.
+- **Đổi hạ tầng không đụng logic** — chuyển `todos` từ memory sang sqlite = sửa 1 dòng config.
 - **Test cực dễ** — mock `Backend` là xong, cell không ràng buộc hạ tầng.
-- **Tối ưu đúng tầng** — cell static được resolve sang render-cache/Go host mà code cell giữ nguyên.
+- **Tối ưu đúng tầng** — cell static được resolve sang render-cache mà code cell giữ nguyên.
 
-→ Xem thực hành ở [Switch backend](/guides/switch-backend/).
+→ Xem thực hành ở [Backends](/reference/data/).

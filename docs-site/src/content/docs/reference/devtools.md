@@ -1,6 +1,6 @@
 ---
 title: Devtools
-description: DebugBar (5 tính năng), debug store, headers x-fluxe-*, chaos/live-swap.
+description: DebugBar (4 tính năng), debug store, headers x-fluxe-*, chaos.
 sidebar:
   order: 61
 ---
@@ -8,23 +8,22 @@ sidebar:
 ## Định nghĩa
 
 **Devtools** của fluxe là một thanh debug *trong app* (in-app), cắm một lần vào layout là có đủ
-năm tính năng quan sát + thử nghiệm ngay trên trang đang chạy — không cần extension, không cần
+bốn tính năng quan sát + thử nghiệm ngay trên trang đang chạy — không cần extension, không cần
 mở port riêng. Bối cảnh: giúp dev thấy "full flow" của mỗi query/mutation (backend nào giải,
-mất bao lâu, lỗi gì) và **chủ động phá** (chaos) hoặc **đổi backend** (live-swap) để kiểm thử UX.
+mất bao lâu, lỗi gì) và **chủ động phá** (chaos) để kiểm thử UX.
 
-Quan trọng: **chaos, live-swap và header resolution chỉ bật ở DEV** (`NODE_ENV !== "production"`).
+Quan trọng: **chaos và header resolution chỉ bật ở DEV** (`NODE_ENV !== "production"`).
 Production không lộ các cơ chế này.
 
 ## Cơ chế trong fluxe
 
-**1. DebugBar — 5 tính năng** (nút ⚡ góc dưới-phải mọi trang). Cắm `<DebugBar />` một lần vào
+**1. DebugBar — 4 tính năng** (nút ⚡ góc dưới-phải mọi trang). Cắm `<DebugBar />` một lần vào
 layout là có đủ:
 
 1. **Chaos toggle** — tiêm delay + lỗi giả (fault injection), hằng `CHAOS = "delay=600;fail=0.4"`.
 2. **Repro → Test** — "Copy as test" sinh test pasteable từ một mutation event.
-3. **RCA badge** — mỗi event hiện `resolution` (vd `rust/http`).
+3. **RCA badge** — mỗi event hiện `resolution` (vd `sqlite`).
 4. **Trace timing** — thanh server-ms vs client-ms.
-5. **Live backend swap** — đổi `auto`/`memory`/`go`/`rust` ngay, không restart.
 
 **2. Chaos parse** — header `"delay=600;fail=0.3"` → `{ delayMs, failRate }`:
 
@@ -63,18 +62,15 @@ test("repro: ${cell}.${action}", async () => {
 }
 ```
 
-**4. Client gắn header DEV + đọc meta** — chaos/live-swap đi qua header `x-fluxe-*`:
+**4. Client gắn header DEV + đọc meta** — chaos đi qua header `x-fluxe-*`:
 
 ```ts
 // @nmvuong92/fluxe/client
 let _chaos = "";        // vd "delay=600;fail=0.3"
-let _devBackend = "";   // vd "go" | "rust" | "memory"
 export const setChaos = (v: string) => { _chaos = v; };
-export const setDevBackend = (v: string) => { _devBackend = v; };
 
 // trong rpc():
 if (_chaos) headers["x-fluxe-chaos"] = _chaos;             // #1 chaos
-if (_devBackend) headers["x-fluxe-backend"] = _devBackend; // #5 live swap
 // … sau khi fetch:
 _lastMeta = {                                              // #3 resolution + #4 server timing
   resolution: hget("x-fluxe-resolution") ?? undefined,
@@ -84,11 +80,10 @@ _lastMeta = {                                              // #3 resolution + #4
 export const lastRpcMeta = (): RpcMeta => _lastMeta;
 ```
 
-**5. Server áp dụng — CHỈ Ở DEV** (`NODE_ENV !== "production"`): khi nhận header `x-fluxe-backend`,
-engine live-swap backend cho riêng request đó; khi nhận `x-fluxe-chaos`, engine parse rồi tiêm
-`delayMs` và ném `FluxeError("chaos", …, 500)` theo `failRate`. Mọi response action đều gắn header
-`x-fluxe-resolution` (backend/transport đã giải) và `x-fluxe-server-ms` (thời gian server). Ở
-production cả hai header request bị bỏ qua — cơ chế không lộ.
+**5. Server áp dụng — CHỈ Ở DEV** (`NODE_ENV !== "production"`): khi nhận header `x-fluxe-chaos`,
+engine parse rồi tiêm `delayMs` và ném `FluxeError("chaos", …, 500)` theo `failRate`. Mọi response
+action đều gắn header `x-fluxe-resolution` (backend đã giải) và `x-fluxe-server-ms` (thời gian
+server). Ở production header `x-fluxe-chaos` bị bỏ qua — cơ chế không lộ.
 
 ## Ví dụ
 
@@ -102,27 +97,21 @@ const id = debug.start("mutation", "rpc:todos.add");  // bắt đầu event
 debug.finish(id, { status: "ok", data, resolution, serverMs });  // immutable, cap 50
 ```
 
-Tự ép chaos/swap bằng `curl` (chỉ ăn ở DEV):
+Tự ép chaos bằng `curl` (chỉ ăn ở DEV):
 
 ```bash
 # Tiêm delay 600ms + 40% fail
 curl -X POST localhost:5180/__action/todos/add -H "x-fluxe-chaos: delay=600;fail=0.4" \
   -H "x-csrf-token: $CSRF" -b "csrf=$CSRF" -H 'content-type: application/json' -d '{"title":"x"}'
-
-# Live-swap sang backend rust cho riêng request này
-curl -X POST localhost:5180/__action/todos/list -H "x-fluxe-backend: rust" \
-  -H "x-csrf-token: $CSRF" -b "csrf=$CSRF" -H 'content-type: application/json' -d '{}' -i
-# → header x-fluxe-resolution: rust/http (swap)
 ```
 
 ## Headers runtime
 
 | Header | Hướng | Ý nghĩa |
 |--------|-------|---------|
-| `x-fluxe-resolution` | response | backend/transport đã giải (vd `memory/in-process`, `rust/http (swap)`) |
+| `x-fluxe-resolution` | response | backend đã giải (vd `memory`, `sqlite`) |
 | `x-fluxe-server-ms` | response | thời gian xử lý phía server (ms) |
 | `x-fluxe-chaos` | request | bật chaos cho request đó (`delay=…;fail=…`) — **DEV** |
-| `x-fluxe-backend` | request | ép live-swap backend (`memory`/`go`/`rust`/…) — **DEV** |
 
 ## API
 
@@ -139,16 +128,14 @@ reproTest(ev: DebugEvent & { input?: unknown }): string      // sinh source test
 
 // @nmvuong92/fluxe/client
 setChaos(v: string): void;        getChaos(): string
-setDevBackend(v: string): void;   getDevBackend(): string
 lastRpcMeta(): RpcMeta            // { resolution?, serverMs?, clientMs? }
 ```
 
 ## Lưu ý
 
 :::caution
-**Chaos, live-swap và header resolution chỉ bật ở DEV** (`NODE_ENV !== "production"`). Server bọc
-cả hai header `x-fluxe-chaos`/`x-fluxe-backend` trong `if (DEV && …)` — prod bỏ qua, không lộ
-cơ chế này.
+**Chaos và header resolution chỉ bật ở DEV** (`NODE_ENV !== "production"`). Server bọc header
+`x-fluxe-chaos` trong `if (DEV && …)` — prod bỏ qua, không lộ cơ chế này.
 :::
 
 - `failRate` được clamp `[0, 1]`, `delayMs` clamp `≥ 0` — header rác không làm crash.
