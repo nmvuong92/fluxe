@@ -1,0 +1,136 @@
+---
+title: Chọn server framework (Express / Hono / Nest)
+description: Nhúng fluxe vào server framework bạn chọn — Express, Hono hay NestJS — qua adapter. Demo mặc định Express.
+sidebar:
+  order: 2
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+fluxe **không bắt bạn dùng server của nó**. Lõi request là một handler Node `(req, res)` — bạn
+mount vào **framework bạn chọn** (Express / Hono / Nest) như một middleware **catch-all**, đặt
+sau route riêng của bạn. Demo mặc định dùng **Express + TypeScript**.
+
+<Aside>
+Không muốn framework nào? `makeServer(...)` (node:http, zero-dep) vẫn là đường zero-config.
+Adapter chỉ để **nhúng vào app có sẵn** + tái dùng middleware/ecosystem của framework đó.
+</Aside>
+
+## `app/server.ts` — entry của bạn
+
+Mỗi adapter là một subpath riêng; framework là **peerDependency** (chỉ cài cái bạn dùng).
+
+<Tabs syncKey="server">
+<TabItem label="Express">
+
+```bash
+npm i express
+```
+
+```ts
+// app/server.ts
+import express from "express";
+import { readFileSync } from "node:fs";
+import { fluxe } from "@nmvuong92/fluxe/express";
+import type { ResolutionManifest } from "@nmvuong92/fluxe";
+import { cells } from "./app";
+import { layouts } from "./layouts/index";
+import { backend } from "./backend";
+
+const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
+const app = express();
+
+// 👉 Route Express RIÊNG của bạn (chạy TRƯỚC fluxe):
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+app.use(fluxe(manifest, cells, layouts, { backend }));   // fluxe = catch-all
+app.listen(5180);
+```
+
+</TabItem>
+<TabItem label="Hono">
+
+```bash
+npm i hono @hono/node-server
+```
+
+```ts
+// app/server.ts
+import { Hono } from "hono";
+import { serve } from "@hono/node-server";
+import { readFileSync } from "node:fs";
+import { fluxe } from "@nmvuong92/fluxe/hono";
+import type { ResolutionManifest } from "@nmvuong92/fluxe";
+import { cells } from "./app";
+import { layouts } from "./layouts/index";
+import { backend } from "./backend";
+
+const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
+const app = new Hono();
+
+// 👉 Route Hono RIÊNG của bạn (chạy TRƯỚC fluxe):
+app.get("/api/health", (c) => c.json({ ok: true }));
+
+app.use("*", fluxe(manifest, cells, layouts, { backend }));
+serve({ fetch: app.fetch, port: 5180 });
+```
+
+<Aside type="note">
+Hono chạy trên Node qua `@hono/node-server`. Adapter buffer response rồi trả Web `Response`
+(cần stream SSR? dùng Express hoặc `makeServer`).
+</Aside>
+
+</TabItem>
+<TabItem label="NestJS">
+
+```bash
+npm i @nestjs/common @nestjs/core @nestjs/platform-express reflect-metadata
+```
+
+```ts
+// app/server.ts
+import "reflect-metadata";
+import { Module } from "@nestjs/common";
+import { NestFactory } from "@nestjs/core";
+import { readFileSync } from "node:fs";
+import { fluxeMiddleware } from "@nmvuong92/fluxe/nest";
+import type { ResolutionManifest } from "@nmvuong92/fluxe";
+import { cells } from "./app";
+import { layouts } from "./layouts/index";
+import { backend } from "./backend";
+
+@Module({ /* controllers/providers riêng của bạn */ })
+class AppModule {}
+
+const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
+const app = await NestFactory.create(AppModule);
+
+app.use(fluxeMiddleware(manifest, cells, layouts, { backend }));   // mount global, catch-all
+await app.listen(5180);
+```
+
+</TabItem>
+</Tabs>
+
+## Cơ chế
+
+Cả ba adapter wrap **chung một** `createHandler(manifest, cells, layouts, opts)` — handler Node
+`(req, res)`. Express/Nest dựng trên `node:http` nên dùng thẳng; Hono dùng `@hono/node-server`.
+`makeServer` chính là `http.createServer(createHandler(...))` — nên ba cách cho hành vi y hệt.
+
+| Cách chạy | Dùng khi |
+|-----------|----------|
+| `makeServer(...).listen()` | zero-config, zero-dep, không cần framework |
+| `@nmvuong92/fluxe/express` | nhúng vào app Express / muốn middleware Express |
+| `@nmvuong92/fluxe/hono` | app Hono |
+| `@nmvuong92/fluxe/nest` | app NestJS (module/DI có sẵn) |
+
+## Mount = catch-all
+
+fluxe xử các route của nó (cells, `/__action`, `/__sse`, `/_fluxe`, `/__upload`, `/__file`,
+`/login`…). Đặt route/middleware **riêng của bạn TRƯỚC** `fluxe()` → chúng được ưu tiên; phần
+còn lại fluxe nhận. Scaffold nhanh:
+
+```bash
+fx init --server express   # hoặc --server hono | --server nest (mặc định express)
+```

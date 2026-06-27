@@ -47,6 +47,7 @@ npm run test:all           # typecheck + 144 unit + integration (selftest2) — 
 app/        ← DEV sở hữu (sửa thoải mái) — Contract Plane
   cells/        trang/feature (route + loader + view + action/head/layout/guard)
   layouts/      layout dùng chung (nested)
+  server.ts     server entry — Express/Hono/Nest mount fluxe (mặc định Express)
   backend.ts    TẦNG DATA của bạn: interface domain + chọn driver (memory/sqlite/postgres)
   profiles.ts   profile resolve render mode (static/island) per môi trường
   contract.ts   schema → codegen types TS
@@ -64,6 +65,7 @@ inject qua `makeServer(…, { backend })`. Engine không bao giờ import ngư�
 
 ## Tính năng (tất cả TDD + chạy thật)
 
+- **Server** — chạy zero-config (`makeServer`, node:http) HOẶC nhúng vào **Express/Hono/Nest** qua adapter (`@nmvuong92/fluxe/express|hono|nest`)
 - **Render** — static (0 JS) · island hydrate · SPA nav (Inertia) · static-prerender · API mode `?json=1`
 - **Routing** — động `[param]` → `ctx.input` · **nested layouts** · SEO (head/canonical/OG/JSON-LD per cell, `/sitemap.xml`, `/robots.txt`)
 - **Bảo mật (đầy đủ)** — input validation (Zod) · auth password **scrypt** · **RBAC** · **CSRF** double-submit · **rate-limit** token-bucket · error handling không-leak + structured

@@ -20,6 +20,7 @@ export default defineConfig({
                     { label: 'Tổng quan tính năng', slug: 'guides/features' },
                     { label: 'Tutorial: từ 0 tới app nhỏ', slug: 'guides/tutorial', badge: 'Start' },
                     { label: 'RCA — Resolved Cell Architecture', slug: 'guides/rca' },
+                    { label: 'Chọn server framework (Express/Hono/Nest)', slug: 'guides/server-framework' },
                 ],
             },
             {

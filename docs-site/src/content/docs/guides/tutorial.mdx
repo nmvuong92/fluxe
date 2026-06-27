@@ -26,6 +26,7 @@ viết **`app/`**: cells, layout, profile, env. Engine nhận cells/profile từ
   - profiles.ts profile resolve render (static/island)
   - app.ts **registry cell — sinh tự động** (`fx sync`)
   - layouts/index.tsx layout chung + DebugBar
+  - server.ts server entry — Express mount fluxe (mặc định)
   - cells/
     - home/
       - view.tsx giao diện
@@ -40,6 +41,7 @@ viết **`app/`**: cells, layout, profile, env. Engine nhận cells/profile từ
 | `app/profiles.ts` | Mỗi profile = render mode resolve cho môi trường |
 | `app/app.ts` | Registry cell — **sinh tự động** bởi `fx sync`, đừng sửa tay |
 | `app/layouts/index.tsx` | Bọc cell (header/nav) + mount DebugBar |
+| `app/server.ts` | Server entry — Express mount fluxe (mặc định) |
 | `app/cells/<id>/index.tsx` | Một trang: `loader` (data) + `view` (React) + `actions` (RPC) |
 
 **Luồng:** tạo cell trong `app/cells/` → `fx sync` tự sinh `app/app.ts` (auto-discovery) →

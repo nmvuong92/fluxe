@@ -20,6 +20,13 @@ const todo = await backend.addTodo(title);   // memory | sqlite | postgres
 ```
 Cùng interface `Backend`, đổi bằng profile. → [Backends](/reference/data/)
 
+## Server framework (Express/Hono/Nest)
+```ts
+import { fluxe } from "@nmvuong92/fluxe/express";
+app.use(fluxe(manifest, cells, layouts, { backend }));   // hoặc /hono, /nest
+```
+Nhúng fluxe vào Express/Hono/Nest; hoặc `makeServer` (node:http) zero-config. → [Chọn server framework](/guides/server-framework/)
+
 ## Validation (Zod)
 ```ts
 add: withInput(z.object({ title: z.string().min(1).max(200) }), async ({ input, backend }) => backend.addTodo(input.title))
