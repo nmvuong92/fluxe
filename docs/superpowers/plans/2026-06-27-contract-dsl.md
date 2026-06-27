@@ -701,11 +701,15 @@ git commit -m "feat(contract): auto-gen trong sync + demo contract + resolvers"
 
 ---
 
-### Task 8: `fx dev` watch contract + npm `prepare` hook
+### Task 8: Auto-gen magic — `prepare` hook + `fx dev` watch/hot-reload
+
+**Mục tiêu DX (như svelte-kit sync / astro sync):** dev KHÔNG gõ gen tay; editor có type ngay sau
+`npm install` (prepare); lưu `app/contract.ts` → regen + reload tự động.
 
 **Files:**
-- Modify: `src/core/cli.ts` (gen desc; watch note)
-- Modify: `package.json` (`prepare` chạy gen; `dev` đã chạy sync nên auto-gen sẵn)
+- Modify: `src/core/cli.ts` (gen desc; `dev` thêm `--watch`)
+- Modify: `package.json` (`prepare` hook; `dev` script `--watch`)
+- Modify: `.gitignore` (đảm bảo `.fluxe/` ignored — kiểm tra, thường đã có)
 
 **Interfaces:** không có symbol mới.
 
@@ -717,23 +721,46 @@ desc: "Codegen contract → types + Zod + client api + server Resolvers (.fluxe/
 shell: () => `tsx scripts/contract-codegen.ts`,
 ```
 
-- [ ] **Step 2: package.json prepare hook**
+- [ ] **Step 2: `fx dev` watch/hot-reload — re-sync + restart khi app/ đổi**
+
+Sửa `dev` command shell trong cli.ts dùng `tsx --watch` (restart server khi file đổi) + clause
+watch chạy sync trước. `tsx --watch` theo dõi import graph; thêm `--include` cho `app/contract.ts`
+(không nằm trong import graph runtime của server nếu chỉ gen). Cách chắc chắn: chạy 1 watcher sync
+song song. Cập nhật shell:
+```ts
+// src/core/cli.ts — dev command
+shell: (a) => `${SYNC} && tsx scripts/resolve.ts ${p(a)} && ${ESBUILD} && tsx watch --clear-screen=false --include 'app/**' app/backend/server.ts`,
+```
+Nếu `tsx watch --include` không nhận `app/contract.ts` (chỉ-gen, không import), thêm script watcher
+`scripts/dev-watch.ts` dùng `node:fs.watch("app", { recursive: true })` → debounce → chạy `npm run sync`
+(sync đã gọi contract-codegen ở Task 7) → `tsx --watch` tự restart server khi `.fluxe/gen/*` đổi.
+Giữ đơn giản: nếu `tsx --watch app/backend/server.ts` + sync-on-restart đủ "lưu là reload", dùng nó;
+ghi rõ giới hạn (đổi contract cần touch một file trong import graph hoặc chạy `fx sync`).
+
+- [ ] **Step 3: package.json prepare hook + dev watch**
 
 ```json
 "prepare": "node --experimental-sqlite --import tsx scripts/contract-codegen.ts || true",
+"dev": "npm run build:client && node --experimental-sqlite --import tsx --watch app/backend/server.ts",
 ```
-(`|| true` để môi trường không có app/contract vẫn cài được.)
+(`|| true`: môi trường không có app/contract vẫn `npm install` được. `--watch`: lưu file → restart.)
 
-- [ ] **Step 3: Verify dev auto-gen**
+- [ ] **Step 4: .gitignore `.fluxe/`**
 
-Run: `npm run dev` (Ctrl-C sau khi thấy log `[contract] .fluxe/gen/...`).
-Expected: gen chạy trong bước sync trước khi server lên.
+Kiểm tra `.gitignore` có dòng `.fluxe/` (artifact). Nếu chưa, thêm. `.fluxe/gen/*` KHÔNG commit
+(rebuild được — như `.svelte-kit/`).
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Verify**
+
+Run: `npm install` → kiểm `.fluxe/gen/*` xuất hiện (prepare). Rồi `npm run dev`, sửa `app/contract.ts`
+(thêm 1 mutation), lưu → server restart + (sau `fx sync`) `.fluxe/gen/*` cập nhật.
+Expected: prepare sinh gen; dev restart khi lưu.
+
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/core/cli.ts package.json
-git commit -m "feat(contract): auto-gen qua sync/prepare; fx gen = contract codegen"
+git add src/core/cli.ts package.json .gitignore
+git commit -m "feat(contract): auto-gen magic — prepare hook + fx dev watch/hot-reload"
 ```
 
 ---
