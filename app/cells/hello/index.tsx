@@ -1,10 +1,10 @@
-import { defineCell } from "../../../src/core/engine";
+import { defineCell } from "../../cell";   // typed routes + ctx.backend có kiểu
 import { FluxeError } from "../../../src/core/errors";
-import { Hello, type HelloData } from "./view";
+import { Hello } from "./view";
 
-export default defineCell<{ name: string }, HelloData>({
+export default defineCell({
   id: "hello",
-  route: "/hello/[name]",
+  route: "/hello/[name]",                  // → ctx.input.name: string (tự suy, không khai báo)
   hydration: "static",   // trang chào, không cần JS
   async loader({ input, backend }) {
     if (input.name === "boom") throw new FluxeError("forbidden", "Không cho phép tên này", 403);

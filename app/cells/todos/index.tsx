@@ -1,11 +1,9 @@
 import { z } from "zod";
-import { defineCell } from "../../../src/core/engine";
+import { defineCell } from "../../cell";   // ctx.backend có kiểu (factory) + ctx.input suy từ route
 import { withInput } from "../../../src/core/validate";
-import type { Backend } from "../../backend/data";   // backend domain của app → ctx.backend có kiểu
-import { Todos, type TodosData } from "./view";
+import { Todos } from "./view";
 
-// Tham số thứ 3 = kiểu backend của app → ctx.backend.listTodos() được gợi ý + check kiểu.
-export default defineCell<{}, TodosData, Backend>({
+export default defineCell({
   id: "todos",
   route: "/todos",
   hydration: "island",

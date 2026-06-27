@@ -5,7 +5,7 @@ import { createElement as h } from "react";
 import { defineCell } from "../core/engine.ts";
 import { resolve } from "../core/resolver.ts";
 
-export const pingCell = defineCell<{}, { msg: string }>({
+export const pingCell = defineCell({
   id: "ping",
   route: "/ping",
   hydration: "static",

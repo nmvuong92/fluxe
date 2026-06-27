@@ -44,15 +44,15 @@ export default ${Comp};   // client bundle import default (chỉ view, không se
 `;
 
 const staticCell = `// index.tsx — CELL: route + server logic (loader/head), gắn view.
-import { defineCell } from "@nmvuong92/fluxe";
-import { ${Comp}, type ${Comp}Data } from "./view";
+import { defineCell } from "../../cell";   // ctx.input suy từ route + ctx.backend có kiểu
+import { ${Comp} } from "./view";
 
-export default defineCell<{}, ${Comp}Data>({
+export default defineCell({
   id: "${id}",
-  route: "/${id}",
+  route: "/${id}",                          // có [param] → ctx.input.<param> tự suy
   hydration: "static",
   layout: "site",
-  async loader() {            // chạy SERVER → trả props cho view
+  async loader() {            // chạy SERVER → trả props cho view (O suy từ return)
     return { title: "${Comp}" };
   },
   head: (data) => ({ title: data.title }),
@@ -104,11 +104,11 @@ export default ${Comp};   // client bundle import default (chỉ view, không se
 
 const islandCell = `// index.tsx — CELL: route + loader + actions (server), gắn view.
 import { z } from "zod";
-import { defineCell } from "@nmvuong92/fluxe";
+import { defineCell } from "../../cell";   // ctx.input suy từ route + ctx.backend có kiểu
 import { withInput } from "@nmvuong92/fluxe";
-import { ${Comp}, type ${Comp}Data } from "./view";
+import { ${Comp} } from "./view";
 
-export default defineCell<{}, ${Comp}Data>({
+export default defineCell({
   id: "${id}",
   route: "/${id}",
   layout: "site",                 // hydration mặc định "island" (interactive) — không cần khai báo

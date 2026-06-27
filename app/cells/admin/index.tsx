@@ -1,7 +1,7 @@
-import { defineCell } from "../../../src/core/engine";
-import { Admin, type AdminData } from "./view";
+import { defineCell } from "../../cell";
+import { Admin } from "./view";
 
-export default defineCell<{}, AdminData>({
+export default defineCell({
   id: "admin",
   route: "/admin",
   hydration: "static",

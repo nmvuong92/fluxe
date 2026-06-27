@@ -212,11 +212,18 @@ export function Home({ data }: { data: HomeData }) {
 export default Home;
 `);
 
-ensure("app/cells/home/index.tsx", `// CELL: route + server logic, gắn view.
-import { defineCell } from "@nmvuong92/fluxe";
-import { Home, type HomeData } from "./view";
+// defineCell BIND kiểu backend (createCells<Backend>) → ctx.input suy từ route + ctx.backend có kiểu.
+ensure("app/cell.ts", `import { createCells } from "@nmvuong92/fluxe";
+import type { Backend } from "./backend/data";
 
-export default defineCell<{}, HomeData>({
+export const defineCell = createCells<Backend>();
+`);
+
+ensure("app/cells/home/index.tsx", `// CELL: route + server logic, gắn view.
+import { defineCell } from "../../cell";
+import { Home } from "./view";
+
+export default defineCell({
   id: "home",
   route: "/",
   layout: "site",        // hydration mặc định "island" — không cần khai báo
@@ -244,10 +251,10 @@ export function About({ data }: { data: AboutData }) {
 export default About;
 `);
 
-ensure("app/cells/about/index.tsx", `import { defineCell } from "@nmvuong92/fluxe";
-import { About, type AboutData } from "./view";
+ensure("app/cells/about/index.tsx", `import { defineCell } from "../../cell";
+import { About } from "./view";
 
-export default defineCell<{}, AboutData>({
+export default defineCell({
   id: "about",
   route: "/about",
   layout: "site",        // hydration mặc định "island"

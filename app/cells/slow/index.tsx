@@ -1,7 +1,7 @@
-import { defineCell } from "../../../src/core/engine";
-import { SlowView, delay, type SlowData } from "./view";
+import { defineCell } from "../../cell";
+import { SlowView, delay } from "./view";
 
-export default defineCell<{}, SlowData>({
+export default defineCell({
   id: "slow",
   route: "/slow",
   hydration: "static",

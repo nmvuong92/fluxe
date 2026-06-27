@@ -1,7 +1,7 @@
-import { defineCell } from "../../../src/core/engine";
-import { Secret, type SecretData } from "./view";
+import { defineCell } from "../../cell";
+import { Secret } from "./view";
 
-export default defineCell<{}, SecretData>({
+export default defineCell({
   id: "secret",
   route: "/secret",
   hydration: "static",

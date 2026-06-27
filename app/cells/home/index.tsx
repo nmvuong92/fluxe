@@ -1,7 +1,7 @@
-import { defineCell } from "../../../src/core/engine";
-import { Home, type HomeData } from "./view";
+import { defineCell } from "../../cell";
+import { Home } from "./view";
 
-export default defineCell<{}, HomeData>({
+export default defineCell({
   id: "home",
   route: "/",
   hydration: "static",   // trang giới thiệu, không cần JS
