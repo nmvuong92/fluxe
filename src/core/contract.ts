@@ -6,9 +6,11 @@
  * chạy. DB ẩn sau resolver. tRPC-style: không file sinh ra, không schema xuống browser. */
 import { z, type ZodTypeAny, type ZodRawShape } from "zod";
 
+/* auth: true = cần đăng nhập; string = cần role đó (kiểm trên ctx.session host gắn). */
+export type OpAuth = true | string;
 export type OpDef =
-  | { kind: "query"; output: ZodTypeAny }
-  | { kind: "mutation"; input: ZodTypeAny; output: ZodTypeAny };
+  | { kind: "query"; output: ZodTypeAny; auth?: OpAuth }
+  | { kind: "mutation"; input: ZodTypeAny; output: ZodTypeAny; auth?: OpAuth };
 export type Contract = Record<string, OpDef>;
 
 export const f = {
@@ -19,9 +21,9 @@ export const f = {
   null: z.null(),
   object: <T extends ZodRawShape>(shape: T) => z.object(shape),
   union: <T extends readonly [ZodTypeAny, ZodTypeAny, ...ZodTypeAny[]]>(...opts: T) => z.union(opts as any),
-  query: <O extends ZodTypeAny>(output: O) => ({ kind: "query", output } as const),
-  mutation: <I extends ZodRawShape | ZodTypeAny, O extends ZodTypeAny>(input: I, output: O) =>
-    ({ kind: "mutation", input: (input instanceof z.ZodType ? input : z.object(input as ZodRawShape)) as ZodTypeAny, output } as const),
+  query: <O extends ZodTypeAny>(output: O, opts?: { auth?: OpAuth }) => ({ kind: "query", output, ...opts } as const),
+  mutation: <I extends ZodRawShape | ZodTypeAny, O extends ZodTypeAny>(input: I, output: O, opts?: { auth?: OpAuth }) =>
+    ({ kind: "mutation", input: (input instanceof z.ZodType ? input : z.object(input as ZodRawShape)) as ZodTypeAny, output, ...opts } as const),
   contract: <C extends Contract>(ops: C) => ops,
 };
 

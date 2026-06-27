@@ -70,6 +70,20 @@ Engine endpoints (`/__rpc`, `/__action`) **không** tự kiểm CSRF/rate-limit 
 phía trước lo. `ctx.session` là do host gắn (`req.session`); fluxe **không verify**, chỉ đọc.
 Guard `requireAuth`/`requireRole` ở cell đọc đúng session đó. → [Cells](/reference/cells/)
 
+## Auth integration (`@nmvuong92/fluxe/auth`)
+
+fluxe **không reinvent auth** — provider (better-auth/lucia/passport) lo OAuth/password/session.
+fluxe cho **lớp tích hợp RCA-native**: `bridgeSession(getSession)` gắn `req.session` typed,
+guard khai báo cell `requireRole` + contract op `{ auth }`, hook `useSession()`, `protect()` cho
+route host.
+
+```ts
+import { bridgeSession } from "@nmvuong92/fluxe/auth";
+app.use(bridgeSession((req) => auth.api.getSession({ headers: req.headers }))); // TRƯỚC fluxe
+```
+
+Session có kiểu xuyên cell qua `createCells<Backend, AppSession>()`. → [Auth](/reference/auth/)
+
 ## Env fail-fast
 ```ts
 export const env = loadEnv(z.object({ PORT: z.coerce.number().default(5180) }));

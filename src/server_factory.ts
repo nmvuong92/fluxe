@@ -45,12 +45,12 @@ function sendError(res: http.ServerResponse, wantsJson: boolean, err: unknown) {
 }
 
 // Phần head (trước body) và tail (sau body) — body được STREAM ở giữa.
-function shellHead(cell: CellDef<any, any>, data: any, lang = "vi", theme = ""): string {
+function shellHead(cell: CellDef<any, any, any, any>, data: any, lang = "vi", theme = ""): string {
   const headHtml = renderHead(cell.head ? cell.head(data) : {});
   const themeAttr = theme ? ` data-theme="${theme}"` : "";   // theme-SSR: no-flash ngay lần đầu
   return `<!doctype html><html lang="${lang}"${themeAttr}><head><meta charset="utf-8">${headHtml}</head><body><div id="root">`;
 }
-function shellTail(cell: CellDef<any, any>, data: any, shipClientJs: boolean): string {
+function shellTail(cell: CellDef<any, any, any, any>, data: any, shipClientJs: boolean): string {
   const island = shipClientJs
     ? `<script>window.__FLUXE__=${JSON.stringify({ cell: cell.id, data, layout: cell.layout })};</script><script type="module" src="/client.js"></script>`
     : `<!-- static: 0 JS -->`;
@@ -79,7 +79,7 @@ export type NodeHandler = (req: http.IncomingMessage, res: http.ServerResponse) 
 
 /* createHandler — lõi request framework-agnostic: trả về handler Node (req,res).
  * Dùng trực tiếp cho adapter Express/Hono/Nest; makeServer chỉ bọc bằng http.createServer. */
-export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}, opts: MakeServerOpts = {}): NodeHandler {
+export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, any, any, any>[], layouts: LayoutMap = {}, opts: MakeServerOpts = {}): NodeHandler {
   const i18n = opts.i18n;
   const config = opts.config ?? loadConfig();   // default ← ENV (FLUXE_*) ← override
   // Cells được TIÊM từ app (DI) — engine không import ngược vào app/. Thêm trang = sửa app/app.ts.
@@ -106,7 +106,7 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
     const theme = cookies.theme === "dark" || cookies.theme === "light" ? cookies.theme : "";
     try {
     // Contract DSL: POST /__rpc/<op> — validate Zod + CSRF(mutation) → resolver (opts.backend). Lớp THÊM.
-    if (await handleRpc({ url, req, res, cookies, resolvers: opts.resolvers ?? opts.backend, contract: opts.contract, readBody })) return;
+    if (await handleRpc({ url, req, res, cookies, session, resolvers: opts.resolvers ?? opts.backend, contract: opts.contract, readBody })) return;
     // Đổi ngôn ngữ qua ?locale=xx → set cookie + redirect (chạy cả trên cell static, 0 JS).
     {
       const ql = url.searchParams.get("locale");
@@ -115,6 +115,11 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
         res.writeHead(303, { "set-cookie": `locale=${ql}; Path=/; SameSite=Lax`, location: url.pathname + (url.search || "") });
         return res.end();
       }
+    }
+    if (url.pathname === "/__session") {
+      // Auth integration: phơi session host gắn (req.session) cho client hook useSession(). fluxe không verify.
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(JSON.stringify(session ?? null));
     }
     if (url.pathname === "/client.js") {
       if (clientJs === undefined && existsSync("./dist/client.js")) clientJs = readFileSync("./dist/client.js");
@@ -246,6 +251,6 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
 }
 
 /* makeServer — đường zero-config: bọc createHandler bằng http.createServer (giữ API cũ). */
-export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}, opts: MakeServerOpts = {}) {
+export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any, any, any>[], layouts: LayoutMap = {}, opts: MakeServerOpts = {}) {
   return http.createServer(createHandler(manifest, cells, layouts, opts));
 }

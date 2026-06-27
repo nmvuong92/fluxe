@@ -10,6 +10,7 @@ export interface RpcArgs {
   req: http.IncomingMessage;
   res: http.ServerResponse;
   cookies: Record<string, string>;
+  session?: any;          // host gắn (req.session) — cho op.auth guard
   resolvers: any;
   contract?: Contract;
   readBody: (req: http.IncomingMessage) => Promise<string>;
@@ -23,7 +24,14 @@ export async function handleRpc(a: RpcArgs): Promise<boolean> {
   const op = a.contract?.[name];
   if (!op) { a.res.writeHead(404); a.res.end("no op"); return true; }
 
-  // CSRF/auth do HOST framework lo (mount trước fluxe). fluxe chỉ validate + dispatch.
+  // Guard khai báo: op.auth (đọc session host gắn). CSRF/rate-limit do HOST middleware lo.
+  if (op.auth) {
+    const s: any = a.session;
+    if (!s) throw new FluxeError("unauthorized", "Cần đăng nhập", 401);
+    if (typeof op.auth === "string" && !(Array.isArray(s.roles) && s.roles.includes(op.auth))) {
+      throw new FluxeError("forbidden", `Cần quyền '${op.auth}'`, 403);
+    }
+  }
   let input = JSON.parse((await a.readBody(a.req)) || "{}");
   if (op.kind === "mutation") input = validateInput(op.input, input);   // Zod từ chính contract
   const fn = a.resolvers?.[name];

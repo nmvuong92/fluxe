@@ -28,14 +28,15 @@ test("typed routes: defineCell suy input từ route + O từ loader", () => {
   assert.equal(typeof cell.loader, "function");
 });
 
-test("createCells<B>(): bind backend type, vẫn suy route", () => {
-  const defineTyped = createCells<{ hi(): string }>();
+test("createCells<B, S>(): bind backend + session type, vẫn suy route", () => {
+  const defineTyped = createCells<{ hi(): string }, { user: string; roles: string[] }>();
   const cell = defineTyped({
     id: "c", route: "/c/[k]",
-    async loader({ input, backend }) {
-      const k: string = input.k;         // route suy
-      const v: string = backend.hi();    // backend typed từ factory
-      return { k, v };
+    async loader({ input, backend, session }) {
+      const k: string = input.k;            // route suy
+      const v: string = backend.hi();       // backend typed từ factory
+      const u: string = session?.user ?? "?"; // session typed từ factory
+      return { k, v, u };
     },
     view: () => null,
   });

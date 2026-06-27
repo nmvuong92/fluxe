@@ -6,6 +6,7 @@ import http from "node:http";
 import { makeServer } from "../server_factory.ts";
 import { resolve } from "./resolver.ts";
 import { f } from "./contract.ts";
+import { handleRpc } from "./rpc.ts";
 
 const contract = f.contract({
   todos: f.query(f.string.array()),
@@ -51,6 +52,27 @@ test("[rpc] mutation: input sai → 400 (Zod); ok → output (CSRF do host lo, k
     assert.equal(ok.status, 200);
     assert.equal(JSON.parse(ok.body), "[added] milk");
   } finally { srv.close(); }
+});
+
+test("[rpc] op.auth: thiếu session → 401; thiếu role → 403; đủ role → chạy", async () => {
+  const c = f.contract({ adminOnly: f.mutation({ x: f.string }, f.string, { auth: "admin" }) });
+  const r = { adminOnly: async ({ x }: { x: string }) => "ok:" + x };
+  const mk = async (session: any) => {
+    let status = 0, body = "";
+    const res: any = { writeHead: (s: number) => { status = s; }, end: (b?: string) => { body = b ?? ""; } };
+    try {
+      await handleRpc({
+        url: new URL("http://x/__rpc/adminOnly"), req: { headers: {} } as any, res, cookies: {}, session,
+        resolvers: r, contract: c as any, readBody: async () => JSON.stringify({ x: "1" }),
+      });
+    } catch (e: any) { status = e.status; }   // guard ném FluxeError → server bắt → status
+    return { status, body };
+  };
+  assert.equal((await mk(null)).status, 401);
+  assert.equal((await mk({ roles: ["user"] })).status, 403);
+  const ok = await mk({ roles: ["admin"] });
+  assert.equal(ok.status, 200);
+  assert.equal(JSON.parse(ok.body), "ok:1");
 });
 
 test("[rpc] op lạ → 404", async () => {

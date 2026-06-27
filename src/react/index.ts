@@ -13,3 +13,5 @@ export { shellScript } from "./shell";
 export { DebugBar } from "./DebugBar";
 export { debug, DebugStore } from "./store";
 export type { DebugEvent } from "./store";
+export { useSession } from "./session";   // auth integration: đọc session host gắn (typed)
+export type { SessionStatus, UseSession } from "./session";

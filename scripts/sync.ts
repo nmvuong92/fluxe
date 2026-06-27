@@ -26,7 +26,7 @@ const out = `// ⚠️ AUTO-GENERATED bởi \`fx sync\` (quét ${CELLS_DIR}/*). 
 import type { CellDef } from "../src/core/engine";
 ${importLines}
 
-export const cells: CellDef<any, any>[] = [${arrayBody}];
+export const cells: CellDef<any, any, any, any>[] = [${arrayBody}];
 `;
 
 writeFileSync("app/app.ts", out);

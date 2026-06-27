@@ -9,4 +9,4 @@ import c_secret from "./cells/secret/index";
 import c_slow from "./cells/slow/index";
 import c_todos from "./cells/todos/index";
 
-export const cells: CellDef<any, any>[] = [c_admin, c_greet, c_hello, c_home, c_secret, c_slow, c_todos];
+export const cells: CellDef<any, any, any, any>[] = [c_admin, c_greet, c_hello, c_home, c_secret, c_slow, c_todos];

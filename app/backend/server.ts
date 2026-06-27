@@ -16,14 +16,17 @@ import { i18n } from "../i18n";
 import { backend } from "./data";        // tầng data/service — cells dùng (ctx.backend)
 import { resolvers } from "./index";     // contract resolvers — phục vụ /__rpc (DB ẩn trong)
 import { contract } from "../contract";  // khai báo operations (Zod schema sẵn → 0 codegen)
+import { sessionMw } from "../auth";      // bridge session provider → req.session (fluxe đọc)
 
 const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
 const app = express();
 
+// ── AUTH: bridge session (mount TRƯỚC fluxe) → ctx.session + guard cell/contract + useSession ──
+app.use(sessionMw);
+
 // ── LOGIC BACKEND CỦA BẠN (chạy TRƯỚC fluxe) ──────────────────────────────────
 // Route/middleware Express tuỳ ý — dùng chung `backend` (service) với cell fluxe:
 app.get("/api/todos", async (_req, res) => res.json(await backend.listTodos()));
-// app.use("/admin", yourAuthMiddleware);   // middleware riêng của bạn…
 
 // ── fluxe = catch-all: cells/SSR + core concerns cho phần còn lại ─────────────
 app.use(fluxe(manifest, cells, layouts, { i18n, backend, resolvers, contract }));

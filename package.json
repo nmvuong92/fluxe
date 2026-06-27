@@ -26,6 +26,10 @@
       "types": "./lib/core/client.d.ts",
       "default": "./lib/core/client.js"
     },
+    "./auth": {
+      "types": "./lib/auth/index.d.ts",
+      "default": "./lib/auth/index.js"
+    },
     "./express": {
       "types": "./lib/adapters/express.d.ts",
       "default": "./lib/adapters/express.js"
