@@ -63,17 +63,22 @@ export const backend: Backend = memoryBackend();
 // SERVER ENTRY — chọn framework qua --server (express | hono | nest), mặc định express.
 const serverArg = (process.argv.find((a) => a.startsWith("--server=")) ?? "--server=express").split("=")[1];
 const SERVERS: Record<string, string> = {
-  express: `import express from "express";
+  express: `// BACKEND CỦA BẠN (Express, đã wire sẵn fluxe). Ghi logic backend ở đây; fluxe core lo
+// cells/SSR · session/CSRF · rate-limit · realtime · validation · upload · observability.
+import express from "express";
 import { readFileSync } from "node:fs";
 import { fluxe } from "@nmvuong92/fluxe/express";
 import type { ResolutionManifest } from "@nmvuong92/fluxe";
 import { cells } from "./app";
 import { layouts } from "./layouts/index";
-import { backend } from "./backend";
+import { backend } from "./backend";   // service dùng chung cho route Express + cell
 
 const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
 const app = express();
-// 👉 Route Express riêng của bạn đặt ở đây (chạy trước fluxe).
+
+// 👉 Route/middleware Express RIÊNG của bạn (chạy trước fluxe), dùng chung \`backend\`:
+app.get("/api/todos", async (_req, res) => res.json(await backend.listTodos()));
+
 app.use(fluxe(manifest, cells, layouts, { backend }));   // fluxe = catch-all
 app.listen(5180, () => console.log("http://localhost:5180 (Express)"));
 `,

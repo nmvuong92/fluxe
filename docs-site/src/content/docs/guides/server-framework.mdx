@@ -7,13 +7,19 @@ sidebar:
 
 import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
 
-fluxe **không bắt bạn dùng server của nó**. Lõi request là một handler Node `(req, res)` — bạn
-mount vào **framework bạn chọn** (Express / Hono / Nest) như một middleware **catch-all**, đặt
-sau route riêng của bạn. Demo mặc định dùng **Express + TypeScript**.
+fluxe **không bắt bạn dùng server của nó**. `app/server.ts` chính là **backend CỦA BẠN** —
+một app Express / Hono / Nest mà `fx init` đã **wire sẵn adapter fluxe**. Bạn ghi toàn bộ logic
+backend ở đó (route API, middleware, service, auth riêng…); fluxe mount **catch-all** ở cuối, và
+**core của nó lo các vấn đề xuyên suốt** cho backend đó:
+
+> cells/SSR · session/CSRF · rate-limit · realtime (SSE) · validation · upload · observability
+> (`/_fluxe`) — bạn **không phải tự dựng lại**.
+
+Demo mặc định dùng **Express + TypeScript**.
 
 <Aside>
-Không muốn framework nào? `makeServer(...)` (node:http, zero-dep) vẫn là đường zero-config.
-Adapter chỉ để **nhúng vào app có sẵn** + tái dùng middleware/ecosystem của framework đó.
+Không muốn framework nào? `makeServer(...)` (node:http, zero-dep) vẫn là đường zero-config —
+cùng core, cùng concerns.
 </Aside>
 
 ## `app/server.ts` — entry của bạn
@@ -40,10 +46,10 @@ import { backend } from "./backend";
 const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
 const app = express();
 
-// 👉 Route Express RIÊNG của bạn (chạy TRƯỚC fluxe):
-app.get("/api/health", (_req, res) => res.json({ ok: true }));
+// 👉 Logic backend RIÊNG của bạn (chạy TRƯỚC fluxe) — dùng chung `backend` với cell:
+app.get("/api/todos", async (_req, res) => res.json(await backend.listTodos()));
 
-app.use(fluxe(manifest, cells, layouts, { backend }));   // fluxe = catch-all
+app.use(fluxe(manifest, cells, layouts, { backend }));   // fluxe = catch-all (cells + core concerns)
 app.listen(5180);
 ```
 
