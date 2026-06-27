@@ -18,7 +18,7 @@
   "include": ["src/**/*"],
   "exclude": [
     "src/**/*.test.ts",
-    "src/adapters/_fixture.ts",
+    "src/adapters/fixture.ts",
     "src/selftest2.ts",
     "src/server.tsx",
     "src/client.tsx"

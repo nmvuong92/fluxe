@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import { fluxe } from "./express.ts";
-import { manifest, cells, getText } from "./_fixture.ts";
+import { manifest, cells, getText } from "./fixture.ts";
 
 test("[express] host route đi trước + fluxe catch-all SSR cell", async () => {
   const app = express();

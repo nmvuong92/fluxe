@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { Module } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { fluxeMiddleware } from "./nest.ts";
-import { manifest, cells, getText } from "./_fixture.ts";
+import { manifest, cells, getText } from "./fixture.ts";
 
 test("[nest] middleware fluxe SSR cell qua Nest (platform-express)", async () => {
   class AppModule {}

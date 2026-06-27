@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { fluxe } from "./hono.ts";
-import { manifest, cells, getText } from "./_fixture.ts";
+import { manifest, cells, getText } from "./fixture.ts";
 
 test("[hono] host route đi trước + fluxe catch-all SSR cell", async () => {
   const app = new Hono();
