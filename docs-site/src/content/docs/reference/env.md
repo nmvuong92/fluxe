@@ -43,14 +43,14 @@ export const env = loadEnv(
   z.object({
     PORT: z.coerce.number().int().positive().default(5180),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-    FLUXE_SECRET: z.string().min(8).default("dev-secret-change-me"),
+    APP_SECRET: z.string().min(8).default("dev-secret-change-me"),  // secret của app bạn (vd host auth)
   }),
 );
 ```
 
 - `z.coerce.number()` biến `PORT="3000"` (string) → `3000` (number).
 - `.default(...)` cho biến thiếu → giá trị mặc định (vd `PORT` 5180).
-- `FLUXE_SECRET` bắt buộc `min(8)` → secret quá ngắn bị chặn ngay.
+- `APP_SECRET` bắt buộc `min(8)` → secret quá ngắn bị chặn ngay.
 
 ## API
 
@@ -62,11 +62,11 @@ loadEnv<T>(schema: ZodType<T>, source = process.env): T   // thiếu/sai env →
 ## Lưu ý
 
 :::caution[Tenet T1]
-HTTPS-only kể cả local; secret session/CSRF không hardcode — nạp qua `loadEnv`.
+HTTPS-only kể cả local; mọi secret của app (auth host, API key…) không hardcode — nạp qua `loadEnv`.
 :::
 
-- Default `"dev-secret-change-me"` chỉ tiện cho **dev**. Production **bắt buộc** đặt `FLUXE_SECRET`
-  thật (xem [Session](/reference/session/) — secret này ký session/CSRF).
+- Default `"dev-secret-change-me"` chỉ tiện cho **dev**. Production **bắt buộc** đặt `APP_SECRET`
+  thật (secret này là của app/host bạn — vd ký session ở host).
 - Lỗi ném gộp **tất cả** biến hỏng cùng lúc (`issues.join`) → sửa một lần, không phải dò từng biến.
 - Gọi `loadEnv` ở **top-level module** (như `app/env.ts`) để fail-fast thật sự — nếu hoãn tới khi
   dùng thì mất ý nghĩa boot-time.

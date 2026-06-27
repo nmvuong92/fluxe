@@ -20,7 +20,7 @@ default  <  ENV (FLUXE_*)  <  override truyền tay (makeServer({ config }))
 import { makeServer, loadConfig } from "@nmvuong92/fluxe";
 
 makeServer(manifest, cells, layouts, {
-  config: loadConfig(process.env, { upload: { maxBytes: 50 * 1024 * 1024 } }),  // override 50MB
+  config: loadConfig(process.env, { renderCache: { maxKeys: 512 } }),  // override
 }).listen();
 // hoặc bỏ qua → makeServer tự loadConfig() từ ENV.
 ```
@@ -32,13 +32,8 @@ Xem config đã giải: `fx config` (như `artisan config:show`).
 | Tính năng | Biến ENV | Field | Default |
 |-----------|----------|-------|---------|
 | **App** | `NODE_ENV` | `env` | `development` |
-| | `FLUXE_SECRET` | `secret` | `dev-secret-change-me` (đổi ở prod!) |
 | | `PORT` (hoặc `FLUXE_PORT`) | `port` | `5180` |
-| **Rate limit** | `FLUXE_RATELIMIT_CAPACITY` | `rateLimit.capacity` | `30` |
-| | `FLUXE_RATELIMIT_REFILL` | `rateLimit.refillPerSec` | `10` |
-| | `FLUXE_RATELIMIT_MAX_KEYS` | `rateLimit.maxKeys` | `5000` |
 | **Render cache** | `FLUXE_RENDERCACHE_MAX_KEYS` | `renderCache.maxKeys` | `256` |
-| **Upload** | `FLUXE_UPLOAD_MAX_BYTES` | `upload.maxBytes` | `10485760` (10MB) |
 | **i18n** | `FLUXE_LOCALE_DEFAULT` | `i18n.defaultLocale` | `en` |
 
 > App-level env riêng của bạn (DB url, mail key…) khai báo ở `app/env.ts` với `loadEnv(zod)` —
@@ -56,10 +51,8 @@ Xem config đã giải: `fx config` (như `artisan config:show`).
 ```ts
 loadConfig(source = process.env, overrides?): FluxeConfig    // giải + validate
 type FluxeConfig = {
-  env; secret; port;
-  rateLimit: { capacity; refillPerSec; maxKeys };
+  env; port;
   renderCache: { maxKeys };
-  upload: { maxBytes };
   i18n: { defaultLocale };
 };
 ENV_KEYS   // map biến ENV → field (dùng cho fx config + docs)
@@ -69,10 +62,9 @@ ENV_KEYS   // map biến ENV → field (dùng cho fx config + docs)
 
 ```bash
 NODE_ENV=production
-FLUXE_SECRET=$(openssl rand -hex 32)
 PORT=8080
 DATABASE_URL=postgres://user:pass@10.0.0.5:5432/app   # env của app bạn, đọc trong app/backend/data.ts
-FLUXE_RATELIMIT_CAPACITY=100
-FLUXE_UPLOAD_MAX_BYTES=52428800
+FLUXE_RENDERCACHE_MAX_KEYS=512
+FLUXE_LOCALE_DEFAULT=vi
 ```
 Node nạp `.env`: `node --env-file=.env …` (Node 20.6+), hoặc `tsx --env-file=.env`.

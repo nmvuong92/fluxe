@@ -33,7 +33,7 @@ export interface CellDef<I, O> {
 interface Ctx<I> {
   input: I;                  // route params (loader) hoặc body đã validate (action)
   backend: Backend;          // ← inject, cell không biết memory/sqlite/postgres
-  session?: Session | null;  // ← đã verify HMAC
+  session?: Session | null;  // ← do HOST gắn (req.session); fluxe đọc, không verify
 }
 ```
 
@@ -82,10 +82,11 @@ actions: {
 
 | Field | Hiệu lực |
 |-------|----------|
-| `requireAuth: true` | chưa có session → `401` (redirect `/login`) |
+| `requireAuth: true` | không có session → `401` |
 | `requireRole: "admin"` | thiếu role → `403` (ngầm cần auth) |
 
-→ Cơ chế session/role: xem [Session](/reference/session/) và [RBAC](/reference/rbac/).
+Guard chỉ **đọc** `ctx.session` do **host** gắn (`req.session`) — fluxe không tự verify/cấp
+session. Việc đăng nhập, ký/giải session, RBAC store… do host + middleware lo (mount TRƯỚC fluxe).
 
 ## Routing
 

@@ -91,4 +91,5 @@ subscribe(topic, onData): () => void                             // realtime qua
   (đã giữ qua `fetcherRef`). Muốn nạp lại thủ công → gọi `refetch()`.
 - `useMutation` ưu tiên `e.details?.[0]?.message` → lỗi validation hiện thông điệp field đầu tiên.
   Xem [Validation](/reference/validation/) và [Errors](/reference/errors/).
-- `rpc()` tự đính `x-csrf-token` (xem [CSRF](/reference/csrf/)) — không cần làm gì thêm khi dùng hook.
+- CSRF là việc của **host** (middleware mount trước fluxe) — nếu host yêu cầu token, đính kèm ở
+  `fetcher` của bạn. Engine `/__rpc`/`/__action` không tự kiểm CSRF.

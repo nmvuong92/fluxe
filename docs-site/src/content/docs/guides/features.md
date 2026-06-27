@@ -52,18 +52,23 @@ throw new FluxeError("forbidden", "Không cho phép", 403);   // unexpected → 
 ```
 → [Typed errors](/reference/errors/)
 
-## Auth — session, password, CSRF, RBAC
-```ts
-signSession({ user, roles }, SECRET);  hashPassword(pw);  // + CSRF double-submit, cell.requireRole
-defineCell({ id: "admin", requireRole: "admin", /* … */ });
-```
-→ [Session](/reference/session/) · [Password](/reference/password/) · [CSRF](/reference/csrf/) · [RBAC](/reference/rbac/)
+## Auth/CSRF/rate-limit/upload/jobs = việc của HOST
 
-## Rate limit
-```ts
-createRateLimiter({ capacity: 30, refillPerSec: 10 });   // token-bucket + LRU per-IP → 429
-```
-→ [Rate limit](/reference/rate-limit/)
+fluxe là **cầu nối RCA** — nó mount như middleware vào host framework (Express/Hono/Nest)
+và lo cells/SSR/contract/realtime/observability. Những vấn đề xuyên suốt còn lại do **host +
+ecosystem** lo, mount **TRƯỚC** fluxe:
+
+| Cần | Dùng ở host (ví dụ) |
+|-----|---------------------|
+| Auth / login / session | `passport`, `lucia`, session middleware của host |
+| CSRF | `csurf` / middleware host |
+| Rate-limit | `express-rate-limit`, middleware host |
+| Upload file | `multer` / middleware host |
+| Background jobs / queue | `bullmq`, `pg-boss`… |
+
+Engine endpoints (`/__rpc`, `/__action`) **không** tự kiểm CSRF/rate-limit — middleware host
+phía trước lo. `ctx.session` là do host gắn (`req.session`); fluxe **không verify**, chỉ đọc.
+Guard `requireAuth`/`requireRole` ở cell đọc đúng session đó. → [Cells](/reference/cells/)
 
 ## Env fail-fast
 ```ts
@@ -77,13 +82,6 @@ broker.publish("todos", { action: "add", out });          // server
 subscribe("todos", (data) => refetch());                   // client (SSE)
 ```
 `GET /__sse/<topic>` + presence (ai online). → [Realtime](/reference/realtime/)
-
-## Background jobs (queue bền + dead-letter)
-```ts
-const q = createQueue("./jobs.db"); q.enqueue("email", { to });
-await drain(q, { email: async (p) => send(p) }, { maxAttempts: 3 });   // retry → dead-letter
-```
-→ [Jobs](/reference/jobs/)
 
 ## React: data fetching + SPA nav
 ```tsx
@@ -100,13 +98,6 @@ const add = useMutation("todos.add", (t) => rpc("todos", "add", { title: t }));
 Master layout, theme light/dark + **i18n** (locale giải server, `t()` ở loader), nav active —
 **chạy cả trên cell static**. Theme/locale resolve từ cookie → SSR đúng ngay (no-flash).
 → [Layout](/reference/layout/) · [Theme](/reference/theme/) · [Navigation](/reference/navigation/) · [i18n](/reference/i18n/)
-
-## File storage (upload)
-```tsx
-import { upload } from "@nmvuong92/fluxe/client";
-const { url } = await upload("file", input.files[0]);   // multipart + CSRF; driver local/S3/memory
-```
-Interface `Storage` switch bằng config (như Backend). → [File storage](/reference/storage/)
 
 ## SEO
 ```ts
@@ -125,19 +116,10 @@ head: (d) => ({ title: d.title, description, canonical: "/", og: {...}, jsonLd: 
 
 ## Configuration (ENV)
 ```bash
-FLUXE_RATELIMIT_CAPACITY=100 FLUXE_UPLOAD_MAX_BYTES=52428800 npm run dev   # override qua ENV
+FLUXE_RENDERCACHE_MAX_KEYS=512 FLUXE_LOCALE_DEFAULT=vi npm run dev   # override qua ENV
 fx config   # in config đã giải (default ← ENV FLUXE_* ← override)
 ```
 Mọi tham số core có default + override ENV, validate fail-fast. → [Configuration](/reference/configuration/)
-
-## Container (DI lười)
-```ts
-const c = createContainer();
-c.register("broker", () => createBroker());   // chưa tạo
-c.get("broker");                              // lần đầu mới tạo + memoize (singleton)
-```
-Chỉ module được **dùng** mới bootstrap; engine lazy broker/presence. `/_fluxe/stats.bootstrapped`
-liệt kê thứ đã tạo. → [Container](/reference/container/)
 
 ## CLI
 ```bash
@@ -152,7 +134,7 @@ Trung thực — **chưa có trong core**, đừng dùng nhầm:
 | Tính năng | Trạng thái |
 |-----------|-----------|
 | **WebSocket** | ✗ — realtime hiện chỉ **SSE** (1 chiều server→client). WS hai chiều chưa có. |
-| **Mail / SMTP** | ✗ — chưa có; có thể làm qua job queue + lib ngoài. |
+| **Mail / SMTP** | ✗ — chưa có; làm ở host bằng lib ngoài (nodemailer…). |
 | **Full-text search** | ✗ — chưa có engine search tích hợp. |
 
 Muốn cái nào? Mở issue hoặc xem `idea.md` để biết hướng.

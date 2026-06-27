@@ -12,8 +12,15 @@ một app Express / Hono / Nest mà `fx init` đã **wire sẵn adapter fluxe**.
 backend ở đó (route API, middleware, service, auth riêng…); fluxe mount **catch-all** ở cuối, và
 **core của nó lo các vấn đề xuyên suốt** cho backend đó:
 
-> cells/SSR · session/CSRF · rate-limit · realtime (SSE) · validation · upload · observability
-> (`/_fluxe`) — bạn **không phải tự dựng lại**.
+> cells/SSR · contract (`/__rpc`, `/__action`) · realtime (SSE) · validation (Zod) ·
+> observability (`/_fluxe`) — bạn **không phải tự dựng lại**.
+
+<Aside type="caution">
+**Auth · CSRF · rate-limit · upload · jobs là việc của HOST.** fluxe không kiểm CSRF/rate-limit
+ở `/__rpc`/`/__action` — mount middleware host (`express-rate-limit`, `csurf`, `passport`,
+`multer`, `bullmq`…) **TRƯỚC** `fluxe()`. `ctx.session` là do host gắn (`req.session`); fluxe chỉ
+đọc, không verify.
+</Aside>
 
 Demo mặc định dùng **Express + TypeScript**.
 
@@ -133,9 +140,9 @@ Cả ba adapter wrap **chung một** `createHandler(manifest, cells, layouts, op
 
 ## Mount = catch-all
 
-fluxe xử các route của nó (cells, `/__action`, `/__sse`, `/_fluxe`, `/__upload`, `/__file`,
-`/login`…). Đặt route/middleware **riêng của bạn TRƯỚC** `fluxe()` → chúng được ưu tiên; phần
-còn lại fluxe nhận. Scaffold nhanh:
+fluxe xử các route của nó (cells, `/__rpc`, `/__action`, `/__sse`, `/_fluxe`…). Đặt
+route/middleware **riêng của bạn TRƯỚC** `fluxe()` → chúng được ưu tiên (kể cả auth/CSRF/
+rate-limit/upload của host); phần còn lại fluxe nhận. Scaffold nhanh:
 
 ```bash
 fx init --server express   # hoặc --server hono | --server nest (mặc định express)
