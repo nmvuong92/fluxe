@@ -1,9 +1,9 @@
 // Copyright (c) 2026 nmvuong92
 // SPDX-License-Identifier: Apache-2.0
-/* fx dev runner — magic hot-reload:
- *  - server chạy với `tsx --watch` (tự restart khi file import-graph hoặc .fluxe/gen đổi).
- *  - watch app/ → đổi contract.ts / cell index/view → chạy `sync` (regen cells + contract codegen)
- *    → ghi app/app.ts + .fluxe/gen/* → tsx --watch thấy đổi → restart. Dev KHÔNG gõ gen tay.
+/* fx dev runner — hot-reload:
+ *  - server chạy với `tsx --watch` (tự restart khi file import-graph đổi — gồm app/contract.ts).
+ *  - watch app/ → thêm/bớt cell (index/view) → chạy `sync` (regen app/app.ts) → tsx --watch restart.
+ * Contract dùng builder (0 codegen) → đổi contract.ts là tsx --watch restart ngay, không cần gen.
  * (sync/resolve/bundle lần đầu đã chạy trước trong lệnh `fx dev`.) */
 import { spawn } from "node:child_process";
 import { watch } from "node:fs";

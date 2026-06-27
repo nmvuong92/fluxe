@@ -83,6 +83,13 @@ export async function rpcCall<O = any>(op: string, input?: unknown): Promise<O> 
   return res.json();
 }
 
+/* Client contract (tRPC-style) — Proxy typed bằng infer, 0 codegen, 0 schema xuống browser.
+ *   const api = createClient<typeof contract>();  await api.todos();  api.addTodo({ title });
+ * Truy cập property = op name → POST /__rpc/<op>. Kiểu suy từ contract (type-only import). */
+export function createClient<C extends import("./contract.ts").Contract>(): import("./contract.ts").Client<C> {
+  return new Proxy({}, { get: (_t, op: string) => (input?: unknown) => rpcCall(op, input) }) as import("./contract.ts").Client<C>;
+}
+
 /* Upload file qua POST /__upload/<field> (multipart). Trả { key, url, size } (hoặc mảng nếu nhiều). */
 export async function upload(field: string, files: File | File[]): Promise<{ key: string; url: string; size: number } | Array<{ key: string; url: string; size: number }>> {
   const fd = new FormData();

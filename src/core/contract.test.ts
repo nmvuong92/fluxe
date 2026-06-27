@@ -2,69 +2,54 @@
 // SPDX-License-Identifier: Apache-2.0
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { defineContract, tsType, genContractTypes, genZod, genServer, genClient } from "./contract.ts";
+import { z } from "zod";
+import { f, type Resolvers, type Infer } from "./contract.ts";
 
-test("tsType: scalar/array/optional/ref", () => {
-  assert.equal(tsType("string"), "string");
-  assert.equal(tsType("int"), "number");
-  assert.equal(tsType("bool"), "boolean");
-  assert.equal(tsType("Todo"), "Todo");
-  assert.equal(tsType("Todo[]"), "Todo[]");
-  assert.equal(tsType("string?"), "string | undefined");
-  assert.equal(tsType("Order?"), "Order | undefined");
+test("f.query: OpDef kind=query + output là ZodType", () => {
+  const Todo = f.object({ id: f.string, done: f.bool });
+  const op = f.query(Todo.array());
+  assert.equal(op.kind, "query");
+  assert.ok(op.output instanceof z.ZodType);
+  assert.deepEqual(op.output.parse([{ id: "1", done: true }]), [{ id: "1", done: true }]);
 });
 
-test("genContractTypes: type interfaces + op Input", () => {
-  const c = defineContract({
-    types: { Todo: { id: "string", title: "string", done: "bool" } },
-    mutations: { addTodo: { in: { title: "string" }, out: "Todo" } },
-  });
-  const out = genContractTypes(c);
-  assert.match(out, /export interface Todo \{/);
-  assert.match(out, /done: boolean;/);
-  assert.match(out, /export interface AddTodoInput \{/);
-  assert.match(out, /title: string;/);
+test("f.mutation: input shape → z.object; validate hoạt động", () => {
+  const Todo = f.object({ id: f.string });
+  const op = f.mutation({ title: f.string }, Todo);
+  assert.equal(op.kind, "mutation");
+  assert.ok(op.input instanceof z.ZodType);
+  assert.equal(op.input.safeParse({ title: "x" }).success, true);
+  assert.equal(op.input.safeParse({ title: 123 }).success, false);   // sai kiểu
 });
 
-test("genZod: input schema per op", () => {
-  const c = defineContract({
-    queries: { order: { in: { id: "string" }, out: "Order?" } },
-    mutations: { addTodo: { in: { title: "string", qty: "int?" }, out: "Todo" }, ping: { out: "bool" } },
-  });
-  const out = genZod(c);
-  assert.match(out, /import \{ z \} from "zod";/);
-  assert.match(out, /export const addTodoInput = z\.object\(\{/);
-  assert.match(out, /title: z\.string\(\)/);
-  assert.match(out, /qty: z\.number\(\)\.optional\(\)/);
-  assert.match(out, /export const orderInput = z\.object/);
-  assert.doesNotMatch(out, /pingInput/);
-  assert.match(out, /export const validators = \{/);
-  assert.match(out, /addTodo: addTodoInput,/);
+test("f.mutation: input đã là ZodType thì giữ nguyên", () => {
+  const In = z.object({ id: z.string() });
+  const op = f.mutation(In, f.string);
+  assert.equal(op.input, In);
 });
 
-test("genServer: Resolvers interface + OPS kind + createApi", () => {
-  const c = defineContract({
-    types: { Todo: { id: "string" } },
-    queries: { todos: { out: "Todo[]" } },
-    mutations: { addTodo: { in: { title: "string" }, out: "Todo" } },
+test("f.contract: trả về op map nguyên vẹn (runtime đọc trực tiếp)", () => {
+  const Todo = f.object({ id: f.string });
+  const c = f.contract({
+    todos: f.query(Todo.array()),
+    addTodo: f.mutation({ title: f.string }, Todo),
   });
-  const out = genServer(c);
-  assert.match(out, /export interface Resolvers \{/);
-  assert.match(out, /todos\(\): Promise<Todo\[\]>;/);
-  assert.match(out, /addTodo\(input: AddTodoInput\): Promise<Todo>;/);
-  assert.match(out, /todos: "query"/);
-  assert.match(out, /addTodo: "mutation"/);
-  assert.match(out, /export function createApi/);
+  assert.equal(c.todos.kind, "query");
+  assert.equal(c.addTodo.kind, "mutation");
 });
 
-test("genClient: typed api object", () => {
-  const c = defineContract({
-    types: { Todo: { id: "string" } },
-    queries: { todos: { out: "Todo[]" } },
-    mutations: { addTodo: { in: { title: "string" }, out: "Todo" } },
+test("Infer + Resolvers: type suy từ contract (compile-time, smoke runtime)", () => {
+  const Todo = f.object({ id: f.string, title: f.string, done: f.bool });
+  type TodoT = Infer<typeof Todo>;
+  const c = f.contract({
+    todos: f.query(Todo.array()),
+    addTodo: f.mutation({ title: f.string }, Todo),
   });
-  const out = genClient(c);
-  assert.match(out, /import \{ rpcCall \} from "@nmvuong92\/fluxe\/client";/);
-  assert.match(out, /todos: \(\): Promise<Todo\[\]> => rpcCall\("todos"\)/);
-  assert.match(out, /addTodo: \(input: AddTodoInput\): Promise<Todo> => rpcCall\("addTodo", input\)/);
+  // Resolvers<typeof c> ép đúng chữ ký — nếu sai sẽ compile-fail (đây là phần "type tức thì").
+  const r: Resolvers<typeof c> = {
+    async todos() { return []; },
+    async addTodo({ title }) { const t: TodoT = { id: "1", title, done: false }; return t; },
+  };
+  assert.equal(typeof r.todos, "function");
+  assert.equal(typeof r.addTodo, "function");
 });

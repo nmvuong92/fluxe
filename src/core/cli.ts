@@ -28,10 +28,6 @@ export const COMMANDS: Record<string, Command> = {
     desc: "In config đã giải (default ← ENV FLUXE_* ← override)",
     shell: () => `tsx scripts/config.ts`,
   },
-  gen: {
-    desc: "Codegen contract → types + Zod + client api + server Resolvers (.fluxe/gen)",
-    shell: () => `tsx scripts/codegen.ts`,
-  },
   resolve: {
     desc: "Sinh .fluxe/resolution.json từ profile",
     shell: (a) => `${SYNC} && tsx scripts/resolve.ts ${p(a)}`,

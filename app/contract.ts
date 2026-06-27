@@ -1,16 +1,14 @@
-import { defineContract } from "@nmvuong92/fluxe";
+import { f, type Infer } from "@nmvuong92/fluxe";
 
-/* NGUỒN SỰ THẬT của contract cell↔backend — khai báo NGHIỆP VỤ (queries/mutations), không phải DB.
- * `fx gen` (tự chạy trong sync) → .fluxe/gen/{types,validators,server,client}.ts. DB ẩn trong resolver. */
-export const contract = defineContract({
-  types: {
-    Todo: { id: "string", title: "string", done: "bool" },
-  },
-  queries: {
-    todos: { out: "Todo[]" },
-  },
-  mutations: {
-    addTodo: { in: { title: "string" }, out: "Todo" },
-    toggleTodo: { in: { id: "string" }, out: "Todo[]" },
-  },
+/* NGUỒN SỰ THẬT của contract cell↔backend — khai báo NGHIỆP VỤ (queries/mutations) bằng builder Zod.
+ * Type suy ra TỨC THÌ (Infer<>), 0 codegen, DB ẩn sau resolver. */
+const Todo = f.object({ id: f.string, title: f.string, done: f.bool });
+export type Todo = Infer<typeof Todo>;
+
+export const contract = f.contract({
+  todos: f.query(Todo.array()),                        // đọc
+  addTodo: f.mutation({ title: f.string }, Todo),      // ghi (nghiệp vụ bất kỳ)
+  toggleTodo: f.mutation({ id: f.string }, Todo.array()),
 });
+
+export type AppContract = typeof contract;   // client import type-only → 0 schema xuống browser

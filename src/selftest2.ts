@@ -10,7 +10,6 @@ import { layouts } from "../app/layouts/index";
 import { backend } from "../app/backend/data";   // data user-owned (DI)
 import { resolvers } from "../app/backend/index";   // contract resolvers (/__rpc)
 import { contract } from "../app/contract";
-import { validators } from "../.fluxe/gen/validators";
 
 const cells: CellDecl[] = appCells.map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
 
@@ -49,7 +48,7 @@ function check(label: string, cond: boolean) {
 async function run(profileName: string, port: number) {
   const manifest = resolve(cells, profiles[profileName]);
   console.log(`\n══════════ profile=${profileName} (backend=${backend.name}) ══════════`);
-  const srv = makeServer(manifest, appCells, layouts, { backend, resolvers, contract, validators }).listen(port);
+  const srv = makeServer(manifest, appCells, layouts, { backend, resolvers, contract }).listen(port);
   await new Promise((r) => setTimeout(r, 150));
   try {
     const homePage = await get(port, "/");

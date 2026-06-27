@@ -1,111 +1,39 @@
 // Copyright (c) 2026 nmvuong92
 // SPDX-License-Identifier: Apache-2.0
-/* Contract DSL — khai báo nghiệp vụ cell↔backend (queries/mutations + types) bằng TS-object.
- * Codegen thuần string-in/out: types · Zod · server Resolvers · client api. DB ẩn sau resolver. */
+/* Contract builder — khai báo nghiệp vụ cell↔backend bằng Zod (type-safe TỨC THÌ, 0 codegen).
+ * `f` = lớp sugar mỏng trên Zod: f.string/object/query/mutation/contract. Composition dùng method
+ * Zod (.array()/.optional()/.nullable()). Types qua Infer<>; client = Proxy; server đọc contract lúc
+ * chạy. DB ẩn sau resolver. tRPC-style: không file sinh ra, không schema xuống browser. */
+import { z, type ZodTypeAny, type ZodRawShape } from "zod";
 
-export type Scalar = "string" | "int" | "bool";
-export interface OpDef { in?: Record<string, string>; out: string }
-export interface Contract {
-  types?: Record<string, Record<string, string>>;
-  queries?: Record<string, OpDef>;
-  mutations?: Record<string, OpDef>;
-}
+export type OpDef =
+  | { kind: "query"; output: ZodTypeAny }
+  | { kind: "mutation"; input: ZodTypeAny; output: ZodTypeAny };
+export type Contract = Record<string, OpDef>;
 
-export function defineContract(c: Contract): Contract { return c; }
+export const f = {
+  string: z.string(),
+  int: z.number().int(),
+  number: z.number(),
+  bool: z.boolean(),
+  null: z.null(),
+  object: <T extends ZodRawShape>(shape: T) => z.object(shape),
+  union: <T extends readonly [ZodTypeAny, ZodTypeAny, ...ZodTypeAny[]]>(...opts: T) => z.union(opts as any),
+  query: <O extends ZodTypeAny>(output: O) => ({ kind: "query", output } as const),
+  mutation: <I extends ZodRawShape | ZodTypeAny, O extends ZodTypeAny>(input: I, output: O) =>
+    ({ kind: "mutation", input: (input instanceof z.ZodType ? input : z.object(input as ZodRawShape)) as ZodTypeAny, output } as const),
+  contract: <C extends Contract>(ops: C) => ops,
+};
 
-const SCALAR: Record<string, string> = { string: "string", int: "number", bool: "boolean" };
+/* Suy kiểu TS từ schema Zod — tức thì, không chờ gen. (`infer` là từ khoá TS → dùng `Infer`.) */
+export type Infer<T extends ZodTypeAny> = z.infer<T>;
 
-/* Type-expr → TS: hậu tố [] (mảng), ? (optional); scalar map; còn lại = ref type giữ nguyên. */
-export function tsType(expr: string): string {
-  let e = expr.trim();
-  let optional = false;
-  if (e.endsWith("?")) { optional = true; e = e.slice(0, -1); }
-  let arr = false;
-  if (e.endsWith("[]")) { arr = true; e = e.slice(0, -2); }
-  let base = SCALAR[e] ?? e;
-  if (arr) base = `${base}[]`;
-  return optional ? `${base} | undefined` : base;
-}
+type OpFn<D> = D extends { input: infer I extends ZodTypeAny; output: infer O extends ZodTypeAny }
+  ? (input: z.infer<I>) => Promise<z.infer<O>>
+  : D extends { output: infer O extends ZodTypeAny } ? () => Promise<z.infer<O>>
+  : never;
 
-const pascal = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-function genObjInterface(name: string, fields: Record<string, string>): string {
-  return `export interface ${name} {\n` +
-    Object.entries(fields).map(([f, t]) => `  ${f}: ${tsType(t)};`).join("\n") +
-    `\n}`;
-}
-
-export function genContractTypes(c: Contract): string {
-  const out: string[] = [];
-  for (const [name, fields] of Object.entries(c.types ?? {})) out.push(genObjInterface(name, fields));
-  const ops = { ...(c.queries ?? {}), ...(c.mutations ?? {}) };
-  for (const [op, def] of Object.entries(ops)) {
-    if (def.in) out.push(genObjInterface(`${pascal(op)}Input`, def.in));
-  }
-  return out.join("\n\n") + "\n";
-}
-
-const ZSCALAR: Record<string, string> = { string: "z.string()", int: "z.number()", bool: "z.boolean()" };
-
-function zodExpr(expr: string): string {
-  let e = expr.trim();
-  let optional = false;
-  if (e.endsWith("?")) { optional = true; e = e.slice(0, -1); }
-  let arr = false;
-  if (e.endsWith("[]")) { arr = true; e = e.slice(0, -2); }
-  let z = ZSCALAR[e] ?? "z.any()";   // ref type input: v1 chưa nested-validate
-  if (arr) z = `z.array(${z})`;
-  return optional ? `${z}.optional()` : z;
-}
-
-export function genZod(c: Contract): string {
-  const ops = { ...(c.queries ?? {}), ...(c.mutations ?? {}) };
-  const blocks: string[] = [];
-  const withIn: string[] = [];
-  for (const [op, def] of Object.entries(ops)) {
-    if (!def.in) continue;
-    const fields = Object.entries(def.in).map(([f, t]) => `  ${f}: ${zodExpr(t)},`).join("\n");
-    blocks.push(`export const ${op}Input = z.object({\n${fields}\n});`);
-    withIn.push(op);
-  }
-  // Map keyed-by-op để wire thẳng: makeServer(..., { validators }).
-  const map = `export const validators = {\n${withIn.map((op) => `  ${op}: ${op}Input,`).join("\n")}\n};`;
-  return `import { z } from "zod";\n\n${blocks.join("\n\n")}\n\n${map}\n`;
-}
-
-function sigOf(op: string, def: OpDef): string {
-  const ret = `Promise<${tsType(def.out)}>`;
-  return def.in ? `${op}(input: ${pascal(op)}Input): ${ret};` : `${op}(): ${ret};`;
-}
-
-export function genServer(c: Contract): string {
-  const typeNames = Object.keys(c.types ?? {});
-  const ops = { ...(c.queries ?? {}), ...(c.mutations ?? {}) };
-  const inputNames = Object.entries(ops).filter(([, d]) => d.in).map(([op]) => `${pascal(op)}Input`);
-  const imports = [...typeNames, ...inputNames];
-  const sigs = Object.entries(ops).map(([op, def]) => `  ${sigOf(op, def)}`).join("\n");
-  const kinds = [
-    ...Object.keys(c.queries ?? {}).map((op) => `  ${op}: "query",`),
-    ...Object.keys(c.mutations ?? {}).map((op) => `  ${op}: "mutation",`),
-  ].join("\n");
-  const typeImport = imports.length ? `import type { ${imports.join(", ")} } from "./types";\n\n` : "";
-  return typeImport +
-    `export interface Resolvers {\n${sigs}\n}\n\n` +
-    `export const OPS = {\n${kinds}\n} as const;\n\n` +
-    `export function createApi(r: Resolvers): Resolvers { return r; }\n`;
-}
-
-export function genClient(c: Contract): string {
-  const typeNames = Object.keys(c.types ?? {});
-  const ops = { ...(c.queries ?? {}), ...(c.mutations ?? {}) };
-  const inputNames = Object.entries(ops).filter(([, d]) => d.in).map(([op]) => `${pascal(op)}Input`);
-  const imports = [...typeNames, ...inputNames];
-  const lines = Object.entries(ops).map(([op, def]) => {
-    const ret = `Promise<${tsType(def.out)}>`;
-    return def.in
-      ? `  ${op}: (input: ${pascal(op)}Input): ${ret} => rpcCall("${op}", input),`
-      : `  ${op}: (): ${ret} => rpcCall("${op}"),`;
-  }).join("\n");
-  const typeImport = imports.length ? `import type { ${imports.join(", ")} } from "./types";\n` : "";
-  return `import { rpcCall } from "@nmvuong92/fluxe/client";\n${typeImport}\nexport const api = {\n${lines}\n};\n`;
-}
+/* Kiểu resolver backend phải implement — suy từ contract (compile-fail nếu sai chữ ký). */
+export type Resolvers<C extends Contract> = { [K in keyof C]: OpFn<C[K]> };
+/* Kiểu client api — y hệt Resolvers (cùng chữ ký), gọi qua /__rpc. */
+export type Client<C extends Contract> = { [K in keyof C]: OpFn<C[K]> };

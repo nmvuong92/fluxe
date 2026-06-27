@@ -5,15 +5,13 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { makeServer } from "../server_factory.ts";
 import { resolve } from "./resolver.ts";
-import { defineContract } from "./contract.ts";
-import { z } from "zod";
+import { f } from "./contract.ts";
 
-const contract = defineContract({
-  queries: { todos: { out: "string[]" } },
-  mutations: { addTodo: { in: { title: "string" }, out: "string" } },
+const contract = f.contract({
+  todos: f.query(f.string.array()),
+  addTodo: f.mutation({ title: f.string }, f.string),
 });
-const validators = { addTodo: z.object({ title: z.string().min(1) }) };
-const backend = {
+const resolvers = {
   async todos() { return ["a", "b"]; },
   async addTodo({ title }: { title: string }) { return "[added] " + title; },
 };
@@ -31,7 +29,7 @@ function req(port: number, path: string, body: any, headers: any = {}): Promise<
 
 function boot() {
   const m = resolve([], { name: "t" });
-  const srv = makeServer(m, [], {}, { backend, contract, validators }).listen(0);
+  const srv = makeServer(m, [], {}, { resolvers, contract }).listen(0);
   return new Promise<{ srv: http.Server; port: number }>((r) => srv.once("listening", () => r({ srv, port: (srv.address() as any).port })));
 }
 
@@ -50,7 +48,7 @@ test("[rpc] mutation thiếu CSRF → 403; input sai → 400; ok → output", as
     const noCsrf = await req(port, "/__rpc/addTodo", { title: "x" });
     assert.equal(noCsrf.status, 403);
     const csrf = { cookie: "csrf=tok", "x-csrf-token": "tok" };
-    const bad = await req(port, "/__rpc/addTodo", { title: "" }, csrf);
+    const bad = await req(port, "/__rpc/addTodo", { title: 123 }, csrf);   // sai kiểu (Zod từ contract)
     assert.equal(bad.status, 400);
     const ok = await req(port, "/__rpc/addTodo", { title: "milk" }, csrf);
     assert.equal(ok.status, 200);
