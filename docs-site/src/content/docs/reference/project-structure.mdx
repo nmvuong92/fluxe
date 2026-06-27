@@ -1,0 +1,63 @@
+---
+title: Cấu trúc thư mục
+description: Thư mục một app fluxe — bạn chỉ viết app/; engine đến từ @nmvuong92/fluxe.
+sidebar:
+  order: 0
+---
+
+import { FileTree, Aside } from '@astrojs/starlight/components';
+
+Bạn chỉ làm việc trong **`app/`**. Engine là package **`@nmvuong92/fluxe`** (cài qua npm) —
+import vào, không cần đụng nội bộ của nó.
+
+<FileTree>
+- app/ **CODE CỦA BẠN**
+  - cells/ mỗi thư mục = 1 trang
+    - home/
+      - view.tsx **giao diện** (component + kiểu data)
+      - index.tsx **cell**: route + loader + actions, gắn view
+    - about/ …
+  - layouts/index.tsx master layout (header/nav/footer + DebugBar)
+  - theme.ts design tokens (CSS biến, light/dark)
+  - nav.ts menu khai báo
+  - profiles.ts backend nào chạy (resolution profile)
+  - env.ts biến môi trường có kiểu (fail-fast)
+  - app.ts **registry cell — sinh tự động** (`fx sync`), đừng sửa
+- node_modules/
+  - @nmvuong92/fluxe **ENGINE** (import, không sửa)
+- .fluxe/ **artifact sinh ra**: resolution.json, static.json, gen/
+- dist/ client.js đã bundle
+</FileTree>
+
+## Các file `app/` bạn sửa
+
+| File | Vai trò | Tạo bởi |
+|------|---------|---------|
+| `app/cells/<id>/view.tsx` | Giao diện thuần (component + kiểu data) | `fx new` |
+| `app/cells/<id>/index.tsx` | Cell: route + `loader` + `actions`, gắn view | `fx new` |
+| `app/layouts/index.tsx` | Master layout + DebugBar | `fx init` |
+| `app/theme.ts` · `app/nav.ts` | Design tokens · menu | `fx init` |
+| `app/profiles.ts` | "Backend nào, endpoint nào" cho mỗi môi trường | `fx init` |
+| `app/env.ts` | Biến môi trường có kiểu | `fx init` |
+| `app/app.ts` | Registry cell | **`fx sync` sinh — đừng sửa** |
+
+## Import từ engine
+
+```ts
+import { defineCell, withInput } from "@nmvuong92/fluxe";
+import { useQuery, useMutation, Link } from "@nmvuong92/fluxe/react";
+import { rpc } from "@nmvuong92/fluxe/client";
+```
+
+## Artifact sinh tự động (không sửa tay)
+
+| Đường dẫn | Sinh bởi | Là gì |
+|-----------|----------|-------|
+| `app/app.ts` | `fx sync` | registry cell (auto-discovery) |
+| `.fluxe/resolution.json` | `fx resolve` | manifest: mỗi cell giải ra sao |
+| `dist/client.js` | build | bundle island |
+
+<Aside title="Quy tắc một câu">
+Mở `app/` để làm việc. Engine (`@nmvuong92/fluxe`) là dependency — import, đừng sửa.
+`app/app.ts`, `.fluxe/`, `dist/` là sinh ra.
+</Aside>

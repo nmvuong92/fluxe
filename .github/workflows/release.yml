@@ -1,0 +1,32 @@
+name: Release
+
+# Push tag v* (vd: v0.1.1) → chạy full test rồi publish lên npm.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # tạo GitHub Release
+      id-token: write # npm provenance (supply-chain)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # cần lịch sử để --generate-notes
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+      - run: npm install --no-audit --no-fund
+      - name: test:all (gate trước khi publish)
+        run: npm run test:all
+      - name: publish npm (prepublishOnly tự build src → lib)
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: tạo GitHub Release (sync với version npm)
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

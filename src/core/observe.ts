@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* Observability — request log Ring Buffer CIRCULAR (#17).
  * Trước: push + shift (shift O(n) mỗi record khi đầy). Giờ: mảng vòng + con trỏ ghi →
  * record O(1) (không dời mảng). recent O(n) chỉ trên số phần tử yêu cầu. */

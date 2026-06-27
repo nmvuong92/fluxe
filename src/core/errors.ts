@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* Error handling (tenet T5 / Trục 4q):
  * - FluxeError = domain error (giá trị có kiểu) → map status/code/message an toàn.
  * - Lỗi khác = unexpected → 500 generic + errorId; detail chỉ ở dev (không leak prod). */

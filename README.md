@@ -7,6 +7,25 @@ backend, scale) là **kết quả được GIẢI** bởi engine, không viết 
 > Đổi backend từ TS → Go → Rust, đổi render static ↔ island, gộp nhiều backend trong một
 > app per-cell — tất cả chỉ sửa `app/profiles.ts`, **cell & frontend không đổi một dòng**.
 
+## Cài & dùng (npm)
+
+```bash
+npm i @nmvuong92/fluxe react react-dom zod
+```
+
+```ts
+import { defineCell, withInput, makeServer, createMemoryBackend } from "@nmvuong92/fluxe";
+import { useQuery, useMutation, Link, Nav, ThemeToggle } from "@nmvuong92/fluxe/react";
+import { rpc } from "@nmvuong92/fluxe/client";
+```
+
+| Import | Nội dung |
+|--------|----------|
+| `@nmvuong92/fluxe` | engine: defineCell, makeServer, resolver, auth, validate, backends, seo, broker, ratelimit, codegen… |
+| `@nmvuong92/fluxe/react` | useQuery, useMutation, Link, Nav, ThemeToggle, useTheme, DebugBar |
+| `@nmvuong92/fluxe/client` | rpc, RpcError, mutate, revalidate, subscribe |
+| `@nmvuong92/fluxe/jobs` · `/sqlite` | queue/dead-letter · SQLite backend (cần `--experimental-sqlite`) |
+
 ## Chạy nhanh
 
 ```bash
@@ -67,3 +86,9 @@ mỗi tầng đúng ngôn ngữ tối ưu, đúng §6d của [idea.md](idea.md).
 
 Toàn bộ định hướng, các trục chiến lược, tenets và nguyên lý RCA: xem **[idea.md](idea.md)**.
 Spec + plan: `docs/superpowers/`.
+
+## License
+
+**Apache-2.0** © 2026 nmvuong92. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Copyright is held solely by the author, who reserves the right to offer the software under
+separate commercial terms.

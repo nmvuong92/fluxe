@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* Benchmark harness fluxe — RPS/QPS + latency p50/p99 + RAM/CPU của server.
  * Closed-loop: N worker đồng thời bắn liên tục trong D giây. Loại DB (memory backend).
  * Server chạy child process riêng → /_fluxe/stats báo RAM/CPU chính nó. */

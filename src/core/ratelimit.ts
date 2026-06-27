@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* Rate limiting (6b.F) — token bucket per key (vd IP/user/route). Thuần, clock injected.
  * Bucket bound bằng LRU (maxKeys) → CHỐNG RÒ RAM khi nhiều IP (kẻ tấn công nhiều nguồn).
  * Bản 1-node; distributed: chia sẻ bucket qua Redis (gắn 4d), cùng interface. */

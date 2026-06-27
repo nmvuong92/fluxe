@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 import type { ComponentType } from "react";
 import type { Backend } from "../backends/types";
 import type { HeadMeta } from "./seo";
@@ -19,7 +21,7 @@ export type Hydration = "static" | "island";
 export interface CellDef<I, O> {
   id: string;
   route: string;
-  hydration: Hydration;
+  hydration?: Hydration;          // MẶC ĐỊNH "island". Khai báo "static" để opt-in tối ưu 0-JS.
   loader: Loader<I, O>;
   view: ComponentType<{ data: O }>;
   actions?: Record<string, Action<any, any>>;
@@ -27,6 +29,7 @@ export interface CellDef<I, O> {
   layout?: string;                // id layout bọc view (nested qua parent)
   requireAuth?: boolean;          // guard: cần session hợp lệ mới vào
   requireRole?: string;           // guard RBAC: cần role này (ngầm cần auth)
+  cache?: boolean;                // render cache cho cell static (mặc định true); đặt false nếu cell STREAM (Suspense)
 }
 
 export function defineCell<I, O>(c: CellDef<I, O>): CellDef<I, O> { return c; }

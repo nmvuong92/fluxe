@@ -1,13 +1,14 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* Integration proof: cùng cell, 2 profile → 2 manifest → 2 hành vi. Cell KHÔNG đổi. */
 import http from "node:http";
 import { makeServer } from "./server_factory";
 import { resolve, type CellDecl } from "./core/resolver";
 import { profiles } from "../app/profiles";
-import home from "../app/cells/home/index";
-import todos from "../app/cells/todos/index";
-import hello from "../app/cells/hello/index";
+import { cells as appCells } from "../app/app";
+import { layouts } from "../app/layouts/index";
 
-const cells: CellDecl[] = [home, todos, hello].map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
+const cells: CellDecl[] = appCells.map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
 
 function get(port: number, path: string, headers: any = {}): Promise<{ status: number; body: string; headers: any }> {
   return new Promise((resolve, reject) => {
@@ -44,7 +45,7 @@ function check(label: string, cond: boolean) {
 async function run(profileName: string, port: number) {
   const manifest = resolve(cells, profiles[profileName]);
   console.log(`\n══════════ profile=${profileName} (backend=${manifest.backend.language}/${manifest.backend.transport}) ══════════`);
-  const srv = makeServer(manifest).listen(port);
+  const srv = makeServer(manifest, appCells, layouts).listen(port);
   await new Promise((r) => setTimeout(r, 150));
   try {
     const homePage = await get(port, "/");
@@ -162,7 +163,7 @@ async function runOverride(port: number) {
   const manifest = resolve(cells, profiles.dev);
   manifest.cells.home.render.shipClientJs = true; // override static → ship
   console.log(`\n══════════ override: manifest ép home ship JS (đối chứng quyền manifest) ══════════`);
-  const srv = makeServer(manifest).listen(port);
+  const srv = makeServer(manifest, appCells, layouts).listen(port);
   await new Promise((r) => setTimeout(r, 150));
   try {
     const homePage = await get(port, "/");

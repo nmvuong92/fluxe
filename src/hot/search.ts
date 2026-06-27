@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* Adapter TS cho hot-path Rust search — SAU một biên riêng (không phải Backend CRUD).
  * Cell/loader chỉ gọi interface này; phía sau là service Rust compute. */
 export interface SearchHit { item: string; score: number }

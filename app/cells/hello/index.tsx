@@ -1,8 +1,6 @@
-import { createElement as h } from "react";
 import { defineCell } from "../../../src/core/engine";
 import { FluxeError } from "../../../src/core/errors";
-
-interface HelloData { name: string; backendName: string }
+import { Hello, type HelloData } from "./view";
 
 export default defineCell<{ name: string }, HelloData>({
   id: "hello",
@@ -13,10 +11,5 @@ export default defineCell<{ name: string }, HelloData>({
     if (input.name === "crash") throw new Error("nổ tung nội bộ");
     return { name: input.name, backendName: backend.name };
   },
-  view: ({ data }) =>
-    h("div", { className: "card" },
-      h("h1", null, `Xin chào, ${data.name}!`),
-      h("p", { className: "muted" }, `Param route động — backend: ${data.backendName}`),
-      h("a", { href: "/", className: "muted" }, "← về trang chủ")
-    ),
+  view: Hello,
 });

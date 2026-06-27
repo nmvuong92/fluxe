@@ -1,0 +1,116 @@
+---
+title: Tổng quan tính năng
+description: Mọi thứ core fluxe hỗ trợ — kèm ví dụ ngắn + link chi tiết. Trung thực cả phần chưa có.
+sidebar:
+  order: 1
+---
+
+Bản đồ "có gì dùng nấy". Mỗi mục là một tính năng **đã có trong core**, kèm ví dụ tối thiểu.
+Phần [chưa hỗ trợ](#chưa-hỗ-trợ-roadmap) liệt kê trung thực thứ chưa làm.
+
+## Cell & Routing
+```tsx
+defineCell({ id: "user", route: "/user/[id]", loader: ({ input }) => ({ id: input.id }), view: User });
+```
+Route động `[id]`, loader chạy server. → [Cells](/reference/cells/)
+
+## Data & Switch backend
+```ts
+const todo = await backend.addTodo(title);   // memory | sqlite | postgres | go | rust | …
+```
+Cùng interface `Backend`, đổi bằng profile. → [Backends](/reference/data/) · [Switch backend](/guides/switch-backend/)
+
+## Validation (Zod)
+```ts
+add: withInput(z.object({ title: z.string().min(1).max(200) }), async ({ input, backend }) => backend.addTodo(input.title))
+```
+Sai → `FluxeError 400` field-level. → [Validation](/reference/validation/)
+
+## Typed errors
+```ts
+throw new FluxeError("forbidden", "Không cho phép", 403);   // unexpected → 500 + errorId, prod không leak
+```
+→ [Typed errors](/reference/errors/)
+
+## Auth — session, password, CSRF, RBAC
+```ts
+signSession({ user, roles }, SECRET);  hashPassword(pw);  // + CSRF double-submit, cell.requireRole
+defineCell({ id: "admin", requireRole: "admin", /* … */ });
+```
+→ [Session](/reference/session/) · [Password](/reference/password/) · [CSRF](/reference/csrf/) · [RBAC](/reference/rbac/)
+
+## Rate limit
+```ts
+createRateLimiter({ capacity: 30, refillPerSec: 10 });   // token-bucket + LRU per-IP → 429
+```
+→ [Rate limit](/reference/rate-limit/)
+
+## Env fail-fast
+```ts
+export const env = loadEnv(z.object({ PORT: z.coerce.number().default(5180) }));
+```
+→ [Env](/reference/env/)
+
+## Realtime (SSE + pub/sub + presence)
+```ts
+broker.publish("todos", { action: "add", out });          // server
+subscribe("todos", (data) => refetch());                   // client (SSE)
+```
+`GET /__sse/<topic>` + presence (ai online). → [Realtime](/reference/realtime/)
+
+## Background jobs (queue bền + dead-letter)
+```ts
+const q = createQueue("./jobs.db"); q.enqueue("email", { to });
+await drain(q, { email: async (p) => send(p) }, { maxAttempts: 3 });   // retry → dead-letter
+```
+→ [Jobs](/reference/jobs/)
+
+## React: data fetching + SPA nav
+```tsx
+const { data } = useQuery("todos", () => rpc("todos", "list", {}), { initial });
+const add = useMutation("todos.add", (t) => rpc("todos", "add", { title: t }));
+<Link href="/about" preserveScroll>About</Link>   // SPA nav + scroll restoration
+```
+→ [Data fetching](/reference/data-fetching/) · [Navigation](/reference/navigation/)
+
+## Layout, Theme, Navigation
+```tsx
+<Nav items={nav} /> <ThemeToggle />   // master layout, theme light/dark, active nav — chạy cả trên static
+```
+→ [Layout](/reference/layout/) · [Theme](/reference/theme/) · [Navigation](/reference/navigation/)
+
+## SEO
+```ts
+head: (d) => ({ title: d.title, description, canonical: "/", og: {...}, jsonLd: {...} })
+```
++ `/sitemap.xml`, `/robots.txt` tự sinh. → [SEO](/reference/seo/)
+
+## Observability & Devtools
+- `/_fluxe` portal · `/_fluxe/stats` (RAM/CPU) · `/_fluxe/requests` (ring buffer).
+- DebugBar: chaos toggle, live backend swap, RCA badge, trace timing, copy-as-test.
+- ETag/304 cho props. → [Observability](/reference/observability/) · [Devtools](/reference/devtools/)
+
+## Performance (opt-in)
+- [Cell static — 0 JS](/guides/static-cells/) + [Render cache](/guides/static-cache/).
+- View-only client bundle (server code không ship xuống browser).
+
+## Codegen polyglot & CLI
+```bash
+fx gen        # 1 schema → types TS + Go + Rust
+fx new <id>   # scaffold cell ; fx init ; fx dev ; fx bench
+```
+→ [CLI](/reference/cli/) · [Codegen](/reference/codegen/)
+
+## Chưa hỗ trợ (roadmap)
+
+Trung thực — **chưa có trong core**, đừng dùng nhầm:
+
+| Tính năng | Trạng thái |
+|-----------|-----------|
+| **WebSocket** | ✗ — realtime hiện chỉ **SSE** (1 chiều server→client). WS hai chiều chưa có. |
+| **File storage / upload** | ✗ — chưa có adapter (local/S3), chưa parse multipart. |
+| **Mail / SMTP** | ✗ — chưa có; có thể làm qua job queue + lib ngoài. |
+| **Full-text search** | ~ — chỉ có adapter stub `createRustSearch` (gọi service Rust), chưa có engine. |
+| **i18n** | ~ — đã thiết kế (`docs/design/layout-architecture.md`), chưa implement. |
+
+Muốn cái nào? Mở issue hoặc xem `idea.md` để biết hướng.

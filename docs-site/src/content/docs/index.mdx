@@ -1,0 +1,44 @@
+---
+title: fluxe
+description: Khung fullstack tối giản polyglot — RCA Resolution.
+template: splash
+hero:
+  tagline: Viết logic một lần. Engine "giải" ngôn ngữ, render, transport, backend cho bạn.
+  actions:
+    - text: Bắt đầu tutorial
+      link: /guides/tutorial/
+      icon: right-arrow
+    - text: RCA là gì
+      link: /guides/rca/
+      icon: open-book
+      variant: minimal
+    - text: Switch backend
+      link: /guides/switch-backend/
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## fluxe trong một câu
+
+**Cell** chỉ khai báo *hợp đồng* (loader + view). Mọi quyết định vận hành — chạy
+**ngôn ngữ** nào, render **static/island**, **transport** ra sao, **backend** Go/Rust/memory —
+do **Resolution Plane** giải lúc build, ghi vào `.fluxe/resolution.json`. Đổi quyết định =
+đổi manifest, **không sửa một dòng cell**.
+
+<CardGrid stagger>
+	<Card title="Polyglot khi đáng" icon="puzzle">
+		Mặc định **in-process (0 roundtrip)**. Chỉ resolve sang service Go/Rust khi *đo được*
+		lợi (compute nặng, tách ops) — transport là quyết định config, không phải viết lại cell.
+	</Card>
+	<Card title="Static-first" icon="rocket">
+		Cell `static` ship **0 JS**, render-cache → ~3× RPS, RAM −34% (đo được).
+	</Card>
+	<Card title="DX devtools" icon="setting">
+		DebugBar: chaos toggle, live backend swap, RCA badge, trace timing, copy-as-test.
+	</Card>
+	<Card title="Typed errors" icon="warning">
+		Lỗi là *giá trị có kiểu* (code/status/details) — không throw mơ hồ.
+	</Card>
+</CardGrid>

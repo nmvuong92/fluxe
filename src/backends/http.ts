@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 import type { Backend, Todo } from "./types";
 
 /* Backend #3/#4: gọi một service THẬT qua HTTP (Go hoặc Rust).

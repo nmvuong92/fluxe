@@ -1,0 +1,336 @@
+---
+title: "Tutorial: từ 0 tới app nhỏ"
+description: Xây app/ từ trống — env, profile, registry, cell tĩnh → island → switch backend → test.
+sidebar:
+  order: 0
+  badge: Bắt đầu ở đây
+---
+
+import { Steps, Aside, FileTree, Tabs, TabItem } from '@astrojs/starlight/components';
+import TasksDemo from '../../../components/TasksDemo.tsx';
+
+Ta sẽ xây **`app/` từ con số 0** và hiểu vai trò từng thành phần: env → profile → registry →
+layout → cell tĩnh → cell island → switch backend → test. ~15 phút.
+
+<Aside title="Engine là package, bạn chỉ viết app/">
+Engine là **`@nmvuong92/fluxe`** (cài qua npm) — bạn `import` vào, không đụng nội bộ. Bạn chỉ
+viết **`app/`**: cells, layout, profile, env. Engine nhận cells/profile từ `app/` (DI).
+</Aside>
+
+## Bản đồ: các thành phần
+
+<FileTree>
+- app/ **CODE CỦA BẠN**
+  - env.ts khai báo + validate biến môi trường
+  - profiles.ts backend nào chạy (resolution profile)
+  - app.ts **registry cell — sinh tự động** (`fx sync`)
+  - layouts/index.tsx layout chung + DebugBar
+  - cells/
+    - home/
+      - view.tsx giao diện
+      - index.tsx loader + view + actions
+- node_modules/@nmvuong92/fluxe **engine** (import, đừng sửa)
+</FileTree>
+
+| File | Vai trò |
+|------|---------|
+| `app/env.ts` | Khai báo env, validate fail-fast lúc boot |
+| `app/profiles.ts` | Mỗi profile = "backend nào, endpoint nào" |
+| `app/app.ts` | Registry cell — **sinh tự động** bởi `fx sync`, đừng sửa tay |
+| `app/layouts/index.tsx` | Bọc cell (header/nav) + mount DebugBar |
+| `app/cells/<id>/index.tsx` | Một trang: `loader` (data) + `view` (React) + `actions` (RPC) |
+
+**Luồng:** tạo cell trong `app/cells/` → `fx sync` tự sinh `app/app.ts` (auto-discovery) →
+`fx resolve` sinh `.fluxe/resolution.json` → `server.tsx` tiêm `cells` vào `makeServer`.
+Bạn **không bao giờ sửa `app/app.ts` bằng tay**.
+
+## 0. Chuẩn bị
+
+```bash
+node --version      # cần v22+ (node:sqlite built-in)
+npm install
+```
+
+## 1. Dựng app/ bằng một lệnh
+
+```bash
+npx fx init       # tạo app/env.ts, app/profiles.ts, app/layouts/, app/cells/home
+```
+
+`fx init` chỉ tạo **file còn thiếu** (an toàn). Bốn thành phần nó dựng — và vai trò:
+
+| File | Vai trò |
+|------|---------|
+| `app/env.ts` | env có kiểu, thiếu/sai là **chặn lúc boot** (`loadEnv` + Zod) |
+| `app/profiles.ts` | profile = "backend nào". Khởi đầu chỉ `dev: { backend: "memory" }` (in-process, 0 roundtrip) |
+| `app/layouts/index.tsx` | layout `site` bọc mọi trang + gắn `<DebugBar />` |
+| `app/cells/home/index.tsx` | cell trang chủ mẫu (island — mặc định) |
+
+```bash
+npm run dev       # sync → resolve → bundle → server :5180
+```
+
+Mở **http://localhost:5180** (trang home) và **/_fluxe** (portal RCA).
+
+<Aside type="note" title="app/app.ts là FILE SINH TỰ ĐỘNG">
+`fx sync` quét `app/cells/*` rồi sinh `app/app.ts` (registry tiêm vào engine). `dev`/`resolve`
+tự gọi `sync` → **thêm cell = tạo file, không khai báo tay**. Đừng sửa `app/app.ts`.
+Cell/layout là `.tsx` — JSX bình thường, **không cần `import React`** (`jsx: react-jsx`).
+</Aside>
+
+## 2. Thêm một trang — `fx new`
+
+Thêm trang = **một lệnh**. Không tạo file tay, không khai báo:
+
+```bash
+npx fx new about        # sinh app/cells/about/{view.tsx, index.tsx} + auto-đăng ký
+```
+
+Cell được tách **2 file theo nguyên tắc giao-diện-vs-server** (như SvelteKit `+page.svelte` /
+`+page.server.ts`, Astro template/frontmatter):
+
+**`view.tsx`** — GIAO DIỆN thuần (chỗ frontend/designer sửa, không server logic):
+
+```tsx
+// app/cells/about/view.tsx
+export interface AboutData {
+  title: string;
+}
+
+export function About({ data }: { data: AboutData }) {   // nhận props `data`
+  return (
+    <div className="card">
+      <h1>{data.title}</h1>
+      <p>Trang giới thiệu.</p>
+    </div>
+  );
+}
+
+export default About;
+```
+
+**`index.tsx`** — CELL: route + server logic (loader/head), gắn view:
+
+```tsx
+// app/cells/about/index.tsx
+import { defineCell } from "@nmvuong92/fluxe";
+import { About, type AboutData } from "./view";
+
+export default defineCell<{}, AboutData>({
+  id: "about",                  // định danh cell (dùng cho RPC, registry)
+  route: "/about",              // URL
+  layout: "site",               // bọc bằng layout site (có DebugBar)
+  async loader() {              // chạy SERVER → trả props cho view
+    return { title: "About" };
+  },
+  head: (data) => ({ title: data.title }),   // SEO: <title>, meta…
+  view: About,
+});
+```
+
+<Aside type="tip" title="Không cần khai báo hydration">
+Cell mặc định **`island`** (interactive — hydrate React). Bạn **không khai báo `hydration`**.
+Khi một trang nặng-nội-dung không cần JS, opt-in tối ưu `hydration: "static"` (0 JS) — xem
+[Cell static](/guides/static-cells/).
+</Aside>
+
+```bash
+npm run dev         # sync (đăng ký about) → resolve → bundle → server :5180
+```
+
+Mở **/about** — trang hiện ra, hydrate sẵn để thêm tương tác bất kỳ lúc nào.
+
+<Aside type="tip" title="Không có bước 'đăng ký'">
+`fx new` đã tạo file + chạy `sync` (auto-discovery cập nhật `app/app.ts`). Bạn **không sửa
+`app/app.ts`**, engine `src/` **không đụng**. Thêm trang nữa = `fx new <id>` lần nữa.
+</Aside>
+
+## 3. Thêm tương tác (island)
+
+Trang **island**: hydrate, có state, gọi action server. Cờ `--island` sinh sẵn `useQuery` +
+`useMutation` + `actions` (dùng `Backend` todo có sẵn):
+
+```bash
+npx fx new tasks --island
+```
+
+Sinh 2 file. **`view.tsx`** — giao diện island (state + data fetching):
+
+```tsx
+// app/cells/tasks/view.tsx
+import { useState } from "react";
+import { rpc } from "@nmvuong92/fluxe/client";
+import { useQuery, useMutation } from "@nmvuong92/fluxe/react";
+import type { Todo } from "@nmvuong92/fluxe";
+
+export interface TasksData { items: Todo[] }
+
+export function Tasks({ data }: { data: TasksData }) {
+  const { data: items, refetch } = useQuery("tasks", () => rpc<Todo[]>("tasks", "list", {}), {
+    initial: data.items,           // SSR đưa data đầu → 0 lời gọi API lúc mở trang
+  });
+  const add = useMutation("tasks.add", (title: string) => rpc("tasks", "add", { title }));
+  const [title, setTitle] = useState("");
+
+  async function onAdd() { await add.mutate(title); setTitle(""); refetch(); }
+
+  return (
+    <div className="card">
+      <h1>Tasks</h1>
+      <input value={title} onChange={(e) => setTitle(e.target.value)} />
+      <button onClick={onAdd}>Thêm</button>
+      {add.error && <p style={{ color: "red" }}>{add.error}</p>}
+      <ul>{(items ?? []).map((t) => <li key={t.id}>{t.title}</li>)}</ul>
+    </div>
+  );
+}
+```
+
+**`index.tsx`** — loader + actions (server), gắn view:
+
+```tsx
+// app/cells/tasks/index.tsx
+import { z } from "zod";
+import { defineCell } from "@nmvuong92/fluxe";
+import { withInput } from "@nmvuong92/fluxe";
+import { Tasks, type TasksData } from "./view";
+
+export default defineCell<{}, TasksData>({
+  id: "tasks",
+  route: "/tasks",
+  layout: "site",                      // hydration mặc định "island" — không cần khai báo
+  async loader({ backend }) {
+    return { items: await backend.listTodos() };
+  },
+  view: Tasks,
+  actions: {
+    list: async ({ backend }) => backend.listTodos(),
+    add: withInput(
+      z.object({ title: z.string().min(1, "Không được rỗng").max(200) }),
+      async ({ input, backend }) => backend.addTodo(input.title),
+    ),
+  },
+});
+```
+
+<Aside type="note" title="Island tự hydrate, không khai báo client">
+Cell island (mặc định) **tự** được hydrate (registry sinh từ `app/views.ts`). Bạn không động tới
+`client.tsx`. Chỉ khi muốn 0 JS mới opt-in [`hydration: "static"`](/guides/static-cells/).
+</Aside>
+
+```bash
+npm run dev
+```
+
+Mở **/tasks** → gõ task → **Thêm**. Mở **DebugBar** (nút ⚡): thấy `mutation rpc:tasks.add` +
+`query:tasks` với badge resolution + timing. Bỏ trống rồi Thêm → lỗi `Không được rỗng` hiện ngay
+(đó là `withInput` + typed error).
+
+**Hoặc thử ngay tại đây** (demo sống — chạy bằng mock backend trong trình duyệt, bỏ trống để thấy lỗi validate):
+
+<TasksDemo client:load />
+
+## Khoan — bạn vừa KHÔNG viết một dòng API nào
+
+Để ý: bạn có data ở client và mutation chạy, nhưng **không** có route REST, controller,
+serializer, OpenAPI, hay `fetch` thủ công nào cả. Đây là cơ chế lõi của fluxe.
+
+### Cách thường vs fluxe
+
+<Tabs>
+  <TabItem label="Cách thường (REST)">
+```text
+1. server: định nghĩa route  GET /api/tasks, POST /api/tasks
+2. server: viết controller + serialize JSON + validate
+3. share: viết DTO / OpenAPI để client biết kiểu
+4. client: viết fetch("/api/tasks") + parse + xử lý lỗi
+5. tự đồng bộ types 2 đầu mỗi khi đổi
+```
+  </TabItem>
+  <TabItem label="fluxe">
+```text
+1. viết hàm:  add: withInput(schema, ({input, backend}) => …)
+2. gọi:       rpc("tasks", "add", { title })
+→ hết. Engine tự expose, validate, serialize. Types chảy từ 1 nguồn.
+```
+  </TabItem>
+</Tabs>
+
+### Hai cơ chế làm nên điều đó
+
+**1. Loader → props (SSR): lần tải đầu = 0 lời gọi API.** `loader` chạy *trên server*, data
+được nhúng thẳng vào HTML. `useQuery(..., { initial: data.tasks })` dùng luôn data đó — trang
+hiện đầy đủ ngay, **không** có request `/api` nào lúc mở trang.
+
+**2. Action = RPC sinh tự động.** Bạn viết một *hàm* trong `actions`; engine tự expose nó ở
+`POST /__action/<cell>/<action>` và `rpc()` gọi tới. Bạn không đặt tên route, không viết
+controller, không viết DTO. **Cùng `schema` Zod validate cả hai đầu** → không lệch kiểu.
+
+<Aside type="caution" title="Trung thực: vẫn có network, chỉ là không có boilerplate">
+`rpc()` bên dưới vẫn là một `POST` HTTP — **không phải "0 mạng"**. Cái mất đi là *tầng API thủ
+công*: route, controller, serializer, fetch, đồng bộ types. Và transport của action cũng là thứ
+được **resolve** (như backend) — nên sau này đổi sang dạng khác mà call-site `rpc()` không đổi.
+</Aside>
+
+## 4. Switch backend — chỉ khi đáng
+
+`tasks` đang chạy **in-process (memory) — 0 roundtrip**. Bạn *có thể* resolve sang service khác,
+nhưng nhớ:
+
+<Aside type="caution">
+HTTP-swap **không phải** để nhanh hơn — nó tốn roundtrip + serialize. Chỉ tách service khi đo được
+lợi (compute nặng ở Rust, hoặc cần scale/deploy độc lập). Việc nhẹ → giữ in-process.
+</Aside>
+
+Thử cho vui (cell **không đổi một dòng**):
+
+<Steps>
+
+1. Bật service Python (cửa sổ khác):
+
+   ```bash
+   PORT=8083 python3 app/native/python/server.py
+   ```
+
+2. `/tasks` → **DebugBar** → backend: **python**. Task mới có prefix `[Python]`, header
+   `x-fluxe-resolution: python/http (swap)`.
+
+</Steps>
+
+→ 7 backend + cách cấu hình profile: [Switch backend](/guides/switch-backend/).
+
+## 5. Viết test (mock Backend)
+
+`Backend` là interface → test logic cell **không cần HTTP/DB**:
+
+```ts
+// app/cells/tasks/tasks.test.ts
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import tasks from "./index";
+import { createTestBackend } from "@nmvuong92/fluxe";
+
+test("action add: tạo task qua backend", async () => {
+  const backend = createTestBackend();
+  const created = await tasks.actions!.add({ input: { title: "việc mới" }, backend });
+  assert.equal(created.title, "việc mới");
+  assert.deepEqual(backend.calls.at(-1), { method: "addTodo", args: ["việc mới"] });
+});
+```
+
+```bash
+npm run test:all     # typecheck + unit + integration
+```
+
+## Xong — bạn vừa đi hết vòng RCA
+
+<Steps>
+
+1. **Cell** = hợp đồng (`loader`/`view`/`actions`) — không biết hạ tầng.
+2. **Resolution** quyết static/island, backend nào — qua profile + manifest, không sửa cell.
+3. **Thêm trang = `fx new <id>`** (auto-discovery đăng ký); switch backend = đổi resolution; test = mock interface.
+
+</Steps>
+
+Tiếp: [RCA sâu hơn](/guides/rca/) · [Cell reference](/reference/cells/) ·
+[Session](/reference/session/).

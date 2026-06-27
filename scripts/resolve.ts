@@ -1,9 +1,9 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 import { writeFileSync, mkdirSync } from "node:fs";
 import { resolve as resolveManifest, type CellDecl } from "../src/core/resolver";
 import { profiles } from "../app/profiles";
-import home from "../app/cells/home/index";
-import todos from "../app/cells/todos/index";
-import hello from "../app/cells/hello/index";
+import { cells as appCells } from "../app/app";
 
 const name = process.argv[2] ?? process.env.FLUXE_PROFILE ?? "dev";
 const profile = profiles[name];
@@ -12,7 +12,8 @@ if (!profile) {
   process.exit(1);
 }
 
-const cells: CellDecl[] = [home, todos, hello].map((c) => ({
+// Lấy thẳng từ app/app.ts — thêm cell ở đó là resolve tự thấy (không sửa script này).
+const cells: CellDecl[] = appCells.map((c) => ({
   id: c.id,
   route: c.route,
   hydration: c.hydration,

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 import type { Backend, Todo } from "../backends/types";
 
 /* Testing story — lợi thế của fluxe: Backend là interface → mock cực dễ.

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* Sinh types từ contract cho cả 3 ngôn ngữ → .fluxe/gen/. */
 import { writeFileSync, mkdirSync } from "node:fs";
 import { genTS, genGo, genRust } from "../src/core/codegen";

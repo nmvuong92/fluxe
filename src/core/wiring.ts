@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 import type { Backend } from "../backends/types";
 import type { ResolutionManifest, BackendResolution } from "./resolver.ts";
 import { createMemoryBackend } from "../backends/memory.ts";

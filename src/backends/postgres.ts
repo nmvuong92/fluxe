@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* Backend Postgres — DRIVER PRODUCTION (cùng interface Backend, cùng pattern SQLite).
  * ⚠️ Cần: `npm i pg` + một Postgres đang chạy. KHÔNG được import bởi code đang chạy
  * trong repo này (chưa cài pg, chưa có server) → đây là adapter tham chiếu, sẵn sàng bật.

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
 
 /* Render cache — ETag/304: hash body, client gửi If-None-Match → 304 nếu không đổi

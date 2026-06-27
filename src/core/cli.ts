@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* fx CLI — registry lệnh thuần (testable). bin/fx.ts dispatch + spawn. */
 
 export interface Command {
@@ -5,17 +7,30 @@ export interface Command {
   shell: (args: string[]) => string;
 }
 
+const SYNC = "tsx scripts/sync.ts";   // auto-discovery: quét app/cells/* → app/app.ts
 const ESBUILD = "esbuild src/client.tsx --bundle --format=esm --outfile=dist/client.js --jsx=automatic --loader:.tsx=tsx";
 const p = (a: string[]) => a[0] ?? "dev"; // profile mặc định
 
 export const COMMANDS: Record<string, Command> = {
+  init: {
+    desc: "Scaffold app/ mới (env, profiles, layout, cell home) — chỉ tạo file còn thiếu",
+    shell: () => `tsx scripts/init.ts`,
+  },
+  new: {
+    desc: "Tạo cell mới: fx new <id> [--island]  (auto-discovery tự đăng ký)",
+    shell: (a) => `tsx scripts/new-cell.ts ${a.join(" ")}`,
+  },
+  sync: {
+    desc: "Auto-discovery: quét app/cells/* → app/app.ts (dev/resolve tự gọi)",
+    shell: () => SYNC,
+  },
   gen: {
     desc: "Codegen contract → types TS/Go/Rust (.fluxe/gen)",
     shell: () => `tsx scripts/codegen.ts`,
   },
   resolve: {
     desc: "Sinh .fluxe/resolution.json từ profile",
-    shell: (a) => `tsx scripts/resolve.ts ${p(a)}`,
+    shell: (a) => `${SYNC} && tsx scripts/resolve.ts ${p(a)}`,
   },
   jobs: {
     desc: "Demo job queue (enqueue + worker drain + dead-letter)",
@@ -23,23 +38,23 @@ export const COMMANDS: Record<string, Command> = {
   },
   bench: {
     desc: "Benchmark RPS/QPS + latency p50/p99 + RAM/CPU",
-    shell: (a) => `tsx scripts/resolve.ts dev && npm run --silent build:client && tsx scripts/bench.ts ${a.join(" ")}`,
+    shell: (a) => `${SYNC} && tsx scripts/resolve.ts dev && npm run --silent build:client && tsx scripts/bench.ts ${a.join(" ")}`,
   },
   prerender: {
     desc: "Prerender cell static → .fluxe/static.json",
-    shell: (a) => `tsx scripts/prerender.ts ${p(a)}`,
+    shell: (a) => `${SYNC} && tsx scripts/prerender.ts ${p(a)}`,
   },
   build: {
-    desc: "Build đầy đủ: resolve + prerender + client bundle",
-    shell: (a) => `tsx scripts/resolve.ts ${p(a)} && tsx scripts/prerender.ts ${p(a)} && ${ESBUILD}`,
+    desc: "Build đầy đủ: sync + resolve + prerender + client bundle",
+    shell: (a) => `${SYNC} && tsx scripts/resolve.ts ${p(a)} && tsx scripts/prerender.ts ${p(a)} && ${ESBUILD}`,
   },
   dev: {
-    desc: "Resolve + build client + chạy server",
-    shell: (a) => `tsx scripts/resolve.ts ${p(a)} && ${ESBUILD} && tsx src/server.tsx`,
+    desc: "Sync + resolve + build client + chạy server",
+    shell: (a) => `${SYNC} && tsx scripts/resolve.ts ${p(a)} && ${ESBUILD} && tsx src/server.tsx`,
   },
   test: {
-    desc: "Chạy typecheck + unit + integration",
-    shell: () => `tsc --noEmit && node --experimental-sqlite --import tsx --test '{src,app}/**/*.test.ts' && tsx src/selftest2.ts`,
+    desc: "Sync + typecheck + unit + integration",
+    shell: () => `${SYNC} && tsc --noEmit && node --experimental-sqlite --import tsx --test '{src,app}/**/*.test.ts' && tsx src/selftest2.ts`,
   },
 };
 

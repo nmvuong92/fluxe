@@ -1,10 +1,12 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 export type RenderMode = "static" | "island";
 export type BackendKind = "memory" | "go" | "rust";
 
 export interface CellDecl {
   id: string;
   route: string;
-  hydration: RenderMode;
+  hydration?: RenderMode;   // MẶC ĐỊNH "island" (interactive). Static = opt-in tối ưu.
 }
 
 export interface ResolutionProfile {
@@ -67,10 +69,11 @@ export function resolve(cells: CellDecl[], profile: ResolutionProfile): Resoluti
     if (seenRoutes.has(c.route)) throw new Error(`route trùng: ${c.route}`);
     seenRoutes.add(c.route);
     const kind = profile.cellBackends?.[c.id] ?? profile.backend;
+    const mode: RenderMode = c.hydration ?? "island";   // default island
     out[c.id] = {
       id: c.id,
       route: c.route,
-      render: { mode: c.hydration, shipClientJs: c.hydration === "island" },
+      render: { mode, shipClientJs: mode === "island" },
       backend: resolveBackend(kind, profile),
     };
   }

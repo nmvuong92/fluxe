@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 import { createHmac, timingSafeEqual, scryptSync, randomBytes } from "node:crypto";
 
 /* Auth tối giản — session ký HMAC trong cookie (gắn 6b.F guard + 6b.I signed cookie).

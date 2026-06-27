@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* Nested layouts — phần thuần: giải chuỗi layout từ cell lên root.
  * Trả về thứ tự INNER→OUTER để render bọc dần (outermost cuối cùng bọc ngoài). */
 

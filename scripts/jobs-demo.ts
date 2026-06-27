@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* Demo job queue: enqueue vài job (có cái fail → dead-letter), worker drain. */
 import { createQueue, drain } from "../src/core/jobs";
 

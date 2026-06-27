@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* PROOF: cùng interface Backend → chạy y hệt trên memory (TS), Go, Rust.
  * Không import react/npm → chạy được bằng `node src/proof_native.ts` (Node ≥ 23).
  * Yêu cầu: service Go đang chạy ở GO_URL, Rust ở RUST_URL (xem run-native.sh). */

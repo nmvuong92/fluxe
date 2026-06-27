@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { signSession, verifySession, parseCookie, hasRole, hashPassword, verifyPassword } from "./auth.ts";

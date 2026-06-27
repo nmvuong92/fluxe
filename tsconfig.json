@@ -1,1 +1,25 @@
-{ "compilerOptions": { "target":"ES2022","module":"ESNext","moduleResolution":"Bundler","jsx":"react","strict":true,"esModuleInterop":true,"skipLibCheck":true,"noEmit":true,"allowImportingTsExtensions":true,"types":["node"],"lib":["ES2022","DOM"] }, "include":["src/**/*","app/**/*"] }
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "types": ["node"],
+    "lib": ["ES2022", "DOM"],
+    "baseUrl": ".",
+    "paths": {
+      "@nmvuong92/fluxe": ["./src/index.ts"],
+      "@nmvuong92/fluxe/react": ["./src/react/index.ts"],
+      "@nmvuong92/fluxe/client": ["./src/core/client.ts"],
+      "@nmvuong92/fluxe/jobs": ["./src/core/jobs.ts"],
+      "@nmvuong92/fluxe/sqlite": ["./src/backends/sqlite.ts"]
+    }
+  },
+  "include": ["src/**/*", "app/**/*"],
+  "exclude": ["app/native/**", "docs-site/**", "node_modules"]
+}

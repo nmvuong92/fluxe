@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 import { DatabaseSync } from "node:sqlite";
 
 /* Background jobs / queue BỀN (6b.B) — backed bằng SQLite (persist qua restart).

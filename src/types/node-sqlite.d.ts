@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 // Khai báo tối thiểu cho node:sqlite (built-in experimental, @types/node chưa cover).
 declare module "node:sqlite" {
   interface StatementSync {

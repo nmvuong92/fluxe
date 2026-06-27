@@ -1,5 +1,25 @@
+# deps
 node_modules/
+**/node_modules/
+
+# build / generated
+lib/
 dist/
 .fluxe/
+*.tsbuildinfo
+docs-site/dist/
+docs-site/.astro/
+
+# native build artifacts
+**/target/
 app/native/rust/server
 app/native/hot-rust/server
+app/native/**/*.node
+app/native/dotnet/bin/
+app/native/dotnet/obj/
+
+# misc
+*.log
+.DS_Store
+_*.ts
+_*.tsx

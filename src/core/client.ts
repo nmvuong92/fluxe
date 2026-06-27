@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* ============================================================
  * Client runtime — Inertia-style + mutations DX.
  * - rpc(): gọi action, ném RpcError CÓ CẤU TRÚC (code/message/details) khi lỗi.
@@ -35,17 +37,37 @@ function cookie(name: string): string {
   return m ? decodeURIComponent(m[1]) : "";
 }
 
+/* DevTools config (chỉ ảnh hưởng dev): chaos injection + live backend swap. DebugBar set. */
+let _chaos = "";        // vd "delay=600;fail=0.3"
+let _devBackend = "";   // vd "go" | "rust" | "memory"
+export const setChaos = (v: string) => { _chaos = v; };
+export const getChaos = () => _chaos;
+export const setDevBackend = (v: string) => { _devBackend = v; };
+export const getDevBackend = () => _devBackend;
+
+/* Meta của rpc gần nhất (resolution + timing server) — hook đọc ngay sau await để log. */
+export interface RpcMeta { resolution?: string; serverMs?: number; clientMs?: number }
+let _lastMeta: RpcMeta = {};
+export const lastRpcMeta = (): RpcMeta => _lastMeta;
+
 export async function rpc<T = any>(cell: string, action: string, input: unknown): Promise<T> {
+  const t0 = typeof performance !== "undefined" ? performance.now() : 0;
+  const headers: Record<string, string> = { "content-type": "application/json", "x-csrf-token": cookie("csrf") };
+  if (_chaos) headers["x-fluxe-chaos"] = _chaos;            // #1 chaos
+  if (_devBackend) headers["x-fluxe-backend"] = _devBackend; // #5 live swap
   let res: Response;
   try {
-    res = await fetch(`/__action/${cell}/${action}`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-csrf-token": cookie("csrf") },
-      body: JSON.stringify(input),
-    });
+    res = await fetch(`/__action/${cell}/${action}`, { method: "POST", headers, body: JSON.stringify(input) });
   } catch {
+    _lastMeta = {};
     throw new RpcError("network", "Mất kết nối máy chủ", 0);
   }
+  const hget = (k: string) => res.headers?.get?.(k) ?? null;
+  _lastMeta = {                                             // #3 resolution + #4 server timing
+    resolution: hget("x-fluxe-resolution") ?? undefined,
+    serverMs: Number(hget("x-fluxe-server-ms")) || undefined,
+    clientMs: Math.round((typeof performance !== "undefined" ? performance.now() : 0) - t0),
+  };
   if (!res.ok) throw parseRpcError(res.status, await res.text());
   return res.json();
 }
@@ -66,8 +88,11 @@ export async function mutate<T>(opts: {
 }
 
 /* SPA navigation kiểu Inertia: lấy props JSON rồi để runtime render lại */
-export async function fetchPageProps(url: string): Promise<{ cell: string; data: unknown }> {
+export async function fetchPageProps(url: string): Promise<{ cell: string; data: unknown; layout?: string }> {
   const res = await fetch(url, { headers: { "x-fluxe": "1" } });
+  if (!res.ok) throw new Error(`fetchPageProps ${url} → ${res.status}`);
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.includes("application/json")) throw new Error("không phải trang cell");   // file tĩnh → hard nav
   return res.json();
 }
 

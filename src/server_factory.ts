@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 import http from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { PassThrough } from "node:stream";
@@ -8,8 +10,11 @@ import type { ResolutionManifest } from "./core/resolver";
 import { backendsFromManifest } from "./core/wiring.ts";
 import { renderResolutionPanel } from "./core/panel.ts";
 import { makeRouter } from "./core/router.ts";
-import { layoutChain } from "./core/layouts.ts";
-import { layouts } from "../app/layouts/index";
+import { layoutChain, type LayoutMeta } from "./core/layouts.ts";
+
+// Layout do app cung cấp (DI) — engine không import ngược vào app/.
+type LayoutEntry = LayoutMeta & { component: (props: { children: any }) => any };
+type LayoutMap = Record<string, LayoutEntry>;
 import { renderHead, renderSitemap, renderRobots } from "./core/seo.ts";
 import { FluxeError, toErrorPayload, renderErrorPage } from "./core/errors.ts";
 import { signSession, verifySession, parseCookie, hasRole, hashPassword, verifyPassword, newCsrfToken } from "./core/auth.ts";
@@ -19,6 +24,25 @@ import { createRateLimiter } from "./core/ratelimit.ts";
 import { createRecorder } from "./core/observe.ts";
 import { createPresence } from "./core/presence.ts";
 import { etagOf, etagMatches } from "./core/etag.ts";
+import { createRenderCache } from "./core/rendercache.ts";
+import { parseChaos } from "./core/chaos.ts";
+import { createMemoryBackend } from "./backends/memory.ts";
+import { createHttpBackend } from "./backends/http.ts";
+
+// Build backend theo ngôn ngữ (cho live swap trong devtools).
+// Map ngôn ngữ → service HTTP demo (cùng hợp đồng list/add/toggle). Override bằng <LANG>_URL.
+const DEV_BACKENDS: Record<string, string> = {
+  go: "http://127.0.0.1:8081",
+  rust: "http://127.0.0.1:8082",
+  python: "http://127.0.0.1:8083",
+  hono: "http://127.0.0.1:8084",
+  dotnet: "http://127.0.0.1:8085",
+  java: "http://127.0.0.1:8086",
+};
+function devBackend(lang: string) {
+  const url = process.env[`${lang.toUpperCase()}_URL`] ?? DEV_BACKENDS[lang];
+  return url ? createHttpBackend(lang, url) : createMemoryBackend();
+}
 import { randomUUID } from "node:crypto";
 
 const DEV = process.env.NODE_ENV !== "production";
@@ -37,16 +61,6 @@ function sendError(res: http.ServerResponse, wantsJson: boolean, err: unknown) {
   if (wantsJson) { res.writeHead(p.status, { "content-type": "application/json" }); res.end(JSON.stringify({ error: p })); }
   else { res.writeHead(p.status, { "content-type": "text/html; charset=utf-8" }); res.end(renderErrorPage(p)); }
 }
-import home from "../app/cells/home/index";
-import todos from "../app/cells/todos/index";
-import hello from "../app/cells/hello/index";
-import secret from "../app/cells/secret/index";
-import admin from "../app/cells/admin/index";
-import slow from "../app/cells/slow/index";
-
-const cells: CellDef<any, any>[] = [home, todos, hello, secret, admin, slow];
-const matchRoute = makeRouter(cells);
-const byId = new Map(cells.map(c => [c.id, c]));
 
 // Phần head (trước body) và tail (sau body) — body được STREAM ở giữa.
 function shellHead(cell: CellDef<any, any>, data: any): string {
@@ -55,13 +69,32 @@ function shellHead(cell: CellDef<any, any>, data: any): string {
 }
 function shellTail(cell: CellDef<any, any>, data: any, shipClientJs: boolean): string {
   const island = shipClientJs
-    ? `<script>window.__FLUXE__=${JSON.stringify({ cell: cell.id, data })};</script><script type="module" src="/client.js"></script>`
+    ? `<script>window.__FLUXE__=${JSON.stringify({ cell: cell.id, data, layout: cell.layout })};</script><script type="module" src="/client.js"></script>`
     : `<!-- static: 0 JS -->`;
   return `</div>${island}</body></html>`;
 }
 const readBody = (req: http.IncomingMessage) => new Promise<string>(res => { let b=""; req.on("data",c=>b+=c); req.on("end",()=>res(b)); });
 
-export function makeServer(manifest: ResolutionManifest) {
+/* Render React node THÀNH chuỗi HTML đầy đủ (gom hết stream) — dùng cho cache cell static.
+ * Byte giống hệt đường stream: cùng renderToPipeableStream, chỉ gom lại 1 lần thay vì chảy. */
+function renderBodyToString(node: any): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    const sink = new PassThrough();
+    sink.on("data", (c) => chunks.push(Buffer.from(c)));
+    sink.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    sink.on("error", reject);
+    const { pipe } = renderToPipeableStream(node, {
+      onShellReady() { pipe(sink); },
+      onError(e) { reject(e); },
+    });
+  });
+}
+
+export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}) {
+  // Cells được TIÊM từ app (DI) — engine không import ngược vào app/. Thêm trang = sửa app/app.ts.
+  const matchRoute = makeRouter(cells);
+  const byId = new Map(cells.map((c) => [c.id, c]));
   // Backend GIẢI per-cell từ manifest (Resolution Plane) — cell/frontend giữ nguyên.
   const backends = backendsFromManifest(manifest);
   const backendFor = (id: string) => backends.byCell.get(id) ?? backends.default;
@@ -69,6 +102,8 @@ export function makeServer(manifest: ResolutionManifest) {
   const actionLimit = createRateLimiter({ capacity: 30, refillPerSec: 10 });   // per-IP cho action
   const recorder = createRecorder();   // request log (observability)
   const presence = createPresence();   // ai đang online per topic (Trục 4g)
+  const renderCache = createRenderCache({ maxKeys: 256 });   // memoize HTML cell static (key route, gate etag)
+  let clientJs: Buffer | undefined;    // ý A: đọc dist/client.js 1 lần (zero-copy: tái dùng buffer)
   return http.createServer(async (req, res) => {
     const url = new URL(req.url!, "http://localhost");
     const start = Date.now();
@@ -81,7 +116,8 @@ export function makeServer(manifest: ResolutionManifest) {
     const csrfCookie = csrf ? "" : (csrf = newCsrfToken(), `csrf=${csrf}; Path=/; SameSite=Lax`);
     try {
     if (url.pathname === "/client.js") {
-      if (existsSync("./dist/client.js")) { res.writeHead(200,{ "content-type":"text/javascript" }); return res.end(readFileSync("./dist/client.js")); }
+      if (clientJs === undefined && existsSync("./dist/client.js")) clientJs = readFileSync("./dist/client.js");
+      if (clientJs !== undefined) { res.writeHead(200,{ "content-type":"text/javascript" }); return res.end(clientJs); }
       res.writeHead(404); return res.end("// no client");
     }
     if (url.pathname === "/_fluxe/stats") {
@@ -164,12 +200,29 @@ export function makeServer(manifest: ResolutionManifest) {
       const [,,cellId,name] = url.pathname.split("/");
       const fn = byId.get(cellId)?.actions?.[name];
       if (!fn) { res.writeHead(404); return res.end("no action"); }
+      const t0 = Date.now();
+      // DevTools (DEV): #5 live backend swap + #3 resolution.
+      let backend = backendFor(cellId);
+      const r = manifest.cells[cellId]?.backend;
+      let resolution = r ? `${r.language}/${r.transport}` : "memory/in-process";
+      if (DEV && req.headers["x-fluxe-backend"]) {
+        const lang = String(req.headers["x-fluxe-backend"]);
+        backend = devBackend(lang);
+        resolution = `${lang}/${lang === "memory" ? "in-process" : "http"} (swap)`;
+      }
+      // #1 Chaos (DEV): inject delay + lỗi giả lập để test UX.
+      if (DEV && req.headers["x-fluxe-chaos"]) {
+        const c = parseChaos(String(req.headers["x-fluxe-chaos"]));
+        if (c.delayMs) await new Promise((rr) => setTimeout(rr, c.delayMs));
+        if (c.failRate && Math.random() < c.failRate) throw new FluxeError("chaos", "Chaos: lỗi giả lập", 500);
+      }
       let input = JSON.parse((await readBody(req)) || "{}");
       const schema = (fn as any).inputSchema;
       if (schema) input = validateInput(schema, input);   // sai → FluxeError 400 (caught)
-      const out = await fn({ input, backend: backendFor(cellId), session });
+      const out = await fn({ input, backend, session });
       broker.publish(cellId, { action: name, out });   // realtime: báo client khác
-      res.writeHead(200,{ "content-type":"application/json" }); return res.end(JSON.stringify(out));
+      res.writeHead(200, { "content-type": "application/json", "x-fluxe-resolution": resolution, "x-fluxe-server-ms": String(Date.now() - t0) });
+      return res.end(JSON.stringify(out));
     }
     const match = matchRoute(url.pathname);
     if (!match) { res.writeHead(404); return res.end("404"); }
@@ -182,7 +235,7 @@ export function makeServer(manifest: ResolutionManifest) {
     }
     const data = await cell.loader({ input: match.params, backend: backendFor(cell.id), session });
     if (wantsJson) {
-      const body = JSON.stringify({ cell: cell.id, data });
+      const body = JSON.stringify({ cell: cell.id, data, layout: cell.layout });
       const etag = etagOf(body);   // render cache: 304 nếu props không đổi
       if (etagMatches(req.headers["if-none-match"], etag)) { res.writeHead(304, { etag }); return res.end(); }
       res.writeHead(200, { "content-type": "application/json", etag }); return res.end(body);
@@ -194,6 +247,19 @@ export function makeServer(manifest: ResolutionManifest) {
     const shipClientJs = manifest.cells[cell.id]?.render.shipClientJs ?? false;
     const pageHeaders: Record<string, string> = { "content-type": "text/html; charset=utf-8" };
     if (csrfCookie) pageHeaders["set-cookie"] = csrfCookie;   // gửi csrf token cho client
+    // Ý B — render cache cell static: render 1 lần → giữ Buffer → ghi lại (zero-copy).
+    // Gate etag(data): data đổi ⇒ miss ⇒ render lại (không trả HTML cũ). Chỉ cell static & public.
+    if (manifest.cells[cell.id]?.render.mode === "static" && cell.cache !== false && !cell.requireAuth && !cell.requireRole) {
+      const etag = etagOf(JSON.stringify(data));
+      let hit = renderCache.get(url.pathname);
+      if (!hit || hit.etag !== etag) {
+        const full = shellHead(cell, data) + await renderBodyToString(node) + shellTail(cell, data, shipClientJs);
+        hit = { etag, buf: Buffer.from(full, "utf8") };
+        renderCache.set(url.pathname, hit);
+      }
+      res.writeHead(200, pageHeaders);
+      return res.end(hit.buf);
+    }
     // Streaming SSR: gửi head ngay → stream body (Suspense chảy dần) → tail khi xong.
     res.writeHead(200, pageHeaders);
     res.write(shellHead(cell, data));

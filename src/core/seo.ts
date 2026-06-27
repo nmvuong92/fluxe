@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* SEO / head management — builder thuần (testable). Cell khai báo head(data) →
  * framework bơm vào <head>; sitemap/robots tự sinh từ route table. */
 

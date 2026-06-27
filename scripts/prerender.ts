@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* Prerender cell `static` → HTML build sẵn (0 JS) cho Go host phục vụ trực tiếp.
  * Theo §6d: "cell static → Go phục vụ HTML build sẵn". Xuất .fluxe/static.json (route→html). */
 import { writeFileSync, mkdirSync } from "node:fs";

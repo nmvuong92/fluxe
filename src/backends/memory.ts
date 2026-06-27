@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 import type { Backend, Todo } from "./types";
 
 /* Backend #1: in-memory. Đại diện cho "TS thuần". */

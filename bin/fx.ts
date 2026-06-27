@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* fx — fluxe CLI. Chạy: npm run fx -- <lệnh> [args]  (vd: npm run fx -- build prod-go) */
 import { execSync } from "node:child_process";
 import { COMMANDS, renderUsage } from "../src/core/cli.ts";

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* @fluxe/react — debug store + tracing (lite). Mọi query/mutation/error ghi vào đây;
  * DebugBar subscribe để hiển thị "full flow". Immutable update → useSyncExternalStore re-render. */
 
@@ -10,9 +12,12 @@ export interface DebugEvent {
   label: string;
   status: EventStatus;
   startedAt: number;
-  ms?: number;
+  ms?: number;          // client total
   data?: unknown;
   error?: string;
+  input?: unknown;      // cho repro→test
+  resolution?: string;  // RCA: backend lang/transport đã giải (#3)
+  serverMs?: number;    // thời gian server-side (#4 trace)
 }
 
 type Listener = () => void;

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* Codegen contract polyglot — MỘT schema → types TS + Go + Rust (chữ ký RCA:
  * type-safe xuyên ngôn ngữ). Thuần (string-in/string-out), dễ test. */
 

@@ -1,19 +1,41 @@
 {
-  "name": "fluxe",
+  "name": "@nmvuong92/fluxe",
   "version": "0.1.0",
+  "description": "fluxe — khung fullstack tối giản polyglot (RCA: Resolved Cell Architecture).",
+  "license": "Apache-2.0",
+  "author": "nmvuong92",
   "type": "module",
+  "repository": { "type": "git", "url": "git+https://github.com/nmvuong92/fluxe.git" },
+  "homepage": "https://github.com/nmvuong92/fluxe#readme",
+  "bugs": { "url": "https://github.com/nmvuong92/fluxe/issues" },
+  "exports": {
+    ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" },
+    "./react": { "types": "./lib/react/index.d.ts", "default": "./lib/react/index.js" },
+    "./client": { "types": "./lib/core/client.d.ts", "default": "./lib/core/client.js" },
+    "./jobs": { "types": "./lib/core/jobs.d.ts", "default": "./lib/core/jobs.js" },
+    "./sqlite": { "types": "./lib/backends/sqlite.d.ts", "default": "./lib/backends/sqlite.js" }
+  },
+  "files": ["lib", "README.md", "LICENSE", "NOTICE"],
+  "publishConfig": { "access": "public" },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build:client": "esbuild src/client.tsx --bundle --format=esm --outfile=dist/client.js --jsx=automatic --loader:.tsx=tsx",
+    "sync": "tsx scripts/sync.ts",
+    "build:client": "npm run sync && esbuild src/client.tsx --bundle --format=esm --outfile=dist/client.js --jsx=automatic --loader:.tsx=tsx",
     "dev": "npm run build:client && tsx src/server.tsx",
     "dev:remote": "npm run build:client && FLUXE_BACKEND=remote tsx src/server.tsx",
     "test": "tsx src/selftest2.ts",
     "test:unit": "node --experimental-sqlite --import tsx --test '{src,app}/**/*.test.ts'",
     "test:cells": "node --experimental-sqlite --import tsx --test 'app/cells/**/*.test.ts'",
-    "test:all": "npm run typecheck && npm run test:unit && npm run test",
-    "resolve": "tsx scripts/resolve.ts",
-    "fx": "tsx bin/fx.ts"
+    "test:all": "npm run sync && npm run typecheck && npm run test:unit && npm run test",
+    "resolve": "npm run sync && tsx scripts/resolve.ts",
+    "fx": "tsx bin/fx.ts",
+    "build": "rm -rf lib && tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
+    "release": "npm run test:all && npm version patch -m 'release: v%s' && git push --follow-tags",
+    "release:minor": "npm run test:all && npm version minor -m 'release: v%s' && git push --follow-tags",
+    "release:major": "npm run test:all && npm version major -m 'release: v%s' && git push --follow-tags"
   },
-  "dependencies": { "react": "^18", "react-dom": "^18", "zod": "^3" },
-  "devDependencies": { "typescript": "^5", "tsx": "^4", "esbuild": "^0.23", "@types/node": "^20", "@types/react": "^18", "@types/react-dom": "^18" }
+  "dependencies": { "zod": "^3" },
+  "peerDependencies": { "react": "^18 || ^19", "react-dom": "^18 || ^19" },
+  "devDependencies": { "typescript": "^5", "tsx": "^4", "esbuild": "^0.23", "react": "^18", "react-dom": "^18", "@types/node": "^20", "@types/react": "^18", "@types/react-dom": "^18" }
 }

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* ============================================================
  * Backend Adapter — interface chuẩn để SWITCH backend.
  * loader/action chỉ biết tới interface này, không biết

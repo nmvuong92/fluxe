@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* Broker pub/sub in-memory — nền của realtime channel (Trục 4g), bản 1-node.
  * Bản distributed: thay bằng NATS/Redis fan-out (cùng interface). Bản stateful:
  * actor-Go (app/native/actor-go). Đây là lõi đơn giản nhất, dependency-free. */

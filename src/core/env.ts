@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 import type { ZodType } from "zod";
 
 /* Config/env có kiểu (4k) — validate process.env theo schema, FAIL-FAST lúc boot

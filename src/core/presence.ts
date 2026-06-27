@@ -1,3 +1,5 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
 /* Presence — ai đang online per topic (Trục 4g). Refcount theo id để chịu multi-tab/
  * nhiều kết nối cùng user. Bản 1-node; distributed: chia sẻ qua NATS/Redis (gắn 4d). */
 
