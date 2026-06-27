@@ -20,6 +20,9 @@ import { signSession, verifySession, parseCookie, hasRole, hashPassword, verifyP
 import { validateInput } from "./core/validate.ts";
 import { createBroker, type Broker } from "./core/broker.ts";
 import { createContainer } from "./core/container.ts";
+import { handleRpc } from "./core/rpc.ts";
+import type { Contract } from "./core/contract.ts";
+import type { ZodType } from "zod";
 import { createRateLimiter } from "./core/ratelimit.ts";
 import { createRecorder } from "./core/observe.ts";
 import { createPresence, type Presence } from "./core/presence.ts";
@@ -80,7 +83,7 @@ function renderBodyToString(node: any): Promise<string> {
   });
 }
 
-export interface MakeServerOpts { i18n?: I18n; storage?: Storage; config?: FluxeConfig; backend?: unknown }
+export interface MakeServerOpts { i18n?: I18n; storage?: Storage; config?: FluxeConfig; backend?: unknown; contract?: Contract; validators?: Record<string, ZodType<any>> }
 export type NodeHandler = (req: http.IncomingMessage, res: http.ServerResponse) => Promise<unknown>;
 
 /* createHandler — lõi request framework-agnostic: trả về handler Node (req,res).
@@ -130,6 +133,8 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
     const t: TFn = i18n ? makeT(i18n, locale) : (k) => k;
     const theme = cookies.theme === "dark" || cookies.theme === "light" ? cookies.theme : "";
     try {
+    // Contract DSL: POST /__rpc/<op> — validate Zod + CSRF(mutation) → resolver (opts.backend). Lớp THÊM.
+    if (await handleRpc({ url, req, res, cookies, backend: opts.backend, contract: opts.contract, validators: opts.validators, readBody })) return;
     // Đổi ngôn ngữ qua ?locale=xx → set cookie + redirect (chạy cả trên cell static, 0 JS).
     {
       const ql = url.searchParams.get("locale");
