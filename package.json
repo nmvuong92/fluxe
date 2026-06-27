@@ -1,22 +1,49 @@
 {
   "name": "@nmvuong92/fluxe",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "fluxe — khung fullstack tối giản polyglot (RCA: Resolved Cell Architecture).",
   "license": "Apache-2.0",
   "author": "nmvuong92",
   "type": "module",
-  "repository": { "type": "git", "url": "git+https://github.com/nmvuong92/fluxe.git" },
-  "homepage": "https://github.com/nmvuong92/fluxe#readme",
-  "bugs": { "url": "https://github.com/nmvuong92/fluxe/issues" },
-  "exports": {
-    ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" },
-    "./react": { "types": "./lib/react/index.d.ts", "default": "./lib/react/index.js" },
-    "./client": { "types": "./lib/core/client.d.ts", "default": "./lib/core/client.js" },
-    "./jobs": { "types": "./lib/core/jobs.d.ts", "default": "./lib/core/jobs.js" },
-    "./sqlite": { "types": "./lib/backends/sqlite.d.ts", "default": "./lib/backends/sqlite.js" }
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nmvuong92/fluxe.git"
   },
-  "files": ["lib", "README.md", "LICENSE", "NOTICE"],
-  "publishConfig": { "access": "public" },
+  "homepage": "https://github.com/nmvuong92/fluxe#readme",
+  "bugs": {
+    "url": "https://github.com/nmvuong92/fluxe/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./react": {
+      "types": "./lib/react/index.d.ts",
+      "default": "./lib/react/index.js"
+    },
+    "./client": {
+      "types": "./lib/core/client.d.ts",
+      "default": "./lib/core/client.js"
+    },
+    "./jobs": {
+      "types": "./lib/core/jobs.d.ts",
+      "default": "./lib/core/jobs.js"
+    },
+    "./sqlite": {
+      "types": "./lib/backends/sqlite.d.ts",
+      "default": "./lib/backends/sqlite.js"
+    }
+  },
+  "files": [
+    "lib",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "sync": "tsx scripts/sync.ts",
@@ -35,7 +62,21 @@
     "release:minor": "npm run test:all && npm version minor -m 'release: v%s' && git push --follow-tags",
     "release:major": "npm run test:all && npm version major -m 'release: v%s' && git push --follow-tags"
   },
-  "dependencies": { "zod": "^3" },
-  "peerDependencies": { "react": "^18 || ^19", "react-dom": "^18 || ^19" },
-  "devDependencies": { "typescript": "^5", "tsx": "^4", "esbuild": "^0.23", "react": "^18", "react-dom": "^18", "@types/node": "^20", "@types/react": "^18", "@types/react-dom": "^18" }
+  "dependencies": {
+    "zod": "^3"
+  },
+  "peerDependencies": {
+    "react": "^18 || ^19",
+    "react-dom": "^18 || ^19"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "tsx": "^4",
+    "esbuild": "^0.23",
+    "react": "^18",
+    "react-dom": "^18",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18"
+  }
 }
