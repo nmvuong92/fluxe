@@ -29,7 +29,7 @@ export const COMMANDS: Record<string, Command> = {
     shell: () => `tsx scripts/config.ts`,
   },
   gen: {
-    desc: "Codegen contract → types TS (.fluxe/gen)",
+    desc: "Codegen contract → types + Zod + client api + server Resolvers (.fluxe/gen)",
     shell: () => `tsx scripts/codegen.ts`,
   },
   resolve: {
@@ -54,7 +54,7 @@ export const COMMANDS: Record<string, Command> = {
   },
   dev: {
     desc: "Sync + resolve + build client + chạy server",
-    shell: (a) => `${SYNC} && tsx scripts/resolve.ts ${p(a)} && ${ESBUILD} && tsx app/backend/server.ts`,
+    shell: (a) => `${SYNC} && tsx scripts/resolve.ts ${p(a)} && ${ESBUILD} && tsx scripts/dev.ts`,
   },
   test: {
     desc: "Sync + typecheck + unit + integration",
