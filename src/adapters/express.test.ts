@@ -23,7 +23,7 @@ test("[express] host route đi trước + fluxe catch-all SSR cell", async () =>
 
     const stats = await getText(port, "/_fluxe/stats");
     assert.equal(stats.status, 200);
-    assert.match(stats.body, /bootstrapped/);                 // endpoint engine chạy qua Express
+    assert.match(stats.body, /heapUsed/);                 // endpoint engine chạy qua Express
   } finally {
     srv.close();
   }

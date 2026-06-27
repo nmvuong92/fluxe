@@ -23,7 +23,7 @@ test("[hono] host route đi trước + fluxe catch-all SSR cell", async () => {
     assert.match(ping.body, /pong/);                // fluxe SSR cell qua Hono
 
     const stats = await getText(port, "/_fluxe/stats");
-    assert.match(stats.body, /bootstrapped/);
+    assert.match(stats.body, /heapUsed/);
   } finally {
     srv.close();
   }

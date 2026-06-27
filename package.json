@@ -26,10 +26,6 @@
       "types": "./lib/core/client.d.ts",
       "default": "./lib/core/client.js"
     },
-    "./jobs": {
-      "types": "./lib/core/jobs.d.ts",
-      "default": "./lib/core/jobs.js"
-    },
     "./express": {
       "types": "./lib/adapters/express.d.ts",
       "default": "./lib/adapters/express.js"

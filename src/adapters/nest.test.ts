@@ -22,7 +22,7 @@ test("[nest] middleware fluxe SSR cell qua Nest (platform-express)", async () =>
     assert.match(ping.body, /pong/);                 // fluxe SSR cell qua Nest
 
     const stats = await getText(port, "/_fluxe/stats");
-    assert.match(stats.body, /bootstrapped/);
+    assert.match(stats.body, /heapUsed/);
   } finally {
     await app.close();
   }

@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { ComponentType } from "react";
 import type { HeadMeta } from "./seo";
-import type { Session } from "./auth";
 import type { TFn } from "./i18n";
+
+/* Session = do HOST framework gắn vào req (fluxe không verify — cầu nối RCA). Shape tuỳ host;
+ * mặc định { user, roles } để cell.requireRole đọc. */
+export interface Session { user?: string; roles?: string[]; [k: string]: unknown }
 
 /* ============================================================
  * fluxe core

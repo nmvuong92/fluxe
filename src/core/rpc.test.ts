@@ -42,15 +42,12 @@ test("[rpc] query không cần CSRF → output", async () => {
   } finally { srv.close(); }
 });
 
-test("[rpc] mutation thiếu CSRF → 403; input sai → 400; ok → output", async () => {
+test("[rpc] mutation: input sai → 400 (Zod); ok → output (CSRF do host lo, không 403)", async () => {
   const { srv, port } = await boot();
   try {
-    const noCsrf = await req(port, "/__rpc/addTodo", { title: "x" });
-    assert.equal(noCsrf.status, 403);
-    const csrf = { cookie: "csrf=tok", "x-csrf-token": "tok" };
-    const bad = await req(port, "/__rpc/addTodo", { title: 123 }, csrf);   // sai kiểu (Zod từ contract)
+    const bad = await req(port, "/__rpc/addTodo", { title: 123 });   // sai kiểu (Zod từ contract) → 400
     assert.equal(bad.status, 400);
-    const ok = await req(port, "/__rpc/addTodo", { title: "milk" }, csrf);
+    const ok = await req(port, "/__rpc/addTodo", { title: "milk" }); // không cần CSRF (host middleware lo)
     assert.equal(ok.status, 200);
     assert.equal(JSON.parse(ok.body), "[added] milk");
   } finally { srv.close(); }

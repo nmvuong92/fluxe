@@ -32,10 +32,6 @@ export const COMMANDS: Record<string, Command> = {
     desc: "Sinh .fluxe/resolution.json từ profile",
     shell: (a) => `${SYNC} && tsx scripts/resolve.ts ${p(a)}`,
   },
-  jobs: {
-    desc: "Demo job queue (enqueue + worker drain + dead-letter)",
-    shell: () => `node --experimental-sqlite --import tsx scripts/jobs-demo.ts`,
-  },
   bench: {
     desc: "Benchmark RPS/QPS + latency p50/p99 + RAM/CPU",
     shell: (a) => `${SYNC} && tsx scripts/resolve.ts dev && npm run --silent build:client && tsx scripts/bench.ts ${a.join(" ")}`,

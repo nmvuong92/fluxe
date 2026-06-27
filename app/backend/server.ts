@@ -8,7 +8,6 @@
 import express from "express";
 import { readFileSync } from "node:fs";
 import { fluxe } from "../../src/adapters/express";          // published: @nmvuong92/fluxe/express
-import { createLocalStorage } from "../../src/storage/local";
 import type { ResolutionManifest } from "../../src/core/resolver";
 import { env } from "../env";
 import { cells } from "../app";
@@ -19,7 +18,6 @@ import { resolvers } from "./index";     // contract resolvers — phục vụ /
 import { contract } from "../contract";  // khai báo operations (Zod schema sẵn → 0 codegen)
 
 const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
-const storage = createLocalStorage({ dir: ".fluxe/uploads" });
 const app = express();
 
 // ── LOGIC BACKEND CỦA BẠN (chạy TRƯỚC fluxe) ──────────────────────────────────
@@ -28,7 +26,7 @@ app.get("/api/todos", async (_req, res) => res.json(await backend.listTodos()));
 // app.use("/admin", yourAuthMiddleware);   // middleware riêng của bạn…
 
 // ── fluxe = catch-all: cells/SSR + core concerns cho phần còn lại ─────────────
-app.use(fluxe(manifest, cells, layouts, { i18n, storage, backend, resolvers, contract }));
+app.use(fluxe(manifest, cells, layouts, { i18n, backend, resolvers, contract }));
 
 app.listen(env.PORT, () =>
   console.log(`fluxe @ http://localhost:${env.PORT} (Express · backend: ${backend.name} · env: ${env.NODE_ENV})`));

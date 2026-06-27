@@ -16,33 +16,25 @@ type LayoutEntry = LayoutMeta & { component: (props: { children: any }) => any }
 type LayoutMap = Record<string, LayoutEntry>;
 import { renderHead, renderSitemap, renderRobots } from "./core/seo.ts";
 import { FluxeError, toErrorPayload, renderErrorPage } from "./core/errors.ts";
-import { signSession, verifySession, parseCookie, hasRole, hashPassword, verifyPassword, newCsrfToken } from "./core/auth.ts";
+import { parseCookie } from "./core/cookie.ts";
 import { validateInput } from "./core/validate.ts";
-import { createBroker, type Broker } from "./core/broker.ts";
-import { createContainer } from "./core/container.ts";
+import { createBroker } from "./core/broker.ts";
 import { handleRpc } from "./core/rpc.ts";
 import type { Contract } from "./core/contract.ts";
-import { createRateLimiter } from "./core/ratelimit.ts";
 import { createRecorder } from "./core/observe.ts";
-import { createPresence, type Presence } from "./core/presence.ts";
+import { createPresence } from "./core/presence.ts";
 import { etagOf, etagMatches } from "./core/etag.ts";
 import { createRenderCache } from "./core/rendercache.ts";
 import { parseChaos } from "./core/chaos.ts";
 import { resolveLocale, makeT, type I18n, type TFn } from "./core/i18n.ts";
-import { parseMultipart, boundaryFromContentType } from "./core/multipart.ts";
-import { makeKey, type Storage } from "./storage/types.ts";
 import { loadConfig, type FluxeConfig } from "./core/config.ts";
 
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 const DEV = process.env.NODE_ENV !== "production";
-const SECRET = process.env.FLUXE_SECRET ?? "dev-secret-change-me";
 
-// Demo user store (password hash scrypt tạo lúc boot). App thật: lấy từ DB.
-const USERS: Record<string, { hash: string; roles: string[] }> = {
-  alice: { hash: hashPassword("secret"), roles: ["admin", "user"] },
-  bob: { hash: hashPassword("secret"), roles: ["user"] },
-};
+// Phân quyền: đọc session do HOST gắn (req.session). fluxe không verify — host lo auth/csrf/ratelimit.
+const sessionHasRole = (s: any, role: string): boolean => Array.isArray(s?.roles) && s.roles.includes(role);
 
 function sendError(res: http.ServerResponse, wantsJson: boolean, err: unknown) {
   const errorId = randomUUID();
@@ -82,39 +74,23 @@ function renderBodyToString(node: any): Promise<string> {
   });
 }
 
-export interface MakeServerOpts { i18n?: I18n; storage?: Storage; config?: FluxeConfig; backend?: unknown; contract?: Contract; resolvers?: unknown }
+export interface MakeServerOpts { i18n?: I18n; config?: FluxeConfig; backend?: unknown; contract?: Contract; resolvers?: unknown }
 export type NodeHandler = (req: http.IncomingMessage, res: http.ServerResponse) => Promise<unknown>;
 
 /* createHandler — lõi request framework-agnostic: trả về handler Node (req,res).
  * Dùng trực tiếp cho adapter Express/Hono/Nest; makeServer chỉ bọc bằng http.createServer. */
 export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}, opts: MakeServerOpts = {}): NodeHandler {
   const i18n = opts.i18n;
-  const storage = opts.storage;
   const config = opts.config ?? loadConfig();   // default ← ENV (FLUXE_*) ← override
-  const MAX_UPLOAD = config.upload.maxBytes;
-  const readBodyBuffer = (req: http.IncomingMessage) => new Promise<Buffer>((resolve, reject) => {
-    const chunks: Buffer[] = []; let size = 0;
-    req.on("data", (c: Buffer) => {
-      size += c.length;
-      if (size > MAX_UPLOAD) { req.destroy(); reject(new FluxeError("upload", "File quá lớn", 413)); }
-      else chunks.push(c);
-    });
-    req.on("end", () => resolve(Buffer.concat(chunks)));
-    req.on("error", reject);
-  });
   // Cells được TIÊM từ app (DI) — engine không import ngược vào app/. Thêm trang = sửa app/app.ts.
   const matchRoute = makeRouter(cells);
   const byId = new Map(cells.map((c) => [c.id, c]));
   // Backend USER-OWNED (app/backend.ts) inject qua opts.backend → dùng cho mọi cell.
-  // Engine KHÔNG ship/giải backend; cell nào dùng backend mà app quên truyền → undefined (lỗi rõ ràng).
   const backendFor = (_id: string) => opts.backend;
-  // Resolved Container: service realtime đăng ký LƯỜI — chỉ tạo khi thật sự dùng (SSE/action).
-  // App không realtime → broker/presence KHÔNG bao giờ bootstrap. resolved() ở /_fluxe/stats.
-  const container = createContainer();
-  container.register("broker", () => createBroker());
-  container.register("presence", () => createPresence());
-  const actionLimit = createRateLimiter(config.rateLimit);   // per-IP cho action (FLUXE_RATELIMIT_*)
-  const recorder = createRecorder();   // request log — chạy mỗi request → eager (luôn dùng)
+  // Realtime (RCA: live-update on action) — broker + presence eager (đơn giản, dependency-free).
+  const broker = createBroker();
+  const presence = createPresence();
+  const recorder = createRecorder();   // observability: request log (ring buffer)
   const renderCache = createRenderCache({ maxKeys: config.renderCache.maxKeys });   // FLUXE_RENDERCACHE_MAX_KEYS
   let clientJs: Buffer | undefined;    // ý A: đọc dist/client.js 1 lần (zero-copy: tái dùng buffer)
   return async (req, res) => {
@@ -122,11 +98,8 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
     const start = Date.now();
     res.on("finish", () => recorder.record({ method: req.method ?? "?", path: url.pathname, status: res.statusCode, ms: Date.now() - start, ts: start }));
     const wantsJson = req.headers["x-fluxe"] === "1" || url.searchParams.get("json") === "1";
-    const cookies = parseCookie(req.headers.cookie);
-    const session = verifySession(cookies.session, SECRET);
-    // CSRF double-submit: đảm bảo có cookie csrf (đặt nếu chưa) — client gửi lại qua header.
-    let csrf = cookies.csrf;
-    const csrfCookie = csrf ? "" : (csrf = newCsrfToken(), `csrf=${csrf}; Path=/; SameSite=Lax`);
+    const cookies = parseCookie(req.headers.cookie);   // engine chỉ đọc cookie locale/theme
+    const session = (req as any).session ?? null;       // session do HOST gắn (fluxe không verify)
     // Resolved Shell: locale (i18n) + theme — giải từ cookie/header, đưa vào loader + <html>.
     const locale = i18n ? resolveLocale(i18n, { cookie: cookies.locale, acceptLanguage: req.headers["accept-language"] }) : "vi";
     const t: TFn = i18n ? makeT(i18n, locale) : (k) => k;
@@ -151,7 +124,7 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
     if (url.pathname === "/_fluxe/stats") {
       const m = process.memoryUsage(); const c = process.cpuUsage();
       res.writeHead(200, { "content-type": "application/json" });
-      return res.end(JSON.stringify({ rss: m.rss, heapUsed: m.heapUsed, cpuUser: c.user, cpuSystem: c.system, uptimeMs: Math.round(process.uptime() * 1000), bootstrapped: container.resolved() }));
+      return res.end(JSON.stringify({ rss: m.rss, heapUsed: m.heapUsed, cpuUser: c.user, cpuSystem: c.system, uptimeMs: Math.round(process.uptime() * 1000) }));
     }
     if (url.pathname === "/_fluxe/requests") {
       // Observability: log request gần đây (timing/status). Prod: gate sau auth.
@@ -173,61 +146,13 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
       res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
       return res.end(renderRobots(baseUrl));
     }
-    if (url.pathname === "/login" && req.method === "POST") {
-      // POST {user, password} → verify password hash → set session + csrf cookie.
-      const body = JSON.parse((await readBody(req)) || "{}");
-      const u = USERS[body.user];
-      if (!u || !verifyPassword(String(body.password ?? ""), u.hash)) {
-        throw new FluxeError("unauthorized", "Sai tài khoản hoặc mật khẩu", 401);
-      }
-      const token = signSession({ user: body.user, roles: u.roles }, SECRET);
-      res.writeHead(200, {
-        "content-type": "application/json",
-        "set-cookie": [`session=${token}; HttpOnly; Path=/; SameSite=Lax`, `csrf=${csrf}; Path=/; SameSite=Lax`],
-      });
-      return res.end(JSON.stringify({ user: body.user, roles: u.roles }));
-    }
-    if (url.pathname === "/logout") {
-      res.writeHead(200, {
-        "content-type": "text/html; charset=utf-8",
-        "set-cookie": "session=; HttpOnly; Path=/; Max-Age=0",
-      });
-      return res.end(`<p>Đã đăng xuất. <a href="/">trang chủ</a></p>`);
-    }
-    // File upload: POST /__upload/<field> → parse multipart → storage.put. CSRF + giới hạn size.
-    if (url.pathname.startsWith("/__upload/") && req.method === "POST") {
-      if (!storage) { res.writeHead(501); return res.end(JSON.stringify({ error: { code: "no_storage", message: "Chưa cấu hình storage", status: 501 } })); }
-      if (!cookies.csrf || req.headers["x-csrf-token"] !== cookies.csrf) throw new FluxeError("csrf", "CSRF không hợp lệ", 403);
-      const boundary = boundaryFromContentType(req.headers["content-type"]);
-      if (!boundary) throw new FluxeError("upload", "Cần multipart/form-data", 400);
-      const files = parseMultipart(await readBodyBuffer(req), boundary).filter((p) => p.filename);
-      if (!files.length) throw new FluxeError("upload", "Không có file", 400);
-      const out = [];
-      for (const f of files) {
-        const key = makeKey(f.filename!, randomBytes(8).toString("hex"));
-        out.push(await storage.put(key, f.data, { contentType: f.contentType }));
-      }
-      res.writeHead(200, { "content-type": "application/json" });
-      return res.end(JSON.stringify(out.length === 1 ? out[0] : out));
-    }
-    // Serve file: GET /__file/<key> → storage.get → stream về.
-    if (url.pathname.startsWith("/__file/") && req.method === "GET") {
-      if (!storage) { res.writeHead(404); return res.end(); }
-      const key = decodeURIComponent(url.pathname.slice("/__file/".length));
-      const file = await storage.get(key);
-      if (!file) { res.writeHead(404); return res.end(); }
-      res.writeHead(200, { "content-type": file.contentType ?? "application/octet-stream", "content-length": String(file.size) });
-      return res.end(file.data);
-    }
+    // (auth /login·/logout, file /__upload·/__file ĐÃ GỠ — host framework + ecosystem lo.)
     if (url.pathname.startsWith("/__sse/")) {
       // Realtime channel (SSE): giữ kết nối, đẩy event khi publish trên topic. ?id= → presence.
       const topic = decodeURIComponent(url.pathname.slice("/__sse/".length));
       const id = url.searchParams.get("id");
       res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
       res.write(`event: ready\ndata: {"topic":"${topic}"}\n\n`);
-      // Lần đầu có client SSE → broker + presence mới bootstrap (lazy qua container).
-      const broker = container.get<Broker>("broker");
-      const presence = container.get<Presence>("presence");
       const offBroker = broker.subscribe(topic, (data) => res.write(`data: ${JSON.stringify(data)}\n\n`));
       let offPresence = () => {};
       if (id) {
@@ -242,17 +167,7 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
       return;
     }
     if (url.pathname.startsWith("/__action/") && req.method === "POST") {
-      // Rate limit per-IP → 429 + Retry-After (bảo vệ trước CSRF/handler).
-      const ip = req.socket.remoteAddress ?? "?";
-      const rl = actionLimit.take("act:" + ip);
-      if (!rl.ok) {
-        res.writeHead(429, { "content-type": "application/json", "retry-after": String(rl.retryAfter) });
-        return res.end(JSON.stringify({ error: { status: 429, code: "rate_limited", message: "Quá nhiều request" } }));
-      }
-      // CSRF: header x-csrf-token phải khớp cookie csrf (double-submit).
-      if (!cookies.csrf || req.headers["x-csrf-token"] !== cookies.csrf) {
-        throw new FluxeError("csrf", "CSRF token không hợp lệ", 403);
-      }
+      // CSRF + rate-limit do HOST middleware lo (mount trước fluxe). fluxe chỉ dispatch + validate.
       const [,,cellId,name] = url.pathname.split("/");
       const fn = byId.get(cellId)?.actions?.[name];
       if (!fn) { res.writeHead(404); return res.end("no action"); }
@@ -271,17 +186,18 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
       const schema = (fn as any).inputSchema;
       if (schema) input = validateInput(schema, input);   // sai → FluxeError 400 (caught)
       const out = await fn({ input, backend, session });
-      container.get<Broker>("broker").publish(cellId, { action: name, out });   // realtime: báo client khác (broker lazy)
+      broker.publish(cellId, { action: name, out });   // realtime: báo client khác (RCA live-update)
       res.writeHead(200, { "content-type": "application/json", "x-fluxe-resolution": resolution, "x-fluxe-server-ms": String(Date.now() - t0) });
       return res.end(JSON.stringify(out));
     }
     const match = matchRoute(url.pathname);
     if (!match) { res.writeHead(404); return res.end("404"); }
     const cell = match.cell;
+    // Guard cell-level: đọc session HOST gắn (host lo verify/login; fluxe chỉ chặn theo khai báo cell).
     if ((cell.requireAuth || cell.requireRole) && !session) {
-      throw new FluxeError("unauthorized", "Cần đăng nhập (/login)", 401);
+      throw new FluxeError("unauthorized", "Cần đăng nhập (host auth)", 401);
     }
-    if (cell.requireRole && !hasRole(session, cell.requireRole)) {
+    if (cell.requireRole && !sessionHasRole(session, cell.requireRole)) {
       throw new FluxeError("forbidden", `Cần quyền '${cell.requireRole}'`, 403);
     }
     const data = await cell.loader({ input: match.params, backend: backendFor(cell.id), session, locale, t });
@@ -298,7 +214,6 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
     }
     const shipClientJs = manifest.cells[cell.id]?.render.shipClientJs ?? false;
     const pageHeaders: Record<string, string> = { "content-type": "text/html; charset=utf-8" };
-    if (csrfCookie) pageHeaders["set-cookie"] = csrfCookie;   // gửi csrf token cho client
     // Ý B — render cache cell static: render 1 lần → giữ Buffer → ghi lại (zero-copy).
     // Gate etag(data): data đổi ⇒ miss ⇒ render lại (không trả HTML cũ). Chỉ cell static & public.
     if (manifest.cells[cell.id]?.render.mode === "static" && cell.cache !== false && !cell.requireAuth && !cell.requireRole) {

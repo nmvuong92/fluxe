@@ -23,9 +23,7 @@ export async function handleRpc(a: RpcArgs): Promise<boolean> {
   const op = a.contract?.[name];
   if (!op) { a.res.writeHead(404); a.res.end("no op"); return true; }
 
-  if (op.kind === "mutation" && (!a.cookies.csrf || a.req.headers["x-csrf-token"] !== a.cookies.csrf)) {
-    throw new FluxeError("csrf", "CSRF token không hợp lệ", 403);
-  }
+  // CSRF/auth do HOST framework lo (mount trước fluxe). fluxe chỉ validate + dispatch.
   let input = JSON.parse((await a.readBody(a.req)) || "{}");
   if (op.kind === "mutation") input = validateInput(op.input, input);   // Zod từ chính contract
   const fn = a.resolvers?.[name];

@@ -33,12 +33,6 @@ function post(port: number, path: string, body: any, headers: any = {}): Promise
   });
 }
 
-// Lấy cookie csrf từ một page (set-cookie). Trả { pair: "csrf=abc", val: "abc" }.
-function getCsrf(setCookie: string[] | undefined) {
-  const pair = (setCookie ?? []).find((c) => c.startsWith("csrf="))?.split(";")[0] ?? "";
-  return { pair, val: pair.split("=")[1] ?? "" };
-}
-
 let failures = 0;
 function check(label: string, cond: boolean) {
   console.log(`${cond ? "✓" : "✗"} ${label}`);
@@ -53,14 +47,12 @@ async function run(profileName: string, port: number) {
   try {
     const homePage = await get(port, "/");
     check("[static /] KHÔNG gửi client.js", !homePage.body.includes("/client.js"));
-    // Contract DSL: /__rpc/<op> từ contract thật + resolvers (DB ẩn). query không cần CSRF.
+    // Contract DSL: /__rpc/<op> từ contract thật + resolvers (DB ẩn). CSRF do host lo, fluxe chỉ validate.
     const rpcTodos = await post(port, "/__rpc/todos", {});
     const todosOut = JSON.parse(rpcTodos.body);
     check("[contract] /__rpc/todos (query) → mảng todo từ resolver", rpcTodos.status === 200 && Array.isArray(todosOut));
-    const rpcBad = await post(port, "/__rpc/addTodo", { title: 123 }, { cookie: "csrf=t", "x-csrf-token": "t" });
-    check("[contract] /__rpc/addTodo title sai kiểu → 400 (Zod sinh từ contract)", rpcBad.status === 400);
-    const rpcNoCsrf = await post(port, "/__rpc/addTodo", { title: "x" });
-    check("[contract] /__rpc/addTodo (mutation) thiếu CSRF → 403", rpcNoCsrf.status === 403);
+    const rpcBad = await post(port, "/__rpc/addTodo", { title: 123 });
+    check("[contract] /__rpc/addTodo title sai kiểu → 400 (Zod từ contract)", rpcBad.status === 400);
     const todosPage = await get(port, "/todos");
     check("[island /todos] CÓ gửi client.js", todosPage.body.includes("/client.js"));
     const apiRes = await get(port, "/todos?json=1");
@@ -92,29 +84,13 @@ async function run(profileName: string, port: number) {
     const unxBody = JSON.parse(unx.body);
     check("[err] unexpected → 500 + code internal + có errorId", unx.status === 500 && unxBody.error?.code === "internal" && !!unxBody.error?.errorId);
     check("[err] một lỗi không sập server: request sau vẫn 200", (await get(port, "/hello/ok")).status === 200);
-    // Auth: /secret cần đăng nhập (login = POST verify password hash)
-    check("[auth] /secret chưa login → 401", (await get(port, "/secret")).status === 401);
-    check("[auth] login sai mật khẩu → 401", (await post(port, "/login", { user: "alice", password: "wrong" })).status === 401);
-    const login = await post(port, "/login", { user: "alice", password: "secret" });
-    const sessionCookie = String((login.headers["set-cookie"] ?? []).find((c: string) => c.startsWith("session=")) ?? "").split(";")[0];
-    check("[auth] login đúng mật khẩu → 200 + set session", login.status === 200 && sessionCookie.startsWith("session="));
-    const secret = await get(port, "/secret", { cookie: sessionCookie });
-    check("[auth] /secret có session → 200 + tên user", secret.status === 200 && secret.body.includes("alice"));
-    check("[auth] cookie giả mạo → 401", (await get(port, "/secret", { cookie: "session=tampered.invalid" })).status === 401);
-    // RBAC: /admin cần role admin
-    const bobLogin = await post(port, "/login", { user: "bob", password: "secret" });
-    const bobCookie = String((bobLogin.headers["set-cookie"] ?? []).find((c: string) => c.startsWith("session=")) ?? "").split(";")[0];
-    check("[rbac] bob (role user) vào /admin → 403", (await get(port, "/admin", { cookie: bobCookie })).status === 403);
-    check("[rbac] alice (admin) vào /admin → 200", (await get(port, "/admin", { cookie: sessionCookie })).status === 200);
-    // CSRF: lấy token từ page, gắn vào action
-    const csrf = getCsrf(todosPage.headers["set-cookie"]);
-    check("[csrf] action KHÔNG có token → 403", (await post(port, "/__action/todos/add", { title: "x" })).status === 403);
-    const csrfHdr = { cookie: csrf.pair, "x-csrf-token": csrf.val };
-    // Validation (qua CSRF hợp lệ): input sai → 400 validation + details
-    const bad = await post(port, "/__action/todos/add", { title: "" }, csrfHdr);
+    // Guard cell-level: /secret requireAuth, chưa có session (host chưa gắn) → 401.
+    check("[guard] /secret chưa có session host → 401", (await get(port, "/secret")).status === 401);
+    // Validation action (CSRF do host lo — fluxe không kiểm): input sai → 400 validation + details.
+    const bad = await post(port, "/__action/todos/add", { title: "" });
     check("[validate] add title rỗng → 400 + code=validation + details", bad.status === 400 && JSON.parse(bad.body).error?.code === "validation" && Array.isArray(JSON.parse(bad.body).error?.details));
-    const okAdd = await post(port, "/__action/todos/add", { title: "việc hợp lệ" }, csrfHdr);
-    check("[validate] add title hợp lệ (csrf ok) → 200 + tạo todo", okAdd.status === 200 && JSON.parse(okAdd.body).title.includes("việc hợp lệ"));
+    const okAdd = await post(port, "/__action/todos/add", { title: "việc hợp lệ" });
+    check("[validate] add title hợp lệ → 200 + tạo todo", okAdd.status === 200 && JSON.parse(okAdd.body).title.includes("việc hợp lệ"));
     // Realtime SSE: mở kết nối, add → client nhận event live.
     const sseEvents: string[] = [];
     const sseReq = http.request({ host: "127.0.0.1", port, path: "/__sse/todos", method: "GET" }, (res) => {
@@ -122,7 +98,7 @@ async function run(profileName: string, port: number) {
     });
     sseReq.end();
     await new Promise((r) => setTimeout(r, 100));
-    await post(port, "/__action/todos/add", { title: "todo realtime" }, csrfHdr);
+    await post(port, "/__action/todos/add", { title: "todo realtime" });
     await new Promise((r) => setTimeout(r, 120));
     check("[sse] client nhận event live sau khi add", sseEvents.join("").includes("todo realtime"));
     sseReq.destroy();
@@ -150,12 +126,7 @@ async function run(profileName: string, port: number) {
     const full = chunks.map((c) => c.s).join("");
     check(`[stream] shell sớm (TTFB ${firstT}ms) < slow content (${totalT}ms) — streaming thật`,
       full.includes("shell gửi ngay") && full.includes("nội dung chậm") && firstT < 90 && firstT < totalT - 50);
-    // Rate limit: bắn 50 action đồng thời → vượt capacity → có 429.
-    const burst = await Promise.all(
-      Array.from({ length: 50 }, () => post(port, "/__action/todos/toggle", { id: "1" }, csrfHdr)),
-    );
-    const limited = burst.filter((r) => r.status === 429).length;
-    check(`[ratelimit] burst 50 → có ${limited} request bị 429`, limited > 0);
+    // (Rate-limit ĐÃ GỠ — host framework lo. fluxe = cầu nối RCA.)
     // Observability: request log ghi path/status/ms. Gọi marker ngay trước để nằm trong recent.
     await get(port, "/todos");
     const logs = JSON.parse((await get(port, "/_fluxe/requests")).body);
