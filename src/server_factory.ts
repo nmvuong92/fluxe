@@ -26,6 +26,7 @@ import { createPresence } from "./core/presence.ts";
 import { etagOf, etagMatches } from "./core/etag.ts";
 import { createRenderCache } from "./core/rendercache.ts";
 import { parseChaos } from "./core/chaos.ts";
+import { resolveLocale, makeT, type I18n, type TFn } from "./core/i18n.ts";
 import { createMemoryBackend } from "./backends/memory.ts";
 import { createHttpBackend } from "./backends/http.ts";
 
@@ -63,9 +64,10 @@ function sendError(res: http.ServerResponse, wantsJson: boolean, err: unknown) {
 }
 
 // Phần head (trước body) và tail (sau body) — body được STREAM ở giữa.
-function shellHead(cell: CellDef<any, any>, data: any): string {
+function shellHead(cell: CellDef<any, any>, data: any, lang = "vi", theme = ""): string {
   const headHtml = renderHead(cell.head ? cell.head(data) : {});
-  return `<!doctype html><html lang="vi"><head><meta charset="utf-8">${headHtml}</head><body><div id="root">`;
+  const themeAttr = theme ? ` data-theme="${theme}"` : "";   // theme-SSR: no-flash ngay lần đầu
+  return `<!doctype html><html lang="${lang}"${themeAttr}><head><meta charset="utf-8">${headHtml}</head><body><div id="root">`;
 }
 function shellTail(cell: CellDef<any, any>, data: any, shipClientJs: boolean): string {
   const island = shipClientJs
@@ -91,7 +93,8 @@ function renderBodyToString(node: any): Promise<string> {
   });
 }
 
-export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}) {
+export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}, opts: { i18n?: I18n } = {}) {
+  const i18n = opts.i18n;
   // Cells được TIÊM từ app (DI) — engine không import ngược vào app/. Thêm trang = sửa app/app.ts.
   const matchRoute = makeRouter(cells);
   const byId = new Map(cells.map((c) => [c.id, c]));
@@ -114,7 +117,20 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
     // CSRF double-submit: đảm bảo có cookie csrf (đặt nếu chưa) — client gửi lại qua header.
     let csrf = cookies.csrf;
     const csrfCookie = csrf ? "" : (csrf = newCsrfToken(), `csrf=${csrf}; Path=/; SameSite=Lax`);
+    // Resolved Shell: locale (i18n) + theme — giải từ cookie/header, đưa vào loader + <html>.
+    const locale = i18n ? resolveLocale(i18n, { cookie: cookies.locale, acceptLanguage: req.headers["accept-language"] }) : "vi";
+    const t: TFn = i18n ? makeT(i18n, locale) : (k) => k;
+    const theme = cookies.theme === "dark" || cookies.theme === "light" ? cookies.theme : "";
     try {
+    // Đổi ngôn ngữ qua ?locale=xx → set cookie + redirect (chạy cả trên cell static, 0 JS).
+    {
+      const ql = url.searchParams.get("locale");
+      if (i18n && ql && i18n.locales.includes(ql)) {
+        url.searchParams.delete("locale");
+        res.writeHead(303, { "set-cookie": `locale=${ql}; Path=/; SameSite=Lax`, location: url.pathname + (url.search || "") });
+        return res.end();
+      }
+    }
     if (url.pathname === "/client.js") {
       if (clientJs === undefined && existsSync("./dist/client.js")) clientJs = readFileSync("./dist/client.js");
       if (clientJs !== undefined) { res.writeHead(200,{ "content-type":"text/javascript" }); return res.end(clientJs); }
@@ -233,7 +249,7 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
     if (cell.requireRole && !hasRole(session, cell.requireRole)) {
       throw new FluxeError("forbidden", `Cần quyền '${cell.requireRole}'`, 403);
     }
-    const data = await cell.loader({ input: match.params, backend: backendFor(cell.id), session });
+    const data = await cell.loader({ input: match.params, backend: backendFor(cell.id), session, locale, t });
     if (wantsJson) {
       const body = JSON.stringify({ cell: cell.id, data, layout: cell.layout });
       const etag = etagOf(body);   // render cache: 304 nếu props không đổi
@@ -241,8 +257,9 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
       res.writeHead(200, { "content-type": "application/json", etag }); return res.end(body);
     }
     let node: any = h(cell.view, { data });
+    const shellCtx = { locale, t, theme, path: url.pathname };   // Resolved Shell ctx cho layout
     for (const id of layoutChain(cell.layout, layouts)) {   // inner→outer: bọc dần
-      node = h(layouts[id].component as any, { children: node });
+      node = h(layouts[id].component as any, { children: node, ctx: shellCtx });
     }
     const shipClientJs = manifest.cells[cell.id]?.render.shipClientJs ?? false;
     const pageHeaders: Record<string, string> = { "content-type": "text/html; charset=utf-8" };
@@ -250,10 +267,10 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
     // Ý B — render cache cell static: render 1 lần → giữ Buffer → ghi lại (zero-copy).
     // Gate etag(data): data đổi ⇒ miss ⇒ render lại (không trả HTML cũ). Chỉ cell static & public.
     if (manifest.cells[cell.id]?.render.mode === "static" && cell.cache !== false && !cell.requireAuth && !cell.requireRole) {
-      const etag = etagOf(JSON.stringify(data));
+      const etag = etagOf(JSON.stringify(data) + "|" + locale + "|" + theme);   // lang/theme đổi → bust cache
       let hit = renderCache.get(url.pathname);
       if (!hit || hit.etag !== etag) {
-        const full = shellHead(cell, data) + await renderBodyToString(node) + shellTail(cell, data, shipClientJs);
+        const full = shellHead(cell, data, locale, theme) + await renderBodyToString(node) + shellTail(cell, data, shipClientJs);
         hit = { etag, buf: Buffer.from(full, "utf8") };
         renderCache.set(url.pathname, hit);
       }
@@ -262,7 +279,7 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
     }
     // Streaming SSR: gửi head ngay → stream body (Suspense chảy dần) → tail khi xong.
     res.writeHead(200, pageHeaders);
-    res.write(shellHead(cell, data));
+    res.write(shellHead(cell, data, locale, theme));
     const through = new PassThrough();
     through.on("data", (c) => res.write(c));
     through.on("end", () => { res.write(shellTail(cell, data, shipClientJs)); res.end(); });

@@ -73,11 +73,13 @@ const add = useMutation("todos.add", (t) => rpc("todos", "add", { title: t }));
 ```
 → [Data fetching](/reference/data-fetching/) · [Navigation](/reference/navigation/)
 
-## Layout, Theme, Navigation
+## Layout, Theme, Navigation, i18n
 ```tsx
-<Nav items={nav} /> <ThemeToggle />   // master layout, theme light/dark, active nav — chạy cả trên static
+<Nav items={nav} /> <ThemeToggle /> <LocaleSwitch locales={["vi","en"]} current={ctx.locale} />
 ```
-→ [Layout](/reference/layout/) · [Theme](/reference/theme/) · [Navigation](/reference/navigation/)
+Master layout, theme light/dark + **i18n** (locale giải server, `t()` ở loader), nav active —
+**chạy cả trên cell static**. Theme/locale resolve từ cookie → SSR đúng ngay (no-flash).
+→ [Layout](/reference/layout/) · [Theme](/reference/theme/) · [Navigation](/reference/navigation/) · [i18n](/reference/i18n/)
 
 ## SEO
 ```ts
@@ -111,6 +113,5 @@ Trung thực — **chưa có trong core**, đừng dùng nhầm:
 | **File storage / upload** | ✗ — chưa có adapter (local/S3), chưa parse multipart. |
 | **Mail / SMTP** | ✗ — chưa có; có thể làm qua job queue + lib ngoài. |
 | **Full-text search** | ~ — chỉ có adapter stub `createRustSearch` (gọi service Rust), chưa có engine. |
-| **i18n** | ~ — đã thiết kế (`docs/design/layout-architecture.md`), chưa implement. |
 
 Muốn cái nào? Mở issue hoặc xem `idea.md` để biết hướng.

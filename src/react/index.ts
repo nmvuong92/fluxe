@@ -8,6 +8,7 @@ export { Link } from "./Link";
 export { Nav, type NavItem } from "./Nav";
 export { useTheme, type Theme } from "./theme";
 export { ThemeToggle } from "./ThemeToggle";
+export { LocaleSwitch } from "./LocaleSwitch";
 export { shellScript } from "./shell";
 export { DebugBar } from "./DebugBar";
 export { debug, DebugStore } from "./store";

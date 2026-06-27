@@ -6,7 +6,8 @@ import type { ResolutionManifest } from "./core/resolver";
 import { env } from "../app/env";   // validate env fail-fast lúc boot
 import { cells } from "../app/app";  // registry cell phía app (DI vào engine)
 import { layouts } from "../app/layouts/index";
+import { i18n } from "../app/i18n";
 
 const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
-makeServer(manifest, cells, layouts).listen(env.PORT, () =>
+makeServer(manifest, cells, layouts, { i18n }).listen(env.PORT, () =>
   console.log(`fluxe @ http://localhost:${env.PORT} (profile: ${manifest.profile}, backend: ${manifest.backend.language}, env: ${env.NODE_ENV})`));

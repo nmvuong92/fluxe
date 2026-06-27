@@ -4,6 +4,7 @@ import type { ComponentType } from "react";
 import type { Backend } from "../backends/types";
 import type { HeadMeta } from "./seo";
 import type { Session } from "./auth";
+import type { TFn } from "./i18n";
 
 /* ============================================================
  * fluxe core
@@ -12,6 +13,8 @@ export interface Ctx<I> {
   input: I;
   backend: Backend;            // ← backend được inject, cell không biết loại gì
   session?: Session | null;    // ← session đã verify (null/undefined nếu chưa đăng nhập)
+  locale?: string;             // ← i18n: locale đã giải (cookie/Accept-Language)
+  t?: TFn;                     // ← i18n: t(key, vars) bound theo locale; dịch trong loader
 }
 export type Loader<I, O> = (ctx: Ctx<I>) => Promise<O>;
 export type Action<I, O> = (ctx: Ctx<I>) => Promise<O>;
