@@ -19,6 +19,10 @@ export * from "./core/layouts.ts";       // layoutChain, LayoutMeta
 export * from "./core/router.ts";        // makeRouter
 export * from "./core/testing.ts";       // createTestBackend
 export * from "./backends/types.ts";     // Backend, Todo
+export * from "./storage/types.ts";      // Storage, PutResult, GetResult, safeKey, makeKey
+export { createMemoryStorage } from "./storage/memory.ts";
+export { createLocalStorage } from "./storage/local.ts";
+export { createS3Storage } from "./storage/s3.ts";   // adapter tham chiếu (cần @aws-sdk/client-s3)
 export { createMemoryBackend } from "./backends/memory.ts";
 export { createHttpBackend } from "./backends/http.ts";
 export { createPostgresBackend } from "./backends/postgres.ts";

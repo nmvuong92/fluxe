@@ -27,6 +27,8 @@ import { etagOf, etagMatches } from "./core/etag.ts";
 import { createRenderCache } from "./core/rendercache.ts";
 import { parseChaos } from "./core/chaos.ts";
 import { resolveLocale, makeT, type I18n, type TFn } from "./core/i18n.ts";
+import { parseMultipart, boundaryFromContentType } from "./core/multipart.ts";
+import { makeKey, type Storage } from "./storage/types.ts";
 import { createMemoryBackend } from "./backends/memory.ts";
 import { createHttpBackend } from "./backends/http.ts";
 
@@ -44,7 +46,7 @@ function devBackend(lang: string) {
   const url = process.env[`${lang.toUpperCase()}_URL`] ?? DEV_BACKENDS[lang];
   return url ? createHttpBackend(lang, url) : createMemoryBackend();
 }
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 
 const DEV = process.env.NODE_ENV !== "production";
 const SECRET = process.env.FLUXE_SECRET ?? "dev-secret-change-me";
@@ -93,8 +95,20 @@ function renderBodyToString(node: any): Promise<string> {
   });
 }
 
-export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}, opts: { i18n?: I18n } = {}) {
+export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}, opts: { i18n?: I18n; storage?: Storage; maxUpload?: number } = {}) {
   const i18n = opts.i18n;
+  const storage = opts.storage;
+  const MAX_UPLOAD = opts.maxUpload ?? 10 * 1024 * 1024;   // 10MB mặc định
+  const readBodyBuffer = (req: http.IncomingMessage) => new Promise<Buffer>((resolve, reject) => {
+    const chunks: Buffer[] = []; let size = 0;
+    req.on("data", (c: Buffer) => {
+      size += c.length;
+      if (size > MAX_UPLOAD) { req.destroy(); reject(new FluxeError("upload", "File quá lớn", 413)); }
+      else chunks.push(c);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
   // Cells được TIÊM từ app (DI) — engine không import ngược vào app/. Thêm trang = sửa app/app.ts.
   const matchRoute = makeRouter(cells);
   const byId = new Map(cells.map((c) => [c.id, c]));
@@ -181,6 +195,31 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
         "set-cookie": "session=; HttpOnly; Path=/; Max-Age=0",
       });
       return res.end(`<p>Đã đăng xuất. <a href="/">trang chủ</a></p>`);
+    }
+    // File upload: POST /__upload/<field> → parse multipart → storage.put. CSRF + giới hạn size.
+    if (url.pathname.startsWith("/__upload/") && req.method === "POST") {
+      if (!storage) { res.writeHead(501); return res.end(JSON.stringify({ error: { code: "no_storage", message: "Chưa cấu hình storage", status: 501 } })); }
+      if (!cookies.csrf || req.headers["x-csrf-token"] !== cookies.csrf) throw new FluxeError("csrf", "CSRF không hợp lệ", 403);
+      const boundary = boundaryFromContentType(req.headers["content-type"]);
+      if (!boundary) throw new FluxeError("upload", "Cần multipart/form-data", 400);
+      const files = parseMultipart(await readBodyBuffer(req), boundary).filter((p) => p.filename);
+      if (!files.length) throw new FluxeError("upload", "Không có file", 400);
+      const out = [];
+      for (const f of files) {
+        const key = makeKey(f.filename!, randomBytes(8).toString("hex"));
+        out.push(await storage.put(key, f.data, { contentType: f.contentType }));
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(JSON.stringify(out.length === 1 ? out[0] : out));
+    }
+    // Serve file: GET /__file/<key> → storage.get → stream về.
+    if (url.pathname.startsWith("/__file/") && req.method === "GET") {
+      if (!storage) { res.writeHead(404); return res.end(); }
+      const key = decodeURIComponent(url.pathname.slice("/__file/".length));
+      const file = await storage.get(key);
+      if (!file) { res.writeHead(404); return res.end(); }
+      res.writeHead(200, { "content-type": file.contentType ?? "application/octet-stream", "content-length": String(file.size) });
+      return res.end(file.data);
     }
     if (url.pathname.startsWith("/__sse/")) {
       // Realtime channel (SSE): giữ kết nối, đẩy event khi publish trên topic. ?id= → presence.

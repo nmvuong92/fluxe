@@ -72,6 +72,19 @@ export async function rpc<T = any>(cell: string, action: string, input: unknown)
   return res.json();
 }
 
+/* Upload file qua POST /__upload/<field> (multipart). Trả { key, url, size } (hoặc mảng nếu nhiều). */
+export async function upload(field: string, files: File | File[]): Promise<{ key: string; url: string; size: number } | Array<{ key: string; url: string; size: number }>> {
+  const fd = new FormData();
+  for (const f of Array.isArray(files) ? files : [files]) fd.append(field, f);
+  const res = await fetch(`/__upload/${field}`, {
+    method: "POST",
+    headers: { "x-csrf-token": cookie("csrf") },   // KHÔNG set content-type — browser tự thêm boundary
+    body: fd,
+  });
+  if (!res.ok) throw parseRpcError(res.status, await res.text());
+  return res.json();
+}
+
 // Optimistic update: chạy optimistic() ngay, run() ngầm; lỗi → rollback() + ném lại.
 export async function mutate<T>(opts: {
   optimistic?: () => void;

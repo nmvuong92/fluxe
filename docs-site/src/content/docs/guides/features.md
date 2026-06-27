@@ -81,6 +81,13 @@ Master layout, theme light/dark + **i18n** (locale giải server, `t()` ở load
 **chạy cả trên cell static**. Theme/locale resolve từ cookie → SSR đúng ngay (no-flash).
 → [Layout](/reference/layout/) · [Theme](/reference/theme/) · [Navigation](/reference/navigation/) · [i18n](/reference/i18n/)
 
+## File storage (upload)
+```tsx
+import { upload } from "@nmvuong92/fluxe/client";
+const { url } = await upload("file", input.files[0]);   // multipart + CSRF; driver local/S3/memory
+```
+Interface `Storage` switch bằng config (như Backend). → [File storage](/reference/storage/)
+
 ## SEO
 ```ts
 head: (d) => ({ title: d.title, description, canonical: "/", og: {...}, jsonLd: {...} })
@@ -110,7 +117,6 @@ Trung thực — **chưa có trong core**, đừng dùng nhầm:
 | Tính năng | Trạng thái |
 |-----------|-----------|
 | **WebSocket** | ✗ — realtime hiện chỉ **SSE** (1 chiều server→client). WS hai chiều chưa có. |
-| **File storage / upload** | ✗ — chưa có adapter (local/S3), chưa parse multipart. |
 | **Mail / SMTP** | ✗ — chưa có; có thể làm qua job queue + lib ngoài. |
 | **Full-text search** | ~ — chỉ có adapter stub `createRustSearch` (gọi service Rust), chưa có engine. |
 
