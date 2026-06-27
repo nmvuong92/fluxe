@@ -20,7 +20,8 @@ import vào, không cần đụng nội bộ của nó.
   - layouts/index.tsx master layout (header/nav/footer + DebugBar)
   - theme.ts design tokens (CSS biến, light/dark)
   - nav.ts menu khai báo
-  - profiles.ts backend nào chạy (resolution profile)
+  - backend.ts **tầng data của bạn** — interface domain + chọn driver (memory/sqlite/postgres)
+  - profiles.ts profile resolve render (static/island) per môi trường
   - env.ts biến môi trường có kiểu (fail-fast)
   - app.ts **registry cell — sinh tự động** (`fx sync`), đừng sửa
 - node_modules/
@@ -37,7 +38,8 @@ import vào, không cần đụng nội bộ của nó.
 | `app/cells/<id>/index.tsx` | Cell: route + `loader` + `actions`, gắn view | `fx new` |
 | `app/layouts/index.tsx` | Master layout + DebugBar | `fx init` |
 | `app/theme.ts` · `app/nav.ts` | Design tokens · menu | `fx init` |
-| `app/profiles.ts` | "Backend nào, endpoint nào" cho mỗi môi trường | `fx init` |
+| `app/backend.ts` | **Tầng data của bạn**: interface domain + chọn driver (memory/sqlite/postgres) | `fx init` |
+| `app/profiles.ts` | Profile resolve render mode cho mỗi môi trường | `fx init` |
 | `app/env.ts` | Biến môi trường có kiểu | `fx init` |
 | `app/app.ts` | Registry cell | **`fx sync` sinh — đừng sửa** |
 

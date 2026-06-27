@@ -47,7 +47,7 @@ realtime, parsing)** — phải:
 - **Cell tách 2 file** (giao-diện-vs-server, như SvelteKit/Astro): `view.tsx` = giao diện thuần (`export function <Comp>` + `export default <Comp>` + `export interface <Comp>Data`); `index.tsx` = `defineCell` route/loader/actions/head, `import { <Comp>, type <Comp>Data } from "./view"`. `fx new` sinh sẵn — đừng gộp lại 1 file, **đừng bỏ `export default` ở view** (client bundle import default).
 - **`hydration` MẶC ĐỊNH "island"** (interactive) — cell/doc/tutorial **KHÔNG khai báo** `hydration`. Chỉ khai báo `hydration: "static"` khi opt-in tối ưu 0-JS (`fx new --static`). Static là **topic riêng** (`guides/static-cells.md`), không nhắc trong doc/tutorial chính.
 - **View-only client bundle:** `client.tsx` chỉ import `app/views.ts` (registry view default, do `fx sync` sinh) → loader/actions/zod/backend **KHÔNG** ship xuống browser. Layout do server gửi kèm payload (`window.__FLUXE__.layout` + `fetchPageProps`). Đừng cho `client.tsx`/`nav-client.ts` import `app/app.ts` hay cell `index.tsx` (sẽ kéo server code vào client).
-- "Backend nào chạy" do `app/profiles.ts` (config): `memory | sqlite` (engine tự dựng, in-process) hoặc `postgres` (user tự inject client `pg`). Tất cả đều TS in-process — 0 roundtrip.
+- **Backend = tầng data USER-OWNED ở `app/backend.ts`**: user định nghĩa interface domain của mình + chọn driver, inject qua `makeServer(…, { backend })`. Engine `Ctx<I,B>` generic (`defineCell<I,O,B>`). Driver có sẵn (pin sạc): `memory | sqlite` (engine tự dựng), `postgres` (user inject client `pg`) — đều TS in-process, 0 roundtrip. Nếu app KHÔNG truyền `{ backend }` → engine fallback driver từ `profiles.ts` (Todo demo). **Đừng** đóng-cứng domain backend vào engine lại.
 
 ## Tài liệu Starlight — LUÔN sync (BẮT BUỘC)
 

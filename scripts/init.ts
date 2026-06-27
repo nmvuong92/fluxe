@@ -32,6 +32,24 @@ export const profiles: Record<string, ResolutionProfile> = {
 };
 `);
 
+// Tầng data CỦA BẠN: định nghĩa interface domain + chọn driver, inject qua makeServer({ backend }).
+ensure("app/backend.ts", `import { createMemoryBackend, createSqliteBackend } from "@nmvuong92/fluxe";
+
+// 1) Interface domain của bạn (đổi Todo → Note/User/Order tuỳ app):
+export interface Todo { id: string; title: string; done: boolean }
+export interface Backend {
+  name: string;
+  listTodos(): Promise<Todo[]>;
+  addTodo(title: string): Promise<Todo>;
+  toggleTodo(id: string): Promise<Todo[]>;
+}
+
+// 2) Chọn driver — đổi 1 dòng = đổi nơi lưu (memory <-> sqlite <-> postgres):
+export const backend: Backend = process.env.FLUXE_SQLITE_PATH
+  ? createSqliteBackend(process.env.FLUXE_SQLITE_PATH)
+  : createMemoryBackend();
+`);
+
 // Design tokens — CSS biến. "auto" theo OS (prefers-color-scheme); [data-theme] ép light/dark.
 ensure("app/theme.ts", `export const themeCSS = \`
 :root {
