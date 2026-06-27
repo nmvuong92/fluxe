@@ -27,14 +27,14 @@ export const env = loadEnv(
 
 ensure("app/profiles.ts", `import type { ResolutionProfile } from "@nmvuong92/fluxe";
 
-// Profile chỉ resolve RENDER (static/island). Data = app/backend.ts.
+// Profile chỉ resolve RENDER (static/island). Data = app/backend/data.ts.
 export const profiles: Record<string, ResolutionProfile> = {
   dev: { name: "dev" },
 };
 `);
 
 // Tầng data CỦA BẠN: định nghĩa interface domain + implement CRUD. Engine KHÔNG biết gì về data.
-ensure("app/backend.ts", `// Interface domain + implement = của bạn. Inject qua makeServer(..., { backend }).
+ensure("app/backend/data.ts", `// Interface domain + implement = của bạn. Inject qua makeServer(..., { backend }).
 export interface Todo { id: string; title: string; done: boolean }
 export interface Backend {
   name: string;
@@ -69,9 +69,9 @@ import express from "express";
 import { readFileSync } from "node:fs";
 import { fluxe } from "@nmvuong92/fluxe/express";
 import type { ResolutionManifest } from "@nmvuong92/fluxe";
-import { cells } from "./app";
-import { layouts } from "./layouts/index";
-import { backend } from "./backend";   // service dùng chung cho route Express + cell
+import { cells } from "../app";
+import { layouts } from "../layouts/index";
+import { backend } from "./data";   // service dùng chung cho route Express + cell
 
 const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
 const app = express();
@@ -87,9 +87,9 @@ import { serve } from "@hono/node-server";
 import { readFileSync } from "node:fs";
 import { fluxe } from "@nmvuong92/fluxe/hono";
 import type { ResolutionManifest } from "@nmvuong92/fluxe";
-import { cells } from "./app";
-import { layouts } from "./layouts/index";
-import { backend } from "./backend";
+import { cells } from "../app";
+import { layouts } from "../layouts/index";
+import { backend } from "./data";
 
 const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
 const app = new Hono();
@@ -104,9 +104,9 @@ import { NestFactory } from "@nestjs/core";
 import { readFileSync } from "node:fs";
 import { fluxeMiddleware } from "@nmvuong92/fluxe/nest";
 import type { ResolutionManifest } from "@nmvuong92/fluxe";
-import { cells } from "./app";
-import { layouts } from "./layouts/index";
-import { backend } from "./backend";
+import { cells } from "../app";
+import { layouts } from "../layouts/index";
+import { backend } from "./data";
 
 @Module({})
 class AppModule {}
@@ -119,7 +119,7 @@ await app.listen(5180);
 console.log("http://localhost:5180 (Nest)");
 `,
 };
-ensure("app/server.ts", SERVERS[serverArg] ?? SERVERS.express);
+ensure("app/backend/server.ts", SERVERS[serverArg] ?? SERVERS.express);
 
 // Design tokens — CSS biến. "auto" theo OS (prefers-color-scheme); [data-theme] ép light/dark.
 ensure("app/theme.ts", `export const themeCSS = \`

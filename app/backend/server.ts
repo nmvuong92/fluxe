@@ -7,14 +7,14 @@
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 import express from "express";
 import { readFileSync } from "node:fs";
-import { fluxe } from "../src/adapters/express";          // published: @nmvuong92/fluxe/express
-import { createLocalStorage } from "../src/storage/local";
-import type { ResolutionManifest } from "../src/core/resolver";
-import { env } from "./env";
-import { cells } from "./app";
-import { layouts } from "./layouts/index";
-import { i18n } from "./i18n";
-import { backend } from "./backend";   // tầng data/service — DÙNG CHUNG cho route Express + cell
+import { fluxe } from "../../src/adapters/express";          // published: @nmvuong92/fluxe/express
+import { createLocalStorage } from "../../src/storage/local";
+import type { ResolutionManifest } from "../../src/core/resolver";
+import { env } from "../env";
+import { cells } from "../app";
+import { layouts } from "../layouts/index";
+import { i18n } from "../i18n";
+import { backend } from "./data";   // tầng data/service — DÙNG CHUNG cho route Express + cell
 
 const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
 const storage = createLocalStorage({ dir: ".fluxe/uploads" });

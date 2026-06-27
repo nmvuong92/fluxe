@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { defineCell } from "../../../src/core/engine";
 import { withInput } from "../../../src/core/validate";
-import type { Backend } from "../../backend";   // backend domain của app → ctx.backend có kiểu
+import type { Backend } from "../../backend/data";   // backend domain của app → ctx.backend có kiểu
 import { Todos, type TodosData } from "./view";
 
 // Tham số thứ 3 = kiểu backend của app → ctx.backend.listTodos() được gợi ý + check kiểu.

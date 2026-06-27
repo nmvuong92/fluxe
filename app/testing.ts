@@ -1,6 +1,6 @@
 // Test spy cho Backend của app — mock CRUD mà KHÔNG cần HTTP/DB.
 // Vì Backend là interface (app/backend.ts), mock cực dễ: seed + .calls + .failNext.
-import type { Backend, Todo } from "./backend";
+import type { Backend, Todo } from "./backend/data";
 
 export interface TestBackend extends Backend {
   calls: { method: string; args: unknown[] }[];

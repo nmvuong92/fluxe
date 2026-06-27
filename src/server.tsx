@@ -8,7 +8,7 @@ import { env } from "../app/env";   // validate env fail-fast lúc boot
 import { cells } from "../app/app";  // registry cell phía app (DI vào engine)
 import { layouts } from "../app/layouts/index";
 import { i18n } from "../app/i18n";
-import { backend } from "../app/backend";   // tầng data user-owned (DI vào engine)
+import { backend } from "../app/backend/data";   // tầng data user-owned (DI vào engine)
 
 const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
 const storage = createLocalStorage({ dir: ".fluxe/uploads" });

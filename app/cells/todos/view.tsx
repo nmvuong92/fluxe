@@ -1,7 +1,7 @@
 import { createElement as h, useState, useEffect } from "react";
 import { rpc, subscribe } from "../../../src/core/client";
 import { useQuery, useMutation, Link } from "../../../src/react";
-import type { Todo } from "../../backend";   // type-only → esbuild elide, không kéo server code
+import type { Todo } from "../../backend/data";   // type-only → esbuild elide, không kéo server code
 
 export interface TodosData { todos: Todo[]; backendName: string }
 

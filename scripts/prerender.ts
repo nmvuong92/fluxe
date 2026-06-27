@@ -8,7 +8,7 @@ import { createElement as h } from "react";
 import { resolve, type CellDecl } from "../src/core/resolver";
 import { renderHead } from "../src/core/seo";
 import { profiles } from "../app/profiles";
-import { backend } from "../app/backend";   // data user-owned (DI)
+import { backend } from "../app/backend/data";   // data user-owned (DI)
 import home from "../app/cells/home/index";
 import todos from "../app/cells/todos/index";
 import hello from "../app/cells/hello/index";

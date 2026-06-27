@@ -7,7 +7,7 @@ import { resolve, type CellDecl } from "./core/resolver";
 import { profiles } from "../app/profiles";
 import { cells as appCells } from "../app/app";
 import { layouts } from "../app/layouts/index";
-import { backend } from "../app/backend";   // data user-owned (DI)
+import { backend } from "../app/backend/data";   // data user-owned (DI)
 
 const cells: CellDecl[] = appCells.map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
 
