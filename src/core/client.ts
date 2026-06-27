@@ -68,6 +68,21 @@ export async function rpc<T = any>(cell: string, action: string, input: unknown)
   return res.json();
 }
 
+/* Contract op qua POST /__rpc/<op> (tRPC-style). Dùng bởi client api sinh từ contract.
+ * query: đọc thuần · mutation: server kiểm CSRF (double-submit, header dưới). */
+export async function rpcCall<O = any>(op: string, input?: unknown): Promise<O> {
+  const headers: Record<string, string> = { "content-type": "application/json", "x-csrf-token": cookie("csrf") };
+  if (_chaos) headers["x-fluxe-chaos"] = _chaos;
+  let res: Response;
+  try {
+    res = await fetch(`/__rpc/${op}`, { method: "POST", headers, body: JSON.stringify(input ?? {}) });
+  } catch {
+    throw new RpcError("network", "Mất kết nối máy chủ", 0);
+  }
+  if (!res.ok) throw parseRpcError(res.status, await res.text());
+  return res.json();
+}
+
 /* Upload file qua POST /__upload/<field> (multipart). Trả { key, url, size } (hoặc mảng nếu nhiều). */
 export async function upload(field: string, files: File | File[]): Promise<{ key: string; url: string; size: number } | Array<{ key: string; url: string; size: number }>> {
   const fd = new FormData();
