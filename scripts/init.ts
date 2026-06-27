@@ -27,27 +27,37 @@ export const env = loadEnv(
 
 ensure("app/profiles.ts", `import type { ResolutionProfile } from "@nmvuong92/fluxe";
 
+// Profile chỉ resolve RENDER (static/island). Data = app/backend.ts.
 export const profiles: Record<string, ResolutionProfile> = {
-  dev: { name: "dev", backend: "memory" },
+  dev: { name: "dev" },
 };
 `);
 
-// Tầng data CỦA BẠN: định nghĩa interface domain + chọn driver, inject qua makeServer({ backend }).
-ensure("app/backend.ts", `import { createMemoryBackend, createSqliteBackend } from "@nmvuong92/fluxe";
-
-// 1) Interface domain của bạn (đổi Todo → Note/User/Order tuỳ app):
+// Tầng data CỦA BẠN: định nghĩa interface domain + implement CRUD. Engine KHÔNG biết gì về data.
+ensure("app/backend.ts", `// Interface domain + implement = của bạn. Inject qua makeServer(..., { backend }).
 export interface Todo { id: string; title: string; done: boolean }
 export interface Backend {
   name: string;
   listTodos(): Promise<Todo[]>;
   addTodo(title: string): Promise<Todo>;
-  toggleTodo(id: string): Promise<Todo[]>;
 }
 
-// 2) Chọn driver — đổi 1 dòng = đổi nơi lưu (memory <-> sqlite <-> postgres):
-export const backend: Backend = process.env.FLUXE_SQLITE_PATH
-  ? createSqliteBackend(process.env.FLUXE_SQLITE_PATH)
-  : createMemoryBackend();
+// In-memory cho khởi đầu — đổi sang node:sqlite / pg / ORM của bạn khi cần.
+export function memoryBackend(): Backend {
+  let todos: Todo[] = [];
+  let seq = 1;
+  return {
+    name: "memory",
+    async listTodos() { return todos; },
+    async addTodo(title) {
+      const t: Todo = { id: String(seq++), title, done: false };
+      todos = [...todos, t];
+      return t;
+    },
+  };
+}
+
+export const backend: Backend = memoryBackend();
 `);
 
 // Design tokens — CSS biến. "auto" theo OS (prefers-color-scheme); [data-theme] ép light/dark.

@@ -1,12 +1,6 @@
-// Copyright (c) 2026 nmvuong92
-// SPDX-License-Identifier: Apache-2.0
-import type { Backend, Todo } from "../backends/types";
-
-/* Testing story — lợi thế của fluxe: Backend là interface → mock cực dễ.
- * createTestBackend cho phép test loader/action của cell mà KHÔNG cần HTTP/DB:
- *   - seed dữ liệu đầu vào
- *   - .calls: spy mọi lời gọi (method + args)
- *   - .failNext(method): tiêm lỗi đúng 1 lần để test nhánh lỗi */
+// Test spy cho Backend của app — mock CRUD mà KHÔNG cần HTTP/DB.
+// Vì Backend là interface (app/backend.ts), mock cực dễ: seed + .calls + .failNext.
+import type { Backend, Todo } from "./backend";
 
 export interface TestBackend extends Backend {
   calls: { method: string; args: unknown[] }[];

@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import todos from "./index";
-import { createTestBackend } from "../../../src/core/testing";
+import { createTestBackend } from "../../testing";
 
 test("loader trả todos + tên backend", async () => {
   const backend = createTestBackend([{ id: "1", title: "a", done: false }]);

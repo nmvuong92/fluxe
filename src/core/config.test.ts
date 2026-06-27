@@ -12,7 +12,6 @@ test("default khi ENV rỗng", () => {
   assert.equal(c.rateLimit.maxKeys, 5000);
   assert.equal(c.renderCache.maxKeys, 256);
   assert.equal(c.upload.maxBytes, 10 * 1024 * 1024);
-  assert.equal(c.defaultBackend, "memory");
 });
 
 test("ENV (FLUXE_*) override default", () => {
@@ -21,7 +20,6 @@ test("ENV (FLUXE_*) override default", () => {
     FLUXE_SECRET: "a-strong-secret",
     FLUXE_RATELIMIT_CAPACITY: "99",
     FLUXE_UPLOAD_MAX_BYTES: "1048576",
-    FLUXE_BACKEND: "sqlite",
     PORT: "8080",
   });
   assert.equal(c.env, "production");
@@ -29,7 +27,6 @@ test("ENV (FLUXE_*) override default", () => {
   assert.equal(c.rateLimit.capacity, 99);
   assert.equal(c.rateLimit.refillPerSec, 10);   // không set → default
   assert.equal(c.upload.maxBytes, 1048576);
-  assert.equal(c.defaultBackend, "sqlite");
   assert.equal(c.port, 8080);
 });
 

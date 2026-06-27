@@ -10,7 +10,6 @@ const Schema = z.object({
   env: z.enum(["development", "production", "test"]),
   secret: z.string().min(8),
   port: z.coerce.number().int().positive(),
-  defaultBackend: z.enum(["memory", "sqlite", "postgres"]),
   rateLimit: z.object({
     capacity: z.coerce.number().int().positive(),
     refillPerSec: z.coerce.number().positive(),
@@ -30,7 +29,6 @@ export const ENV_KEYS = {
   "NODE_ENV": "env",
   "FLUXE_SECRET": "secret",
   "PORT (hoặc FLUXE_PORT)": "port",
-  "FLUXE_BACKEND": "defaultBackend",
   "FLUXE_RATELIMIT_CAPACITY": "rateLimit.capacity",
   "FLUXE_RATELIMIT_REFILL": "rateLimit.refillPerSec",
   "FLUXE_RATELIMIT_MAX_KEYS": "rateLimit.maxKeys",
@@ -63,7 +61,6 @@ export function loadConfig(source: Src = process.env, overrides: DeepPartial<Flu
     env: (source.NODE_ENV as FluxeConfig["env"]) || "development",
     secret: source.FLUXE_SECRET || "dev-secret-change-me",
     port: num(source, "PORT", num(source, "FLUXE_PORT", 5180)),
-    defaultBackend: (source.FLUXE_BACKEND as FluxeConfig["defaultBackend"]) || "memory",
     rateLimit: {
       capacity: num(source, "FLUXE_RATELIMIT_CAPACITY", 30),
       refillPerSec: num(source, "FLUXE_RATELIMIT_REFILL", 10),

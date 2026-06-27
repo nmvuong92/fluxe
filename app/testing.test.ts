@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createTestBackend } from "./testing.ts";
+import { createTestBackend } from "./testing";
 
 test("seed + listTodos trả bản sao đã seed", async () => {
   const b = createTestBackend([{ id: "1", title: "a", done: false }]);

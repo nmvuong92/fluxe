@@ -7,28 +7,24 @@ import type { ResolutionManifest } from "./resolver.ts";
 
 const mixed: ResolutionManifest = {
   version: 1, profile: "mixed",
-  backend: { language: "memory" },
   cells: {
-    home: { id: "home", route: "/", render: { mode: "static", shipClientJs: false }, backend: { language: "memory" } },
-    todos: { id: "todos", route: "/todos", render: { mode: "island", shipClientJs: true }, backend: { language: "sqlite" } },
+    home: { id: "home", route: "/", render: { mode: "static", shipClientJs: false } },
+    todos: { id: "todos", route: "/todos", render: { mode: "island", shipClientJs: true } },
   },
 };
 
-test("panel hiển thị tiêu đề + profile + default backend", () => {
+test("panel hiển thị tiêu đề + profile", () => {
   const html = renderResolutionPanel(mixed);
   assert.match(html, /RCA Resolution/);
   assert.match(html, /mixed/);
-  assert.match(html, /default backend/i);
 });
 
-test("panel có hàng per-cell với render + backend đúng", () => {
+test("panel có hàng per-cell với render mode", () => {
   const html = renderResolutionPanel(mixed);
   assert.match(html, /home/);
   assert.match(html, /todos/);
   assert.match(html, /static/);
   assert.match(html, /island/);
-  assert.match(html, /memory/);
-  assert.match(html, /sqlite/);
 });
 
 test("panel là HTML hợp lệ (doctype + bảng)", () => {

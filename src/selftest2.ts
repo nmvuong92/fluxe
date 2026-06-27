@@ -7,6 +7,7 @@ import { resolve, type CellDecl } from "./core/resolver";
 import { profiles } from "../app/profiles";
 import { cells as appCells } from "../app/app";
 import { layouts } from "../app/layouts/index";
+import { backend } from "../app/backend";   // data user-owned (DI)
 
 const cells: CellDecl[] = appCells.map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
 
@@ -44,8 +45,8 @@ function check(label: string, cond: boolean) {
 
 async function run(profileName: string, port: number) {
   const manifest = resolve(cells, profiles[profileName]);
-  console.log(`\n══════════ profile=${profileName} (backend=${manifest.backend.language}) ══════════`);
-  const srv = makeServer(manifest, appCells, layouts).listen(port);
+  console.log(`\n══════════ profile=${profileName} (backend=${backend.name}) ══════════`);
+  const srv = makeServer(manifest, appCells, layouts, { backend }).listen(port);
   await new Promise((r) => setTimeout(r, 150));
   try {
     const homePage = await get(port, "/");
@@ -54,7 +55,7 @@ async function run(profileName: string, port: number) {
     check("[island /todos] CÓ gửi client.js", todosPage.body.includes("/client.js"));
     const apiRes = await get(port, "/todos?json=1");
     const api = JSON.parse(apiRes.body);
-    check(`[backend] tên hiển thị = ${manifest.backend.language}`, api.data.backendName === manifest.backend.language);
+    check(`[backend] tên hiển thị = ${backend.name}`, api.data.backendName === backend.name);
     // Render cache: ETag → If-None-Match khớp → 304 (không gửi lại body).
     const etag = apiRes.headers.etag;
     const notMod = await get(port, "/todos?json=1", { "if-none-match": etag });
@@ -163,7 +164,7 @@ async function runOverride(port: number) {
   const manifest = resolve(cells, profiles.dev);
   manifest.cells.home.render.shipClientJs = true; // override static → ship
   console.log(`\n══════════ override: manifest ép home ship JS (đối chứng quyền manifest) ══════════`);
-  const srv = makeServer(manifest, appCells, layouts).listen(port);
+  const srv = makeServer(manifest, appCells, layouts, { backend }).listen(port);
   await new Promise((r) => setTimeout(r, 150));
   try {
     const homePage = await get(port, "/");

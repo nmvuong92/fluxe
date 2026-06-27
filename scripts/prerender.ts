@@ -6,9 +6,9 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { renderToString } from "react-dom/server";
 import { createElement as h } from "react";
 import { resolve, type CellDecl } from "../src/core/resolver";
-import { backendFromManifest } from "../src/core/wiring";
 import { renderHead } from "../src/core/seo";
 import { profiles } from "../app/profiles";
+import { backend } from "../app/backend";   // data user-owned (DI)
 import home from "../app/cells/home/index";
 import todos from "../app/cells/todos/index";
 import hello from "../app/cells/hello/index";
@@ -23,7 +23,6 @@ for (const cell of allCells) {
   const r = manifest.cells[cell.id];
   if (r.render.mode !== "static") continue;   // chỉ prerender static
   if (cell.route.includes("[")) continue;      // bỏ route động (cần param runtime)
-  const backend = backendFromManifest({ ...manifest, backend: r.backend });
   const data = await cell.loader({ input: {}, backend });
   const body = renderToString(h(cell.view, { data }));
   const headHtml = renderHead(cell.head ? cell.head(data) : {});

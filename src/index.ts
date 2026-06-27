@@ -6,7 +6,6 @@ export * from "./core/engine.ts";        // defineCell, Ctx, CellDef, Loader, Ac
 export * from "./core/validate.ts";      // validateInput, withInput
 export * from "./core/errors.ts";        // FluxeError, ErrorPayload, toErrorPayload, renderErrorPage
 export * from "./core/resolver.ts";      // resolve, ResolutionProfile/Manifest, CellDecl, RenderMode…
-export * from "./core/wiring.ts";        // backendFromManifest, backendsFromManifest
 export * from "./core/auth.ts";          // session HMAC, scrypt password, CSRF, RBAC
 export * from "./core/env.ts";           // loadEnv
 export * from "./core/config.ts";        // FluxeConfig, loadConfig (default ← ENV FLUXE_* ← override)
@@ -19,13 +18,9 @@ export * from "./core/ratelimit.ts";     // token-bucket + LRU
 export * from "./core/codegen.ts";       // genTS
 export * from "./core/layouts.ts";       // layoutChain, LayoutMeta
 export * from "./core/router.ts";        // makeRouter
-export * from "./core/testing.ts";       // createTestBackend
-export * from "./backends/types.ts";     // Backend, Todo
 export * from "./storage/types.ts";      // Storage, PutResult, GetResult, safeKey, makeKey
 export { createMemoryStorage } from "./storage/memory.ts";
 export { createLocalStorage } from "./storage/local.ts";
 export { createS3Storage } from "./storage/s3.ts";   // adapter tham chiếu (cần @aws-sdk/client-s3)
-export { createMemoryBackend } from "./backends/memory.ts";
-export { createSqliteBackend } from "./backends/sqlite.ts";
-export { createPostgresBackend } from "./backends/postgres.ts";   // user tự inject client `pg`
 export { makeServer } from "./server_factory.ts";
+// Backend = USER-OWNED (app/backend.ts) — engine KHÔNG ship driver/domain data nào.

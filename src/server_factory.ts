@@ -7,7 +7,6 @@ import { createElement as h } from "react";
 import { renderToPipeableStream } from "react-dom/server";
 import type { CellDef } from "./core/engine";
 import type { ResolutionManifest } from "./core/resolver";
-import { backendsFromManifest } from "./core/wiring.ts";
 import { renderResolutionPanel } from "./core/panel.ts";
 import { makeRouter } from "./core/router.ts";
 import { layoutChain, type LayoutMeta } from "./core/layouts.ts";
@@ -100,10 +99,8 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
   const matchRoute = makeRouter(cells);
   const byId = new Map(cells.map((c) => [c.id, c]));
   // Backend USER-OWNED (app/backend.ts) inject qua opts.backend → dùng cho mọi cell.
-  // Nếu app không truyền → fallback driver built-in giải từ manifest (memory/sqlite) cho quick-start.
-  const userBackend = opts.backend;
-  const backends = userBackend === undefined ? backendsFromManifest(manifest) : null;
-  const backendFor = (id: string) => userBackend ?? backends!.byCell.get(id) ?? backends!.default;
+  // Engine KHÔNG ship/giải backend; cell nào dùng backend mà app quên truyền → undefined (lỗi rõ ràng).
+  const backendFor = (_id: string) => opts.backend;
   // Resolved Container: service realtime đăng ký LƯỜI — chỉ tạo khi thật sự dùng (SSE/action).
   // App không realtime → broker/presence KHÔNG bao giờ bootstrap. resolved() ở /_fluxe/stats.
   const container = createContainer();
@@ -251,10 +248,10 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
       const fn = byId.get(cellId)?.actions?.[name];
       if (!fn) { res.writeHead(404); return res.end("no action"); }
       const t0 = Date.now();
-      // DevTools (DEV): #3 resolution (backend TS in-process do manifest giải).
+      // DevTools (DEV): #3 resolution (render mode của cell; data = backend user-owned).
       const backend = backendFor(cellId);
-      const r = manifest.cells[cellId]?.backend;
-      const resolution = r ? `${r.language}/in-process` : "memory/in-process";
+      const render = manifest.cells[cellId]?.render;
+      const resolution = render ? `${render.mode}/${(backend as any)?.name ?? "no-backend"}` : "island";
       // #1 Chaos (DEV): inject delay + lỗi giả lập để test UX.
       if (DEV && req.headers["x-fluxe-chaos"]) {
         const c = parseChaos(String(req.headers["x-fluxe-chaos"]));
