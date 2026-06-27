@@ -60,6 +60,62 @@ export function memoryBackend(): Backend {
 export const backend: Backend = memoryBackend();
 `);
 
+// SERVER ENTRY — chọn framework qua --server (express | hono | nest), mặc định express.
+const serverArg = (process.argv.find((a) => a.startsWith("--server=")) ?? "--server=express").split("=")[1];
+const SERVERS: Record<string, string> = {
+  express: `import express from "express";
+import { readFileSync } from "node:fs";
+import { fluxe } from "@nmvuong92/fluxe/express";
+import type { ResolutionManifest } from "@nmvuong92/fluxe";
+import { cells } from "./app";
+import { layouts } from "./layouts/index";
+import { backend } from "./backend";
+
+const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
+const app = express();
+// 👉 Route Express riêng của bạn đặt ở đây (chạy trước fluxe).
+app.use(fluxe(manifest, cells, layouts, { backend }));   // fluxe = catch-all
+app.listen(5180, () => console.log("http://localhost:5180 (Express)"));
+`,
+  hono: `import { Hono } from "hono";
+import { serve } from "@hono/node-server";
+import { readFileSync } from "node:fs";
+import { fluxe } from "@nmvuong92/fluxe/hono";
+import type { ResolutionManifest } from "@nmvuong92/fluxe";
+import { cells } from "./app";
+import { layouts } from "./layouts/index";
+import { backend } from "./backend";
+
+const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
+const app = new Hono();
+// 👉 Route Hono riêng của bạn đặt ở đây (chạy trước fluxe).
+app.use("*", fluxe(manifest, cells, layouts, { backend }));
+serve({ fetch: app.fetch, port: 5180 });
+console.log("http://localhost:5180 (Hono)");
+`,
+  nest: `import "reflect-metadata";
+import { Module } from "@nestjs/common";
+import { NestFactory } from "@nestjs/core";
+import { readFileSync } from "node:fs";
+import { fluxeMiddleware } from "@nmvuong92/fluxe/nest";
+import type { ResolutionManifest } from "@nmvuong92/fluxe";
+import { cells } from "./app";
+import { layouts } from "./layouts/index";
+import { backend } from "./backend";
+
+@Module({})
+class AppModule {}
+
+const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
+const app = await NestFactory.create(AppModule);
+// 👉 Controller/route Nest riêng của bạn; fluxe mount global catch-all:
+app.use(fluxeMiddleware(manifest, cells, layouts, { backend }));
+await app.listen(5180);
+console.log("http://localhost:5180 (Nest)");
+`,
+};
+ensure("app/server.ts", SERVERS[serverArg] ?? SERVERS.express);
+
 // Design tokens — CSS biến. "auto" theo OS (prefers-color-scheme); [data-theme] ép light/dark.
 ensure("app/theme.ts", `export const themeCSS = \`
 :root {

@@ -18,8 +18,8 @@
   "include": ["src/**/*"],
   "exclude": [
     "src/**/*.test.ts",
+    "src/adapters/_fixture.ts",
     "src/selftest2.ts",
-    "src/proof_native.ts",
     "src/server.tsx",
     "src/client.tsx"
   ]

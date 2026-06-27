@@ -54,7 +54,7 @@ export const COMMANDS: Record<string, Command> = {
   },
   dev: {
     desc: "Sync + resolve + build client + chạy server",
-    shell: (a) => `${SYNC} && tsx scripts/resolve.ts ${p(a)} && ${ESBUILD} && tsx src/server.tsx`,
+    shell: (a) => `${SYNC} && tsx scripts/resolve.ts ${p(a)} && ${ESBUILD} && tsx app/server.ts`,
   },
   test: {
     desc: "Sync + typecheck + unit + integration",
