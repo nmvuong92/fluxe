@@ -1,6 +1,6 @@
 {
   "name": "@nmvuong92/fluxe",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "fluxe — khung fullstack tối giản, một runtime TS (RCA: Resolved Cell Architecture).",
   "license": "Apache-2.0",
   "author": "nmvuong92",
@@ -83,11 +83,21 @@
     "@nestjs/core": "^10 || ^11"
   },
   "peerDependenciesMeta": {
-    "express": { "optional": true },
-    "hono": { "optional": true },
-    "@hono/node-server": { "optional": true },
-    "@nestjs/common": { "optional": true },
-    "@nestjs/core": { "optional": true }
+    "express": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    },
+    "@hono/node-server": {
+      "optional": true
+    },
+    "@nestjs/common": {
+      "optional": true
+    },
+    "@nestjs/core": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@hono/node-server": "^2.0.6",
