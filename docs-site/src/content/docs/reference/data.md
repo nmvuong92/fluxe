@@ -12,8 +12,8 @@ resolver/implement của bạn**. Bạn tự định nghĩa **interface domain**
 vào engine. Cell/loader/action chỉ thấy interface (hay `api` từ contract) — đổi nơi lưu = thay một
 dòng implement, cell & frontend không đổi.
 
-> Khai báo operations ở đâu? → **[Contract DSL](/reference/contract/)** (`defineContract` → `fx gen`
-> sinh types + Zod + client `api` + `Resolvers`). Trang này tả phần implement bên dưới — chọn cách
+> Khai báo operations ở đâu? → **[Contract DSL](/reference/contract/)** (builder `f.contract(...)` →
+> suy ra types + Zod + client `api` + `Resolvers` tức thì qua inference, không codegen). Trang này tả phần implement bên dưới — chọn cách
 > lưu trữ là **tùy bạn**, các driver dưới đây chỉ là ví dụ, không phải khái niệm của fluxe.
 
 ## `app/backend/data.ts` — bạn sở hữu file này

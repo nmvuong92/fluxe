@@ -1,52 +1,48 @@
 ---
 title: Contract DSL
-description: Khai báo operations (queries/mutations) + types ở app/contract.ts → fx gen tự sinh types + Zod + client api + server Resolvers. DB ẩn sau resolver.
+description: Khai báo operations (queries/mutations) bằng builder Zod ở app/contract.ts — type suy ra tức thì (0 codegen), client là Proxy typed. DB ẩn sau resolver.
 sidebar:
   order: 4
 ---
 
 Contract là **nguồn sự thật của giao tiếp cell↔backend** — khai báo **nghiệp vụ** (queries +
-mutations) một nơi, `fx gen` **tự sinh** types + validator + client + interface resolver. DB/sqlite/
-pg **ẩn trong resolver** bạn viết; contract không biết — DB chỉ là một chi tiết nhỏ.
+mutations) bằng builder, **type suy ra tức thì** (không chờ codegen), client là Proxy có kiểu.
+DB/sqlite/pg **ẩn trong resolver** bạn viết — contract không biết. tRPC-style: **không file sinh ra**.
 
-## `app/contract.ts` — khai báo
+## `app/contract.ts` — builder Zod
 
 ```ts
-import { defineContract } from "@nmvuong92/fluxe";
+import { f, type Infer } from "@nmvuong92/fluxe";
 
-export const contract = defineContract({
-  types:     { Todo: { id: "string", title: "string", done: "bool" } },
-  queries:   { todos: { out: "Todo[]" } },                          // đọc
-  mutations: { addTodo: { in: { title: "string" }, out: "Todo" },   // ghi (nghiệp vụ bất kỳ)
-               toggleTodo: { in: { id: "string" }, out: "Todo[]" } },
+const Todo = f.object({ id: f.string, title: f.string, done: f.bool });
+export type Todo = Infer<typeof Todo>;   // { id: string; title: string; done: boolean } — tức thì
+
+export const contract = f.contract({
+  todos: f.query(Todo.array()),                          // đọc
+  addTodo: f.mutation({ title: f.string }, Todo),        // ghi (nghiệp vụ bất kỳ)
+  toggleTodo: f.mutation({ id: f.string }, Todo.array()),
 });
+
+export type AppContract = typeof contract;   // client import type-only → 0 schema xuống browser
 ```
 
-Type-expr là string: scalar (`"string" | "int" | "bool"`), ref type (`"Todo"`), mảng (`"Todo[]"`),
-optional (`"string?"`). Không cần parser/DSL text — type-safe ngay khi viết.
+`f` là lớp mỏng trên **Zod**: `f.string/int/bool/number/null`, `f.object`, `f.union`. Composition dùng
+method Zod: `Todo.array()`, `f.string.optional()`, `f.string.nullable()`. Ref type không tồn tại =
+**lỗi compile ngay tại dòng**; error là TS gốc, đọc được.
 
-## `fx gen` tự sinh (`.fluxe/gen/`)
+## Resolver — implement contract (DB ẩn)
 
-| File | Nội dung |
-|------|----------|
-| `types.ts` | interface cho mỗi `type` + `<Op>Input` |
-| `validators.ts` | Zod cho `in` mỗi op + `validators` map (wire thẳng) |
-| `server.ts` | `interface Resolvers` (backend implement) + `OPS` (kind) + `createApi` |
-| `client.ts` | `api` có kiểu: `api.todos()`, `api.addTodo({title})` → `/__rpc` |
-
-**Không gõ `fx gen` tay** — chạy tự động trong `fx sync` (mọi `fx dev`/`fx build`), watch khi `fx dev`,
-và npm `prepare` (editor có type ngay sau `npm install`). Giống `svelte-kit sync`/`astro sync`.
-
-## Implement resolver (DB ẩn ở đây)
+Kiểu **suy từ contract** (`Resolvers<typeof contract>`) — sai chữ ký = compile error ngay, không gen.
 
 ```ts
 // app/backend/index.ts
-import type { Resolvers } from "../../.fluxe/gen/server";
-import { db } from "./data";   // node:sqlite / pg / ORM của bạn — contract không biết
+import type { Resolvers } from "@nmvuong92/fluxe";
+import { contract } from "../contract";
+import { db } from "./data";   // node:sqlite / pg / ORM — contract không biết
 
-export const resolvers: Resolvers = {
+export const resolvers: Resolvers<typeof contract> = {
   todos: () => db.listTodos(),
-  addTodo: ({ title }) => db.addTodo(title),
+  addTodo: ({ title }) => db.addTodo(title),     // title: string (suy từ contract)
   toggleTodo: ({ id }) => db.toggleTodo(id),
 };
 ```
@@ -54,36 +50,51 @@ export const resolvers: Resolvers = {
 Tiêm vào engine (dùng chung server framework đã chọn):
 
 ```ts
-import { validators } from "../../.fluxe/gen/validators";
 import { contract } from "../contract";
 import { resolvers } from "./index";
-
-app.use(fluxe(manifest, cells, layouts, { resolvers, contract, validators }));
-// hoặc makeServer(manifest, cells, layouts, { resolvers, contract, validators })
+app.use(fluxe(manifest, cells, layouts, { contract, resolvers }));
+// hoặc makeServer(manifest, cells, layouts, { contract, resolvers })
 ```
 
-## Gọi `api` — server 0 hop, client 1 hop, cùng kiểu
+## Gọi `api` — server 0 hop, client Proxy typed
 
 ```ts
 // cell loader (server) — gọi resolvers in-process, 0 hop:
 import { resolvers as api } from "../../backend";
 loader: async () => ({ todos: await api.todos() })
 
-// view / island (client) — qua /__rpc, có kiểu y hệt:
-import { api } from "../../../.fluxe/gen/client";
+// view / island (client) — Proxy typed, qua /__rpc, 0 schema xuống browser:
+import { createClient } from "@nmvuong92/fluxe/client";
+import type { AppContract } from "../../contract";   // type-only → elide
+const api = createClient<AppContract>();
 const add = useMutation("addTodo", (t: string) => api.addTodo({ title: t }));
 ```
 
+`createClient` là một **JS Proxy**: `api.addTodo({title})` → `POST /__rpc/addTodo`, kiểu suy từ
+`AppContract`. Không file sinh, không Zod trong client bundle.
+
 ## Runtime `/__rpc/<op>`
 
-`POST /__rpc/<op>` → tra op trong contract (lạ → 404) → validate input bằng Zod sinh ra (sai → 400
-field-level) → **mutation kiểm CSRF** (double-submit), **query bỏ qua** (đọc thuần) → gọi
-`resolvers[op](input)` → JSON. Lỗi domain `FluxeError` → status/code; unexpected → 500 + errorId.
+`POST /__rpc/<op>` → tra op trong contract (lạ → 404) → **mutation kiểm CSRF** (double-submit, query
+bỏ qua) → validate input bằng **Zod sẵn trong contract** (sai → 400 field-level) → `resolvers[op](input)`
+→ JSON. Lỗi domain `FluxeError` → status/code; unexpected → 500 + errorId.
+
+## Vì sao 0 codegen (tRPC-style)
+
+| | Lấy từ đâu |
+|---|---|
+| **Types** | `Infer<>` / `Resolvers<typeof contract>` — compile-time, tức thì |
+| **Validate** | schema Zod **chính là** validator |
+| **Server dispatch** | engine đọc contract object lúc chạy |
+| **Client** | `createClient<AppContract>()` = Proxy typed |
+
+→ Không `.fluxe/gen`, không `fx gen`, không bước build. Sửa `app/contract.ts` → type cập nhật **ngay**
+trong editor (như Zod/tRPC).
 
 ## Lưu ý
 
 - **Network hop:** SSR loader gọi resolvers **in-process (0 hop)** → mở trang = 0 API call. Lời gọi
-  từ client (sau hydrate) là **1 hop** (browser→server, mọi framework đều vậy) — giảm tác động bằng
-  SSR + optimistic update + SSE push. Contract không thêm hop, chỉ làm nó type-safe + validate.
-- **Lớp THÊM:** `actions`/`rpc()` cũ vẫn chạy nguyên — contract không thay thế, chỉ bổ sung.
-- **v1 chưa có:** subscriptions (đã có SSE riêng) · field-selection kiểu GraphQL · batch nhiều op/1 hop.
+  client (sau hydrate) là **1 hop** (browser→server, mọi framework đều vậy) — giảm bằng SSR +
+  optimistic + SSE. Contract không thêm hop, chỉ type-safe + validate.
+- **Lớp THÊM:** `actions`/`rpc()` cũ vẫn chạy — contract bổ sung, không thay.
+- **v1 chưa có:** subscriptions (đã có SSE riêng) · field-selection kiểu GraphQL · batch nhiều op/1 hop · SDK-codegen cho consumer ngoài.

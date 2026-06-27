@@ -22,13 +22,16 @@ Cùng interface `Backend`, đổi bằng profile. → [Backends](/reference/data
 
 ## Contract DSL (cell↔backend)
 ```ts
-export const contract = defineContract({
-  queries: { todos: { out: "Todo[]" } },
-  mutations: { addTodo: { in: { title: "string" }, out: "Todo" } },
+import { f, type Infer } from "@nmvuong92/fluxe";
+const Todo = f.object({ id: f.string, title: f.string, done: f.bool });
+export type Todo = Infer<typeof Todo>;
+export const contract = f.contract({
+  todos: f.query(Todo.array()),
+  addTodo: f.mutation({ title: f.string }, Todo),
 });
-// fx gen → types + Zod + client api + Resolvers; gọi: await api.todos()
+// types suy ra tức thì qua Infer<>/Resolvers<>; client typed: await api.todos()
 ```
-Khai báo nghiệp vụ một nơi → tự sinh types/validate/client/resolver. DB ẩn sau resolver. → [Contract DSL](/reference/contract/)
+Khai báo nghiệp vụ một nơi → types/validate/client/resolver suy ra qua inference (không codegen). DB ẩn sau resolver. → [Contract DSL](/reference/contract/)
 
 ## Server framework (Express/Hono/Nest)
 ```ts
@@ -136,12 +139,11 @@ c.get("broker");                              // lần đầu mới tạo + memo
 Chỉ module được **dùng** mới bootstrap; engine lazy broker/presence. `/_fluxe/stats.bootstrapped`
 liệt kê thứ đã tạo. → [Container](/reference/container/)
 
-## Codegen TS & CLI
+## CLI
 ```bash
-fx gen        # 1 schema → types TS (.fluxe/gen/types.ts)
 fx new <id>   # scaffold cell ; fx init ; fx dev ; fx config ; fx bench
 ```
-→ [CLI](/reference/cli/) · [Codegen](/reference/codegen/)
+→ [CLI](/reference/cli/)
 
 ## Chưa hỗ trợ (roadmap)
 

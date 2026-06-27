@@ -17,7 +17,7 @@ Entry server (`app/backend/server.ts`) mount fluxe (catch-all) + route riêng �
 | `app/backend/server.ts` | **Entry server** của bạn: mount fluxe (catch-all) + route riêng (Express/Hono/Nest) |
 | `app/backend/data.ts` | **Tầng data của bạn**: interface domain + chọn driver (memory / sqlite / postgres) |
 | `app/profiles.ts` | Profile resolve render mode (static/island) per môi trường |
-| `app/contract.ts` | Schema dữ liệu → codegen ra types TS (`fx gen`) |
+| `app/contract.ts` | Contract builder `f` → types suy ra qua `Infer<>`/`Resolvers<>` (không codegen) |
 
 ## `app/backend/` — backend của bạn
 
@@ -74,7 +74,6 @@ export const backend: Backend = process.env.FLUXE_SQLITE_PATH
 ## Lệnh (engine lo, bạn chỉ gọi)
 
 ```bash
-npm run fx -- gen          # codegen contract → types TS (.fluxe/gen/types.ts)
 npm run fx -- dev          # resolve + build + chạy
 npm run fx -- test         # unit + integration
 ```

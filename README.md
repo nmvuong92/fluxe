@@ -25,7 +25,7 @@ import { rpc } from "@nmvuong92/fluxe/client";
 
 | Import | Nội dung |
 |--------|----------|
-| `@nmvuong92/fluxe` | engine: defineCell, makeServer, resolver, auth, validate, seo, broker, ratelimit, codegen… (KHÔNG có driver data — backend là của bạn ở `app/backend/data.ts`) |
+| `@nmvuong92/fluxe` | engine: defineCell, makeServer, resolver, auth, validate, seo, broker, ratelimit, contract builder `f`… (KHÔNG có driver data — backend là của bạn ở `app/backend/data.ts`) |
 | `@nmvuong92/fluxe/react` | useQuery, useMutation, Link, Nav, ThemeToggle, useTheme, DebugBar |
 | `@nmvuong92/fluxe/client` | rpc, RpcError, mutate, revalidate, subscribe |
 | `@nmvuong92/fluxe/jobs` | queue/dead-letter (cần `--experimental-sqlite`) |
@@ -34,12 +34,12 @@ import { rpc } from "@nmvuong92/fluxe/client";
 
 ```bash
 npm install
-npm run fx -- build        # resolve + prerender + bundle (1 schema → types TS qua fx gen)
+npm run fx -- build        # resolve + prerender + bundle client
 npm run fx -- dev          # http://localhost:5180
 npm run test:all           # typecheck + 144 unit + integration (selftest2) — TẤT CẢ XANH
 ```
 
-`fx`: `gen · resolve · prerender · build · dev · test · jobs`.
+`fx`: `resolve · prerender · build · dev · test · jobs`.
 
 ## Cấu trúc — ranh giới DEV vs ENGINE
 
@@ -51,12 +51,12 @@ app/        ← DEV sở hữu (sửa thoải mái) — Contract Plane
     server.ts     entry: mount fluxe (catch-all) + route riêng của bạn
     data.ts       TẦNG DATA: interface domain + chọn driver (memory/sqlite/postgres); export backend
   profiles.ts   profile resolve render mode (static/island) per môi trường
-  contract.ts   schema → codegen types TS
+  contract.ts   contract builder `f` → types suy ra qua Infer<>/Resolvers<>
   env.ts        env có kiểu, validate fail-fast lúc boot
   app.ts        registry cell — sinh tự động (fx sync), đừng sửa
 
 src/        ← ENGINE (không đụng) — Resolution Plane
-  core/         resolver · router · errors · auth · validate · codegen · layouts ·
+  core/         resolver · router · errors · auth · validate · contract · layouts ·
                 broker · presence · jobs · ratelimit · observe · panel · seo · cli · ...
   server_factory.ts   runtime ráp cell + giải manifest
 ```
@@ -70,7 +70,7 @@ inject qua `makeServer(…, { backend })`. Engine không bao giờ import ngư�
 - **Render** — static (0 JS) · island hydrate · SPA nav (Inertia) · static-prerender · API mode `?json=1`
 - **Routing** — động `[param]` → `ctx.input` · **nested layouts** · SEO (head/canonical/OG/JSON-LD per cell, `/sitemap.xml`, `/robots.txt`)
 - **Bảo mật (đầy đủ)** — input validation (Zod) · auth password **scrypt** · **RBAC** · **CSRF** double-submit · **rate-limit** token-bucket · error handling không-leak + structured
-- **Data** — backend **user-owned** ở `app/backend/data.ts` (bạn tự định nghĩa interface + implement bằng `node:sqlite`/`pg`/ORM trực tiếp), inject qua `makeServer(…, { backend })` · engine 0 driver · **codegen contract** 1 schema → types TS
+- **Data** — backend **user-owned** ở `app/backend/data.ts` (bạn tự định nghĩa interface + implement bằng `node:sqlite`/`pg`/ORM trực tiếp), inject qua `makeServer(…, { backend })` · engine 0 driver · **contract builder** `f` → types suy ra qua inference
 - **Mutations DX** — `RpcError` có cấu trúc · `mutate()` optimistic + rollback · lỗi validation field-level
 - **Realtime (Trục 4g)** — **SSE channel** + pub/sub broker · live-update on action · **presence** (multi-tab)
 - **Async** — **job queue bền** (SQLite, retry → dead-letter)

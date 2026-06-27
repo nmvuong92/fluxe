@@ -15,7 +15,6 @@ export * from "./core/seo.ts";           // renderHead, renderSitemap, renderRob
 export * from "./core/broker.ts";        // pub/sub
 export * from "./core/presence.ts";      // ai online theo topic
 export * from "./core/ratelimit.ts";     // token-bucket + LRU
-export * from "./core/codegen.ts";       // genTS
 export * from "./core/contract.ts";      // f (builder), Contract, OpDef, Resolvers, Client, Infer
 export * from "./core/layouts.ts";       // layoutChain, LayoutMeta
 export * from "./core/router.ts";        // makeRouter

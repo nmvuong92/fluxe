@@ -29,7 +29,6 @@ lạ → in usage (`renderUsage()`) và thoát mã 1. Nhiều lệnh (`dev`/`res
 | `fx init` | Scaffold `app/` mới (env, profiles, layout, cell home) — chỉ tạo file còn thiếu |
 | `fx new <id> [--island]` | Tạo cell mới từ template; auto-discovery tự đăng ký |
 | `fx sync` | Quét `app/cells/*` → sinh `app/app.ts` + `app/views.ts` (dev/resolve tự gọi) |
-| `fx gen` | Codegen contract → types TS (`.fluxe/gen/types.ts`) |
 | `fx resolve [profile]` | Sinh `.fluxe/resolution.json` từ profile |
 | `fx prerender [profile]` | Prerender cell static → `.fluxe/static.json` |
 | `fx build [profile]` | sync + resolve + prerender + bundle client |
