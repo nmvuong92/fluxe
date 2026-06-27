@@ -1,18 +1,21 @@
 ---
 title: Backends
-description: Tầng data user-owned — định nghĩa interface domain ở app/backend.ts, chọn driver memory/SQLite/Postgres, inject qua makeServer.
+description: Tầng data user-owned — định nghĩa interface domain + tự implement (memory/SQLite/Postgres) ở app/backend.ts, inject qua makeServer.
 sidebar:
   order: 3
 ---
 
-Backend là **tầng data của BẠN** — sống ở `app/backend.ts`, không phải trong engine. Bạn định
-nghĩa **interface domain** của mình + chọn nơi lưu (driver), rồi inject vào engine. Cell/loader/
-action chỉ thấy interface đó; đổi nơi lưu = thay một dòng, cell & frontend không đổi.
+Backend là **tầng data của BẠN** — sống ở `app/backend.ts`, **không phải trong engine**. Engine
+`@nmvuong92/fluxe` **không ship driver data nào** và không biết gì về DB của bạn. Bạn tự định
+nghĩa **interface domain** + **tự implement** (dùng `node:sqlite`/`pg`/ORM trực tiếp), rồi inject
+vào engine. Cell/loader/action chỉ thấy interface đó; đổi nơi lưu = thay một dòng, cell &
+frontend không đổi.
 
 ## `app/backend.ts` — bạn sở hữu file này
 
 ```ts
-import { createMemoryBackend, createSqliteBackend } from "@nmvuong92/fluxe";
+// app/backend.ts — user sở hữu; engine không biết gì
+import { DatabaseSync } from "node:sqlite";
 
 // 1) Interface domain CỦA BẠN (Note/User/Order… — ví dụ Todo):
 export interface Todo { id: string; title: string; done: boolean }
@@ -23,11 +26,54 @@ export interface Backend {
   toggleTodo(id: string): Promise<Todo[]>;
 }
 
-// 2) Chọn driver NGAY TẠI ĐÂY (đổi 1 dòng = đổi nơi lưu):
+// 2a) Driver memory — in-RAM, dev/test:
+export function memoryBackend(): Backend {
+  let items: Todo[] = [];
+  let seq = 0;
+  return {
+    name: "memory",
+    async listTodos() { return items; },
+    async addTodo(title) {
+      const t: Todo = { id: String(++seq), title, done: false };
+      items.push(t);
+      return t;
+    },
+    async toggleTodo(id) {
+      items = items.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
+      return items;
+    },
+  };
+}
+
+// 2b) Driver sqlite — node:sqlite built-in, persist ra file:
+export function sqliteBackend(path = ":memory:"): Backend {
+  const db = new DatabaseSync(path);
+  db.exec(`CREATE TABLE IF NOT EXISTS todos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, done INTEGER DEFAULT 0)`);
+  const list = () =>
+    db.prepare(`SELECT id, title, done FROM todos ORDER BY id`).all()
+      .map((r: any) => ({ id: String(r.id), title: r.title, done: !!r.done }));
+  return {
+    name: "sqlite",
+    async listTodos() { return list(); },
+    async addTodo(title) {
+      const { lastInsertRowid } = db.prepare(`INSERT INTO todos (title) VALUES (?)`).run(title);
+      return { id: String(lastInsertRowid), title, done: false };
+    },
+    async toggleTodo(id) {
+      db.prepare(`UPDATE todos SET done = NOT done WHERE id = ?`).run(Number(id));
+      return list();
+    },
+  };
+}
+
+// 3) Chọn driver NGAY TẠI ĐÂY (đổi 1 dòng = đổi nơi lưu):
 export const backend: Backend = process.env.FLUXE_SQLITE_PATH
-  ? createSqliteBackend(process.env.FLUXE_SQLITE_PATH)
-  : createMemoryBackend();
+  ? sqliteBackend(process.env.FLUXE_SQLITE_PATH)
+  : memoryBackend();
 ```
+
+<small>`node:sqlite` cần `node --experimental-sqlite` (Node 22+).</small>
 
 ## Inject vào engine
 
@@ -49,16 +95,43 @@ export default defineCell<{}, TodosData, Backend>({
 });
 ```
 
-## Driver có sẵn (pin sạc — dùng hay tự viết)
+## Driver — bạn tự implement (engine 0 dep data)
 
-| Driver | Ghi chú |
-|--------|---------|
-| **memory** | in-process, mặc định dev/test |
-| **sqlite** | `node:sqlite` built-in, 0 dep, persist ra file (cần `--experimental-sqlite`) |
-| **postgres** | production — **bạn tự inject client `pg`** (`npm i pg`), `createPostgresBackend(client)` |
+| Driver | Cách implement |
+|--------|----------------|
+| **memory** | object in-RAM (xem `memoryBackend()` trên) — dev/test, 0 hạ tầng |
+| **sqlite** | `node:sqlite` built-in (`DatabaseSync`), 0 dep, persist ra file (cần `--experimental-sqlite`) |
+| **postgres** | `npm i pg`, dùng `Pool`/`Client` trực tiếp trong implement của bạn |
 
-Cả ba đều là **TS in-process** (0 roundtrip). Muốn nguồn khác (Redis, REST, KV…)? Implement
-interface của bạn là xong — engine không quan tâm bên dưới là gì.
+Ví dụ Postgres — vẫn cùng interface `Backend`, chỉ đổi phần implement:
+
+```ts
+import { Pool } from "pg";
+
+export function postgresBackend(url = process.env.DATABASE_URL): Backend {
+  const pool = new Pool({ connectionString: url });
+  return {
+    name: "postgres",
+    async listTodos() {
+      const { rows } = await pool.query(`SELECT id, title, done FROM todos ORDER BY id`);
+      return rows.map((r) => ({ id: String(r.id), title: r.title, done: r.done }));
+    },
+    async addTodo(title) {
+      const { rows } = await pool.query(
+        `INSERT INTO todos (title, done) VALUES ($1, false) RETURNING id, title, done`, [title]);
+      return { id: String(rows[0].id), title, done: false };
+    },
+    async toggleTodo(id) {
+      await pool.query(`UPDATE todos SET done = NOT done WHERE id = $1`, [id]);
+      const { rows } = await pool.query(`SELECT id, title, done FROM todos ORDER BY id`);
+      return rows.map((r) => ({ id: String(r.id), title: r.title, done: r.done }));
+    },
+  };
+}
+```
+
+Tất cả đều là **TS in-process** (0 roundtrip). Muốn nguồn khác (Redis, REST, KV, ORM…)?
+Implement interface của bạn là xong — engine không quan tâm bên dưới là gì.
 
 ```ts
 export const backend: Backend = {
@@ -68,9 +141,3 @@ export const backend: Backend = {
   async toggleTodo(id) { /* … */ return []; },
 };
 ```
-
-## Quick-start không cần app/backend.ts
-
-Nếu chưa truyền `{ backend }`, engine **fallback** sang driver built-in giải từ `profiles.ts`
-(`backend: "memory" | "sqlite"`) cho domain Todo demo — tiện chạy thử ngay. App thật thì định
-nghĩa `app/backend.ts` để sở hữu interface + dữ liệu của mình.

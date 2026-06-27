@@ -64,7 +64,7 @@ npx fx init       # tạo app/env.ts, app/profiles.ts, app/layouts/, app/cells/h
 | File | Vai trò |
 |------|---------|
 | `app/env.ts` | env có kiểu, thiếu/sai là **chặn lúc boot** (`loadEnv` + Zod) |
-| `app/profiles.ts` | profile resolve render mode. Khởi đầu chỉ `dev: { name: "dev", backend: "memory" }` (backend = fallback built-in nếu chưa có `app/backend.ts`) |
+| `app/profiles.ts` | profile resolve render mode. Khởi đầu chỉ `dev: { name: "dev" }` (chỉ giải render static/island — data là DI, không nằm trong profile) |
 | `app/layouts/index.tsx` | layout `site` bọc mọi trang + gắn `<DebugBar />` |
 | `app/cells/home/index.tsx` | cell trang chủ mẫu (island — mặc định) |
 
@@ -281,8 +281,8 @@ một lần ở `app/backend.ts`: **interface domain** + **chọn nơi lưu** (d
 interface; đổi nơi lưu = sửa một dòng, cell & frontend giữ nguyên.
 
 ```ts
-// app/backend.ts — TẦNG DATA CỦA BẠN
-import { createMemoryBackend, createSqliteBackend } from "@nmvuong92/fluxe";
+// app/backend.ts — TẦNG DATA CỦA BẠN (engine không biết gì)
+import { DatabaseSync } from "node:sqlite";
 
 // 1) Interface domain của bạn (đổi Todo → Note/User/Order tuỳ app):
 export interface Todo { id: string; title: string; done: boolean }
@@ -293,10 +293,50 @@ export interface Backend {
   toggleTodo(id: string): Promise<Todo[]>;
 }
 
-// 2) Chọn driver — đổi 1 dòng = đổi nơi lưu (memory ↔ sqlite ↔ postgres):
+// 2) Tự implement driver — memory (dev) ↔ sqlite (persist):
+export function memoryBackend(): Backend {
+  let items: Todo[] = [];
+  let seq = 0;
+  return {
+    name: "memory",
+    async listTodos() { return items; },
+    async addTodo(title) {
+      const t = { id: String(++seq), title, done: false };
+      items.push(t);
+      return t;
+    },
+    async toggleTodo(id) {
+      items = items.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
+      return items;
+    },
+  };
+}
+
+export function sqliteBackend(path = ":memory:"): Backend {
+  const db = new DatabaseSync(path);
+  db.exec(`CREATE TABLE IF NOT EXISTS todos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, done INTEGER DEFAULT 0)`);
+  const list = () =>
+    db.prepare(`SELECT id, title, done FROM todos ORDER BY id`).all()
+      .map((r: any) => ({ id: String(r.id), title: r.title, done: !!r.done }));
+  return {
+    name: "sqlite",
+    async listTodos() { return list(); },
+    async addTodo(title) {
+      const { lastInsertRowid } = db.prepare(`INSERT INTO todos (title) VALUES (?)`).run(title);
+      return { id: String(lastInsertRowid), title, done: false };
+    },
+    async toggleTodo(id) {
+      db.prepare(`UPDATE todos SET done = NOT done WHERE id = ?`).run(Number(id));
+      return list();
+    },
+  };
+}
+
+// 3) Chọn driver — đổi 1 dòng = đổi nơi lưu:
 export const backend: Backend = process.env.FLUXE_SQLITE_PATH
-  ? createSqliteBackend(process.env.FLUXE_SQLITE_PATH)   // persist ra file
-  : createMemoryBackend();                                // dev: 0 hạ tầng
+  ? sqliteBackend(process.env.FLUXE_SQLITE_PATH)   // persist ra file
+  : memoryBackend();                                // dev: 0 hạ tầng
 ```
 
 Inject vào engine ở chỗ bootstrap (1 lần):
@@ -319,7 +359,7 @@ Muốn nguồn khác (REST/ORM/Redis)? Tự implement `Backend` là xong — eng
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import tasks from "./index";
-import { createTestBackend } from "@nmvuong92/fluxe";
+import { createTestBackend } from "../../testing";   // spy của bạn ở app/testing.ts (user-land)
 
 test("action add: tạo task qua backend", async () => {
   const backend = createTestBackend();
@@ -338,8 +378,8 @@ npm run test:all     # typecheck + unit + integration
 <Steps>
 
 1. **Cell** = hợp đồng (`loader`/`view`/`actions`) — không biết hạ tầng.
-2. **Resolution** quyết static/island, backend data nào — qua profile + manifest, không sửa cell.
-3. **Thêm trang = `fx new <id>`** (auto-discovery đăng ký); đổi backend = đổi resolution; test = mock interface.
+2. **Resolution** quyết static/island — qua profile. Data thì là **DI**: bạn sở hữu `app/backend.ts`, inject qua `makeServer({ backend })` (không nằm trong profile/manifest).
+3. **Thêm trang = `fx new <id>`** (auto-discovery đăng ký); đổi nơi lưu = sửa 1 dòng `app/backend.ts`; test = mock interface.
 
 </Steps>
 

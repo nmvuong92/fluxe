@@ -34,7 +34,6 @@ Xem config đã giải: `fx config` (như `artisan config:show`).
 | **App** | `NODE_ENV` | `env` | `development` |
 | | `FLUXE_SECRET` | `secret` | `dev-secret-change-me` (đổi ở prod!) |
 | | `PORT` (hoặc `FLUXE_PORT`) | `port` | `5180` |
-| **Backend** | `FLUXE_BACKEND` | `defaultBackend` (`memory`/`sqlite`/`postgres`) | `memory` |
 | **Rate limit** | `FLUXE_RATELIMIT_CAPACITY` | `rateLimit.capacity` | `30` |
 | | `FLUXE_RATELIMIT_REFILL` | `rateLimit.refillPerSec` | `10` |
 | | `FLUXE_RATELIMIT_MAX_KEYS` | `rateLimit.maxKeys` | `5000` |
@@ -57,7 +56,7 @@ Xem config đã giải: `fx config` (như `artisan config:show`).
 ```ts
 loadConfig(source = process.env, overrides?): FluxeConfig    // giải + validate
 type FluxeConfig = {
-  env; secret; port; defaultBackend;
+  env; secret; port;
   rateLimit: { capacity; refillPerSec; maxKeys };
   renderCache: { maxKeys };
   upload: { maxBytes };
@@ -72,8 +71,7 @@ ENV_KEYS   // map biến ENV → field (dùng cho fx config + docs)
 NODE_ENV=production
 FLUXE_SECRET=$(openssl rand -hex 32)
 PORT=8080
-FLUXE_BACKEND=postgres
-DATABASE_URL=postgres://user:pass@10.0.0.5:5432/app
+DATABASE_URL=postgres://user:pass@10.0.0.5:5432/app   # env của app bạn, đọc trong app/backend.ts
 FLUXE_RATELIMIT_CAPACITY=100
 FLUXE_UPLOAD_MAX_BYTES=52428800
 ```

@@ -3,9 +3,9 @@
 Đây là **Contract Plane** (xem idea.md §6d): nơi dev viết app. Mọi thứ trong `app/`
 là của bạn. **Engine (`src/core/*` + runtime) là Resolution Plane — KHÔNG đụng.**
 
-Engine là **một runtime TypeScript duy nhất** chạy trên `node:http` zero-dep. Backend
-chỉ là **driver data TS in-process**: `memory` | `sqlite` (engine tự dựng) | `postgres`
-(bạn tự inject client `pg`).
+Engine là **một runtime TypeScript duy nhất** chạy trên `node:http` zero-dep — **không ship
+driver data nào**. Backend là **tầng data của bạn** ở `app/backend.ts`: bạn tự implement
+TS in-process bằng `memory` (object in-RAM) | `sqlite` (`node:sqlite`) | `postgres` (`npm i pg`).
 
 ## Bạn sửa gì trong `app/`
 
@@ -23,7 +23,8 @@ Bạn định nghĩa **interface domain** của mình + **chọn driver** ngay t
 qua `makeServer(manifest, cells, layouts, { backend })`. Cell chỉ thấy interface.
 
 ```ts
-import { createMemoryBackend, createSqliteBackend } from "@nmvuong92/fluxe";
+// engine không biết gì — bạn tự implement
+import { DatabaseSync } from "node:sqlite";
 
 export interface Todo { id: string; title: string; done: boolean }
 export interface Backend {
@@ -33,14 +34,32 @@ export interface Backend {
   toggleTodo(id: string): Promise<Todo[]>;
 }
 
+export function memoryBackend(): Backend {
+  let items: Todo[] = [];
+  let seq = 0;
+  return {
+    name: "memory",
+    async listTodos() { return items; },
+    async addTodo(title) { const t = { id: String(++seq), title, done: false }; items.push(t); return t; },
+    async toggleTodo(id) { items = items.map((t) => t.id === id ? { ...t, done: !t.done } : t); return items; },
+  };
+}
+
+export function sqliteBackend(path = ":memory:"): Backend {
+  const db = new DatabaseSync(path);
+  db.exec(`CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, done INTEGER DEFAULT 0)`);
+  // … CRUD bằng db.prepare(...)
+  return { name: "sqlite" } as any;
+}
+
 // Đổi 1 dòng = đổi nơi lưu (memory ↔ sqlite ↔ postgres):
 export const backend: Backend = process.env.FLUXE_SQLITE_PATH
-  ? createSqliteBackend(process.env.FLUXE_SQLITE_PATH)
-  : createMemoryBackend();
+  ? sqliteBackend(process.env.FLUXE_SQLITE_PATH)
+  : memoryBackend();
 ```
 
 Đổi driver = sửa một dòng trong `app/backend.ts`. **Cell, frontend, core: KHÔNG đổi một dòng.**
-`postgres` cần bạn `npm i pg` + inject client (qua `DATABASE_URL`) bằng `createPostgresBackend(client)`.
+`postgres` cần bạn `npm i pg` + tự implement `Backend` bằng `Pool`/`Client` (qua `DATABASE_URL`).
 
 ## Ranh giới (vì sao tách)
 

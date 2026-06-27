@@ -22,7 +22,7 @@ layout là có đủ:
 
 1. **Chaos toggle** — tiêm delay + lỗi giả (fault injection), hằng `CHAOS = "delay=600;fail=0.4"`.
 2. **Repro → Test** — "Copy as test" sinh test pasteable từ một mutation event.
-3. **RCA badge** — mỗi event hiện `resolution` (vd `sqlite`).
+3. **RCA badge** — mỗi event hiện `resolution`: render mode + `backend.name` của app (vd `sqlite`).
 4. **Trace timing** — thanh server-ms vs client-ms.
 
 **2. Chaos parse** — header `"delay=600;fail=0.3"` → `{ delayMs, failRate }`:
@@ -52,7 +52,7 @@ export function reproTest(ev: DebugEvent & { input?: unknown }): string {
   return `import { test } from "node:test";
 import assert from "node:assert/strict";
 import ${cell} from "../app/cells/${cell}/index";
-import { createTestBackend } from "@nmvuong92/fluxe";
+import { createTestBackend } from "../app/testing";   // spy của bạn (user-land)
 
 test("repro: ${cell}.${action}", async () => {
   const backend = createTestBackend();
@@ -82,7 +82,7 @@ export const lastRpcMeta = (): RpcMeta => _lastMeta;
 
 **5. Server áp dụng — CHỈ Ở DEV** (`NODE_ENV !== "production"`): khi nhận header `x-fluxe-chaos`,
 engine parse rồi tiêm `delayMs` và ném `FluxeError("chaos", …, 500)` theo `failRate`. Mọi response
-action đều gắn header `x-fluxe-resolution` (backend đã giải) và `x-fluxe-server-ms` (thời gian
+action đều gắn header `x-fluxe-resolution` (`backend.name` của app + render mode) và `x-fluxe-server-ms` (thời gian
 server). Ở production header `x-fluxe-chaos` bị bỏ qua — cơ chế không lộ.
 
 ## Ví dụ

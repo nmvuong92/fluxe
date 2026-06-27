@@ -19,11 +19,10 @@ npm i -D typescript tsx esbuild @types/node @types/react @types/react-dom
 
 | Import | Dùng cho |
 |--------|----------|
-| `@nmvuong92/fluxe` | engine: `defineCell`, `makeServer`, `withInput`, backends, auth, resolver, seo… |
+| `@nmvuong92/fluxe` | engine: `defineCell`, `makeServer`, `withInput`, auth, resolver, seo… (KHÔNG có driver data — backend là của bạn ở `app/backend.ts`) |
 | `@nmvuong92/fluxe/react` | `useQuery`, `useMutation`, `Link`, `Nav`, `ThemeToggle`, `useTheme`, `DebugBar` |
 | `@nmvuong92/fluxe/client` | `rpc`, `RpcError`, `mutate`, `revalidate`, `subscribe` |
 | `@nmvuong92/fluxe/jobs` | `createQueue`, `drain` (cần `node --experimental-sqlite`) |
-| `@nmvuong92/fluxe/sqlite` | `createSqliteBackend` (cần `--experimental-sqlite`) |
 
 ## tsconfig tối thiểu
 
@@ -58,7 +57,7 @@ export default defineCell<{}, { title: string }>({
 import { makeServer, resolve } from "@nmvuong92/fluxe";
 import home from "./cells/home/index";
 
-const manifest = resolve([home], { name: "dev", backend: "memory" });
+const manifest = resolve([home], { name: "dev" });   // profile chỉ giải render
 makeServer(manifest, [home]).listen(5180, () => console.log("http://localhost:5180"));
 ```
 
