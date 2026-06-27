@@ -81,7 +81,7 @@ function renderBodyToString(node: any): Promise<string> {
   });
 }
 
-export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}, opts: { i18n?: I18n; storage?: Storage; config?: FluxeConfig } = {}) {
+export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}, opts: { i18n?: I18n; storage?: Storage; config?: FluxeConfig; backend?: unknown } = {}) {
   const i18n = opts.i18n;
   const storage = opts.storage;
   const config = opts.config ?? loadConfig();   // default ← ENV (FLUXE_*) ← override
@@ -99,9 +99,11 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
   // Cells được TIÊM từ app (DI) — engine không import ngược vào app/. Thêm trang = sửa app/app.ts.
   const matchRoute = makeRouter(cells);
   const byId = new Map(cells.map((c) => [c.id, c]));
-  // Backend GIẢI per-cell từ manifest (Resolution Plane) — cell/frontend giữ nguyên.
-  const backends = backendsFromManifest(manifest);
-  const backendFor = (id: string) => backends.byCell.get(id) ?? backends.default;
+  // Backend USER-OWNED (app/backend.ts) inject qua opts.backend → dùng cho mọi cell.
+  // Nếu app không truyền → fallback driver built-in giải từ manifest (memory/sqlite) cho quick-start.
+  const userBackend = opts.backend;
+  const backends = userBackend === undefined ? backendsFromManifest(manifest) : null;
+  const backendFor = (id: string) => userBackend ?? backends!.byCell.get(id) ?? backends!.default;
   // Resolved Container: service realtime đăng ký LƯỜI — chỉ tạo khi thật sự dùng (SSE/action).
   // App không realtime → broker/presence KHÔNG bao giờ bootstrap. resolved() ở /_fluxe/stats.
   const container = createContainer();

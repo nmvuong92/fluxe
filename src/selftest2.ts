@@ -174,10 +174,34 @@ async function runOverride(port: number) {
   }
 }
 
+// Đối chứng: backend USER-OWNED inject qua opts.backend → engine dùng đúng nó (bỏ manifest fallback).
+async function runUserBackend(port: number) {
+  const manifest = resolve(cells, profiles.dev);
+  // Backend "của user" — tên + dữ liệu sentinel để chứng minh DI đi xuyên tới loader.
+  const myBackend = {
+    name: "di-user-backend",
+    async listTodos() { return [{ id: "x1", title: "[DI] từ app/backend", done: false }]; },
+    async addTodo(title: string) { return { id: "x2", title, done: false }; },
+    async toggleTodo() { return []; },
+  };
+  console.log(`\n══════════ DI: opts.backend (user-owned) thắng manifest fallback ══════════`);
+  const srv = makeServer(manifest, appCells, layouts, { backend: myBackend }).listen(port);
+  await new Promise((r) => setTimeout(r, 150));
+  try {
+    const api = await get(port, "/todos?json=1");
+    check("[di] loader nhận backend của user (name=di-user-backend)", api.body.includes("di-user-backend"));
+    check("[di] dữ liệu đến từ backend user (sentinel [DI])", api.body.includes("[DI] từ app/backend"));
+  } finally {
+    srv.close();
+    await new Promise((r) => setTimeout(r, 80));
+  }
+}
+
 async function main() {
-  await run("dev", 5190);          // backend memory in-process
+  await run("dev", 5190);          // backend memory in-process (manifest fallback)
   await runOverride(5191);         // chứng minh manifest điều khiển render, không phải cell.hydration
-  console.log("\n→ Cùng cell + cùng makeServer, đổi manifest → hành vi khác. Cell KHÔNG đổi dòng nào.");
+  await runUserBackend(5192);      // chứng minh opts.backend (user-owned) được inject vào cell
+  console.log("\n→ Cùng cell + cùng makeServer, đổi manifest/backend → hành vi khác. Cell KHÔNG đổi dòng nào.");
   process.exit(failures === 0 ? 0 : 1);
 }
 main();

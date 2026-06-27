@@ -1,33 +1,34 @@
 // Copyright (c) 2026 nmvuong92
 // SPDX-License-Identifier: Apache-2.0
 import type { ComponentType } from "react";
-import type { Backend } from "../backends/types";
 import type { HeadMeta } from "./seo";
 import type { Session } from "./auth";
 import type { TFn } from "./i18n";
 
 /* ============================================================
  * fluxe core
+ * `B` = backend của BẠN: định nghĩa interface domain ở app/backend.ts rồi truyền qua
+ *   makeServer(..., { backend }). Mặc định `any` để cell không cần khai báo B nếu chưa cần.
  * ============================================================ */
-export interface Ctx<I> {
+export interface Ctx<I, B = any> {
   input: I;
-  backend: Backend;            // ← backend được inject, cell không biết loại gì
+  backend: B;                  // ← backend user-owned (app/backend.ts), inject qua makeServer
   session?: Session | null;    // ← session đã verify (null/undefined nếu chưa đăng nhập)
   locale?: string;             // ← i18n: locale đã giải (cookie/Accept-Language)
   t?: TFn;                     // ← i18n: t(key, vars) bound theo locale; dịch trong loader
 }
-export type Loader<I, O> = (ctx: Ctx<I>) => Promise<O>;
-export type Action<I, O> = (ctx: Ctx<I>) => Promise<O>;
+export type Loader<I, O, B = any> = (ctx: Ctx<I, B>) => Promise<O>;
+export type Action<I, O, B = any> = (ctx: Ctx<I, B>) => Promise<O>;
 
 export type Hydration = "static" | "island";
 
-export interface CellDef<I, O> {
+export interface CellDef<I, O, B = any> {
   id: string;
   route: string;
   hydration?: Hydration;          // MẶC ĐỊNH "island". Khai báo "static" để opt-in tối ưu 0-JS.
-  loader: Loader<I, O>;
+  loader: Loader<I, O, B>;
   view: ComponentType<{ data: O }>;
-  actions?: Record<string, Action<any, any>>;
+  actions?: Record<string, Action<any, any, B>>;
   head?: (data: O) => HeadMeta;   // SEO: title/meta/canonical/og/jsonLd per cell
   layout?: string;                // id layout bọc view (nested qua parent)
   requireAuth?: boolean;          // guard: cần session hợp lệ mới vào
@@ -35,4 +36,4 @@ export interface CellDef<I, O> {
   cache?: boolean;                // render cache cho cell static (mặc định true); đặt false nếu cell STREAM (Suspense)
 }
 
-export function defineCell<I, O>(c: CellDef<I, O>): CellDef<I, O> { return c; }
+export function defineCell<I, O, B = any>(c: CellDef<I, O, B>): CellDef<I, O, B> { return c; }
