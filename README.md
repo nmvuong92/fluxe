@@ -1,5 +1,9 @@
 # fluxe
 
+[![CI](https://github.com/nmvuong92/fluxe/actions/workflows/ci.yml/badge.svg)](https://github.com/nmvuong92/fluxe/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@nmvuong92/fluxe.svg)](https://www.npmjs.com/package/@nmvuong92/fluxe)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 Khung fullstack **polyglot** dựa trên triết lý **RCA — Resolved Cell Architecture**:
 *logic chỉ phụ thuộc HỢP ĐỒNG; mọi quyết định vận hành (ngôn ngữ, render, transport,
 backend, scale) là **kết quả được GIẢI** bởi engine, không viết tay.*
