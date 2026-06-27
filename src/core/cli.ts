@@ -24,6 +24,10 @@ export const COMMANDS: Record<string, Command> = {
     desc: "Auto-discovery: quét app/cells/* → app/app.ts (dev/resolve tự gọi)",
     shell: () => SYNC,
   },
+  config: {
+    desc: "In config đã giải (default ← ENV FLUXE_* ← override)",
+    shell: () => `tsx scripts/config.ts`,
+  },
   gen: {
     desc: "Codegen contract → types TS/Go/Rust (.fluxe/gen)",
     shell: () => `tsx scripts/codegen.ts`,

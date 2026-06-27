@@ -77,6 +77,11 @@ Quy ước: code snippet trong docs **copy nguyên văn từ source thật** (kh
 chỉ nói **cách dùng tính năng trong app của user** (định nghĩa + ví dụ + API package + lưu ý).
 `src/` chỉ tồn tại để dev engine ở local; người dùng chỉ thấy `app/` + package.
 
+## Config / ENV (BẮT BUỘC mỗi tính năng)
+- Mọi tham số tinh chỉnh quan trọng phải **expose ra ENV** theo quy ước **`FLUXE_<FEATURE>_<PARAM>`**, có default hợp lý, đưa vào `src/core/config.ts` (`FluxeConfig` + `loadConfig`) + `ENV_KEYS`.
+- Engine đọc từ `config` (DI `makeServer(…, { config })`), **KHÔNG hardcode** số trong code. Thứ tự: default ← ENV ← override. Validate Zod (fail-fast).
+- **Tài liệu** biến đó vào bảng `reference/configuration.md` + trang reference của tính năng (mục `## ENV`). `fx config` in config đã giải.
+
 ## Bản quyền & giấy phép
 - License **Apache-2.0** (permissive + patent grant; tác giả giữ TOÀN BỘ copyright → có thể relicense/bán sau). `LICENSE` + `NOTICE` ở root.
 - **Mọi file source mới** phải mở đầu bằng header:

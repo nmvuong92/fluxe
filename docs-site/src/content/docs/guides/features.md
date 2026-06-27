@@ -103,10 +103,17 @@ head: (d) => ({ title: d.title, description, canonical: "/", og: {...}, jsonLd: 
 - [Cell static — 0 JS](/guides/static-cells/) + [Render cache](/guides/static-cache/).
 - View-only client bundle (server code không ship xuống browser).
 
+## Configuration (ENV)
+```bash
+FLUXE_RATELIMIT_CAPACITY=100 FLUXE_UPLOAD_MAX_BYTES=52428800 npm run dev   # override qua ENV
+fx config   # in config đã giải (default ← ENV FLUXE_* ← override)
+```
+Mọi tham số core có default + override ENV, validate fail-fast. → [Configuration](/reference/configuration/)
+
 ## Codegen polyglot & CLI
 ```bash
 fx gen        # 1 schema → types TS + Go + Rust
-fx new <id>   # scaffold cell ; fx init ; fx dev ; fx bench
+fx new <id>   # scaffold cell ; fx init ; fx dev ; fx config ; fx bench
 ```
 → [CLI](/reference/cli/) · [Codegen](/reference/codegen/)
 

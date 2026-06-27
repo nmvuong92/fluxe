@@ -29,6 +29,7 @@ import { parseChaos } from "./core/chaos.ts";
 import { resolveLocale, makeT, type I18n, type TFn } from "./core/i18n.ts";
 import { parseMultipart, boundaryFromContentType } from "./core/multipart.ts";
 import { makeKey, type Storage } from "./storage/types.ts";
+import { loadConfig, type FluxeConfig } from "./core/config.ts";
 import { createMemoryBackend } from "./backends/memory.ts";
 import { createHttpBackend } from "./backends/http.ts";
 
@@ -95,10 +96,11 @@ function renderBodyToString(node: any): Promise<string> {
   });
 }
 
-export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}, opts: { i18n?: I18n; storage?: Storage; maxUpload?: number } = {}) {
+export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any>[], layouts: LayoutMap = {}, opts: { i18n?: I18n; storage?: Storage; config?: FluxeConfig } = {}) {
   const i18n = opts.i18n;
   const storage = opts.storage;
-  const MAX_UPLOAD = opts.maxUpload ?? 10 * 1024 * 1024;   // 10MB mặc định
+  const config = opts.config ?? loadConfig();   // default ← ENV (FLUXE_*) ← override
+  const MAX_UPLOAD = config.upload.maxBytes;
   const readBodyBuffer = (req: http.IncomingMessage) => new Promise<Buffer>((resolve, reject) => {
     const chunks: Buffer[] = []; let size = 0;
     req.on("data", (c: Buffer) => {
@@ -116,10 +118,10 @@ export function makeServer(manifest: ResolutionManifest, cells: CellDef<any, any
   const backends = backendsFromManifest(manifest);
   const backendFor = (id: string) => backends.byCell.get(id) ?? backends.default;
   const broker = createBroker();   // realtime pub/sub (Trục 4g, bản 1-node)
-  const actionLimit = createRateLimiter({ capacity: 30, refillPerSec: 10 });   // per-IP cho action
+  const actionLimit = createRateLimiter(config.rateLimit);   // per-IP cho action (FLUXE_RATELIMIT_*)
   const recorder = createRecorder();   // request log (observability)
   const presence = createPresence();   // ai đang online per topic (Trục 4g)
-  const renderCache = createRenderCache({ maxKeys: 256 });   // memoize HTML cell static (key route, gate etag)
+  const renderCache = createRenderCache({ maxKeys: config.renderCache.maxKeys });   // FLUXE_RENDERCACHE_MAX_KEYS
   let clientJs: Buffer | undefined;    // ý A: đọc dist/client.js 1 lần (zero-copy: tái dùng buffer)
   return http.createServer(async (req, res) => {
     const url = new URL(req.url!, "http://localhost");

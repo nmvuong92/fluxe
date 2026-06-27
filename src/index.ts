@@ -9,6 +9,7 @@ export * from "./core/resolver.ts";      // resolve, ResolutionProfile/Manifest,
 export * from "./core/wiring.ts";        // backendFromManifest, backendsFromManifest
 export * from "./core/auth.ts";          // session HMAC, scrypt password, CSRF, RBAC
 export * from "./core/env.ts";           // loadEnv
+export * from "./core/config.ts";        // FluxeConfig, loadConfig (default ← ENV FLUXE_* ← override)
 export * from "./core/i18n.ts";          // createI18n, resolveLocale, translate, makeT, t(key, vars)
 export * from "./core/seo.ts";           // renderHead, renderSitemap, renderRobots, HeadMeta
 export * from "./core/broker.ts";        // pub/sub

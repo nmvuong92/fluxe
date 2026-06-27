@@ -83,3 +83,7 @@ safeKey(name)  makeKey(filename, randomHex)   // làm sạch / sinh key
 - **Native chỉ khi đo được:** resize/thumbnail/transcode/hash lớn (CPU-bound) → adapter media
   riêng (vd Rust napi) — opt-in sau khi profiler chỉ ra. Plain upload+store thì TS là đủ.
 - Chưa có (roadmap): presigned URL upload thẳng S3, streaming-to-disk file khổng lồ, media-processing.
+
+## ENV
+
+`FLUXE_UPLOAD_MAX_BYTES` (10485760 = 10MB). Xem [Configuration](/reference/configuration/).

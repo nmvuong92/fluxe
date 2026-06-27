@@ -94,3 +94,7 @@ interface RateLimiter {
 - `maxKeys` mặc định 100k — bound RAM theo số IP; quá ngưỡng thì evict LRU, **không rò RAM** dù bị tấn công nhiều nguồn.
 - Bản này **1-node** (bucket trong RAM process). Distributed: chia sẻ bucket qua Redis (Trục 4d), giữ nguyên interface `take`.
 - Rate-limit chạy **đầu tiên** trong đường action — request thừa bị chặn trước khi tốn công CSRF/parse/handler.
+
+## ENV
+
+`FLUXE_RATELIMIT_CAPACITY` (30) · `FLUXE_RATELIMIT_REFILL` (10) · `FLUXE_RATELIMIT_MAX_KEYS` (5000). Xem [Configuration](/reference/configuration/).
