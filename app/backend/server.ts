@@ -19,8 +19,9 @@ import { resolvers } from "./index";     // contract resolvers — phục vụ /
 import { contract } from "../contract";  // khai báo operations (Zod schema sẵn → 0 codegen)
 import { sessionMw } from "../auth";      // bridge session provider → req.session (fluxe đọc)
 import { auth } from "./auth-server";     // better-auth (provider — host sở hữu)
-import { broker } from "./broker";        // broker DÙNG CHUNG (fluxe SSE + job worker)
+import { broker } from "./broker";        // broker DÙNG CHUNG (fluxe SSE + job worker + WS)
 import { startJobs } from "./jobs";       // bullmq worker (host-owned queue)
+import { attachWs } from "./ws";          // WebSocket 2-chiều (host-owned, cạnh fluxe)
 
 const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
 const app = express();
@@ -42,5 +43,8 @@ startJobs();
 // ── fluxe = catch-all: cells/SSR + core concerns. broker CHUNG để job publish realtime tới SSE ──
 app.use(fluxe(manifest, cells, layouts, { i18n, backend, resolvers, contract, broker }));
 
-app.listen(env.PORT, () =>
+const server = app.listen(env.PORT, () =>
   console.log(`fluxe @ http://localhost:${env.PORT} (Express · backend: ${backend.name} · env: ${env.NODE_ENV})`));
+
+// ── WEBSOCKET: gắn lên CÙNG http server (upgrade /ws) — WS 2-chiều host lo, fluxe lo SSE ──
+attachWs(server);
