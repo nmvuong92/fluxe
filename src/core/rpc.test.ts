@@ -131,6 +131,17 @@ test("[rpc] trace tắt (enabled:false) → không gửi header x-fluxe-trace", 
   assert.equal(headers["x-fluxe-trace"], undefined);
 });
 
+test("[rpc] lỗi qua makeServer → JSON {error:{code,message}} (KHÔNG phải HTML)", async () => {
+  const { srv, port } = await boot();
+  try {
+    const r = await req(port, "/__rpc/addTodo", { title: 123 });   // sai kiểu → 400
+    assert.equal(r.status, 400);
+    const body = JSON.parse(r.body);   // ném nếu là HTML → fail
+    assert.equal(body.error.code, "validation");
+    assert.ok(typeof body.error.message === "string");
+  } finally { srv.close(); }
+});
+
 test("[rpc] ctx.session: resolver đọc được session host gắn", async () => {
   const c = f.contract({ whoami: f.query(f.string) });
   const r = { whoami: (ctx: any) => "user:" + (ctx.session?.id ?? "none") };

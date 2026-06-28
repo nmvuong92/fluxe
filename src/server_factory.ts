@@ -244,8 +244,10 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
     });
     } catch (err) {
       // Error boundary ở biên request: domain → status/code; unexpected → 500 + errorId (không leak prod).
-      // Action (rpc) luôn nhận lỗi dạng JSON.
-      sendError(res, wantsJson || url.pathname.startsWith("/__action/"), err);
+      // Endpoint dữ liệu (/__rpc contract, /__action) LUÔN trả lỗi JSON {error:{code,message,details}}
+      // → client parseRpcError đọc được (useForm map details→field, RpcError có message).
+      const p = url.pathname;
+      sendError(res, wantsJson || p.startsWith("/__action/") || p.startsWith("/__rpc/"), err);
     }
   };
 }
