@@ -46,8 +46,8 @@ async function run(profileName: string, port: number) {
   const srv = makeServer(manifest, appCells, layouts, { backend, resolvers, contract, i18n }).listen(port);
   await new Promise((r) => setTimeout(r, 150));
   try {
-    const homePage = await get(port, "/");
-    check("[static /] KHÔNG gửi client.js", !homePage.body.includes("/client.js"));
+    const greetPage = await get(port, "/greet");   // /greet = cell static (0 JS); home giờ là island (landing app)
+    check("[static /greet] KHÔNG gửi client.js", !greetPage.body.includes("/client.js"));
     // Contract DSL: /__rpc/<op> từ contract thật + resolvers (DB ẩn). CSRF do host lo, fluxe chỉ validate.
     const rpcTodos = await post(port, "/__rpc/todos", {});
     const todosOut = JSON.parse(rpcTodos.body);
@@ -73,7 +73,7 @@ async function run(profileName: string, port: number) {
     const iSite = todosHtml.indexOf("fluxe site"), iNav = todosHtml.indexOf("app nav"), iUl = todosHtml.indexOf("<ul");
     check("[layout] nested site>app>todos đúng thứ tự lồng", iSite >= 0 && iNav > iSite && iUl > iNav);
     const homeHtml = (await get(port, "/")).body;
-    check("[SEO] home có <title> riêng + canonical", homeHtml.includes("<title>fluxe — fullstack tối giản</title>") && homeHtml.includes('rel="canonical"'));
+    check("[SEO] home có <title> riêng + canonical", homeHtml.includes("<title>Bidly — sàn đấu giá realtime (demo fluxe)</title>") && homeHtml.includes('rel="canonical"'));
     const sm = await get(port, "/sitemap.xml");
     check("[SEO] /sitemap.xml liệt kê route tĩnh, bỏ [param]", sm.status === 200 && sm.body.includes("/todos</loc>") && !sm.body.includes("[name]"));
     const rb = await get(port, "/robots.txt");
@@ -144,13 +144,13 @@ async function run(profileName: string, port: number) {
 // sẽ KHÔNG ship → fail; post-refactor (đọc manifest) sẽ ship → pass.
 async function runOverride(port: number) {
   const manifest = resolve(cells, profiles.dev);
-  manifest.cells.home.render.shipClientJs = true; // override static → ship
-  console.log(`\n══════════ override: manifest ép home ship JS (đối chứng quyền manifest) ══════════`);
-  const srv = makeServer(manifest, appCells, layouts, { backend }).listen(port);
+  manifest.cells.greet.render.shipClientJs = true; // override static → ship (greet vốn static)
+  console.log(`\n══════════ override: manifest ép greet ship JS (đối chứng quyền manifest) ══════════`);
+  const srv = makeServer(manifest, appCells, layouts, { backend, i18n }).listen(port);
   await new Promise((r) => setTimeout(r, 150));
   try {
-    const homePage = await get(port, "/");
-    check("[override] home (static) GỬI client.js vì manifest ép → manifest > cell.hydration", homePage.body.includes("/client.js"));
+    const greetPage = await get(port, "/greet");
+    check("[override] greet (static) GỬI client.js vì manifest ép → manifest > cell.hydration", greetPage.body.includes("/client.js"));
   } finally {
     srv.close();
     await new Promise((r) => setTimeout(r, 80));
