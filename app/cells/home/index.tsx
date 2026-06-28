@@ -4,9 +4,15 @@ import { Home } from "./view";
 export default defineCell({
   id: "home",
   route: "/",
-  hydration: "static",   // trang giới thiệu, không cần JS
-  async loader({ backend }) {
-    return { title: "fluxe — fullstack tối giản", backendName: backend.name };
+  hydration: "static",   // trang giới thiệu, không cần JS — i18n dịch trong loader (server) vẫn đa ngôn ngữ
+  layout: "site",        // có LocaleSwitch (VI/EN) ở header
+  async loader({ backend, t }) {
+    return {
+      title: t!("home.title"),
+      backend: t!("home.backend", { name: backend.name }),
+      static: t!("home.static"),
+      cta: t!("home.cta"),
+    };
   },
   head: (data) => ({
     title: data.title,

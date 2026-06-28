@@ -1,13 +1,13 @@
-import { createElement as h } from "react";
-
-export interface HomeData { title: string; backendName: string }
+export interface HomeData { title: string; backend: string; static: string; cta: string }
 
 export function Home({ data }: { data: HomeData }) {
-  return h("div", { className: "card" },
-    h("h1", null, data.title),
-    h("p", { className: "muted" }, `Backend đang chạy: ${data.backendName}`),
-    h("p", null, "Trang này render server, ", h("b", null, "không gửi JS"), " (hydration: static)."),
-    h("a", { href: "/todos", className: "btn" }, "Tới /todos (island) →")
+  return (
+    <div className="card">
+      <h1>{data.title}</h1>
+      <p className="muted">{data.backend}</p>
+      <p>{data.static}</p>
+      <a href="/todos" className="btn">{data.cta}</a>
+    </div>
   );
 }
 
