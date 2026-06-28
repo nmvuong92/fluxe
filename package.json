@@ -1,6 +1,6 @@
 {
   "name": "@nmvuong92/fluxe",
-  "version": "0.21.0",
+  "version": "0.21.1",
   "description": "fluxe — khung fullstack tối giản, một runtime TS (RCA: Resolved Cell Architecture).",
   "license": "Apache-2.0",
   "author": "nmvuong92",
