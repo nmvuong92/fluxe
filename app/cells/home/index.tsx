@@ -12,6 +12,7 @@ export default defineCell({
       backend: t!("home.backend", { name: backend.name }),
       static: t!("home.static"),
       cta: t!("home.cta"),
+      cta2: t!("home.cta2"),
     };
   },
   head: (data) => ({

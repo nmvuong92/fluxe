@@ -1,4 +1,4 @@
-export interface HomeData { title: string; backend: string; static: string; cta: string }
+export interface HomeData { title: string; backend: string; static: string; cta: string; cta2: string }
 
 export function Home({ data }: { data: HomeData }) {
   return (
@@ -6,7 +6,10 @@ export function Home({ data }: { data: HomeData }) {
       <h1>{data.title}</h1>
       <p className="muted">{data.backend}</p>
       <p>{data.static}</p>
-      <a href="/todos" className="btn">{data.cta}</a>
+      <div className="row" style={{ gap: 10 }}>
+        <a href="/lots" className="btn">{data.cta}</a>
+        <a href="/todos" className="muted">{data.cta2}</a>
+      </div>
     </div>
   );
 }
