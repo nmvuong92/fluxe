@@ -25,6 +25,7 @@ Mỗi op → hook hợp **kind**:
 | `query` | `api.todos.useQuery(opts?)` | `{ data, error, loading, refetch }` (typed output) |
 | `mutation` | `api.addTodo.useMutation(opts?)` | `{ mutate, loading, error }` |
 | `mutation` | `api.addTodo.useForm(opts?)` | form state + per-field errors |
+| `subscription` | `api.todoFeed.useSubscription(cb)` | gọi `cb(data)` khi có event (typed) |
 
 ## useQuery — cache + dedup + invalidate
 
@@ -68,6 +69,26 @@ return (
   </form>
 );
 ```
+
+## useSubscription — realtime typed (broker SSE)
+
+`f.subscription(output)` khai báo topic typed. Mutation đẩy vào topic qua `ctx.publish` (resolver
+arg 2); mọi client đang nghe nhận event. Reuse hạ tầng broker/SSE — `cb` typed theo output.
+
+```tsx
+const q = api.todos.useQuery({ initial: data.todos });
+api.todoFeed.useSubscription(() => q.refetch());   // client khác add/toggle → refetch
+
+// server: app/backend/index.ts
+addTodo: async ({ title }, { publish }) => {
+  const t = await db.addTodo(title);
+  publish("todoFeed", await db.listTodos());        // bắn vào topic "todoFeed"
+  return t;
+},
+```
+
+`useSubscription` tự bỏ frame presence (broker dùng chung topic) và giữ `cb` mới nhất qua ref (không
+re-subscribe mỗi render). SSR-safe (`EventSource` undefined → noop).
 
 ## Primitives (string-based)
 

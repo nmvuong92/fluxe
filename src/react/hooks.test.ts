@@ -9,6 +9,7 @@ import { f } from "../core/contract.ts";
 const contract = f.contract({
   todos: f.query(f.object({ id: f.string }).array()),
   addTodo: f.mutation({ title: f.string }, f.object({ id: f.string })),
+  feed: f.subscription(f.object({ id: f.string }).array()),
 });
 
 test("[hooks] createHooks proxy: op → hook fn theo kind", () => {
@@ -17,6 +18,7 @@ test("[hooks] createHooks proxy: op → hook fn theo kind", () => {
   assert.equal(typeof api.todos.useQuery, "function");
   assert.equal(typeof (api.addTodo as any).useMutation, "function");
   assert.equal(typeof (api.addTodo as any).useForm, "function");
+  assert.equal(typeof (api.feed as any).useSubscription, "function");
 });
 
 test("[hooks] memo: cùng op trả cùng object (ổn định reference)", () => {

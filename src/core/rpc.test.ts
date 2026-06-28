@@ -82,3 +82,30 @@ test("[rpc] op lạ → 404", async () => {
     assert.equal(r.status, 404);
   } finally { srv.close(); }
 });
+
+test("[rpc] mutation nhận ctx.publish → publish topic subscription", async () => {
+  const c = f.contract({ add: f.mutation({ x: f.string }, f.string), feed: f.subscription(f.string) });
+  const published: Array<{ topic: string; data: unknown }> = [];
+  const r = { add: async ({ x }: { x: string }, ctx: any) => { ctx.publish("feed", "live:" + x); return x; } };
+  let status = 0, body = "";
+  const res: any = { writeHead: (s: number) => { status = s; }, end: (b?: string) => { body = b ?? ""; } };
+  await handleRpc({
+    url: new URL("http://x/__rpc/add"), req: { headers: {} } as any, res, cookies: {},
+    resolvers: r, contract: c as any, readBody: async () => JSON.stringify({ x: "1" }),
+    publish: (topic, data) => published.push({ topic, data }),
+  });
+  assert.equal(status, 200);
+  assert.equal(JSON.parse(body), "1");
+  assert.deepEqual(published, [{ topic: "feed", data: "live:1" }]);
+});
+
+test("[rpc] op subscription qua /__rpc → 400 (đi qua /__sse)", async () => {
+  const c = f.contract({ feed: f.subscription(f.string) });
+  let status = 0;
+  const res: any = { writeHead: (s: number) => { status = s; }, end: () => {} };
+  await handleRpc({
+    url: new URL("http://x/__rpc/feed"), req: { headers: {} } as any, res, cookies: {},
+    resolvers: {}, contract: c as any, readBody: async () => "{}",
+  });
+  assert.equal(status, 400);
+});

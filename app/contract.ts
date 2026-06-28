@@ -9,6 +9,7 @@ export const contract = f.contract({
   todos: f.query(Todo.array()),                        // đọc
   addTodo: f.mutation({ title: f.string }, Todo),      // ghi (nghiệp vụ bất kỳ)
   toggleTodo: f.mutation({ id: f.string }, Todo.array()),
+  todoFeed: f.subscription(Todo.array()),              // stream realtime (broker SSE) — typed
 });
 
 export type AppContract = typeof contract;   // client import type-only → 0 schema xuống browser

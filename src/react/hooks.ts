@@ -4,12 +4,24 @@
  * Mỗi op → object hook hợp kind: query→useQuery, mutation→useMutation+useForm. Typed tức thì
  * qua infer; op name (string) đủ gọi /__rpc → KHÔNG cần schema runtime ở client (0 zod xuống
  * browser). Hooks string-based cũ giữ nguyên — đây là lớp THÊM typed. */
+import { useEffect, useRef } from "react";
 import type { ZodTypeAny } from "zod";
 import type { Contract, Client, Infer } from "../core/contract.ts";
-import { createClient, mutate as coreMutate } from "../core/client.ts";
+import { createClient, mutate as coreMutate, subscribe } from "../core/client.ts";
 import { useQuery, invalidateQueries } from "./query.ts";
 import { useMutation as useRawMutation } from "./mutation.ts";
 import { useForm, type FormOpts, type FormApi } from "./form.ts";
+
+/* useSubscription — nghe topic (op subscription) qua broker SSE, typed. Bỏ frame presence
+ * (broker dùng chung topic cho presence). cb mới nhất giữ qua ref (không re-subscribe). */
+export function useSubscription<T>(op: string, cb: (data: T) => void): void {
+  const ref = useRef(cb);
+  ref.current = cb;
+  useEffect(() => subscribe(op, (data: any) => {
+    if (data && typeof data === "object" && "presence" in data) return;   // bỏ presence
+    ref.current(data as T);
+  }), [op]);
+}
 
 export interface QueryResult<O> { data: O | undefined; error: string; loading: boolean; refetch: () => Promise<void> }
 export interface QueryOpts<O> { initial?: O; enabled?: boolean }
@@ -48,6 +60,8 @@ type OpHooks<D, C extends Contract> =
         useMutation: (opts?: MutationOpts<C, Infer<I>>) => MutationResult<Infer<I>, Infer<O>>;
         useForm: (opts?: FormOpts<Infer<I>, Infer<O>>) => FormApi<Infer<I>, Infer<O>>;
       }
+  : D extends { kind: "subscription"; output: infer O extends ZodTypeAny }
+    ? { useSubscription: (cb: (data: Infer<O>) => void) => void }
   : Record<string, never>;
 
 export type Hooks<C extends Contract> = { [K in keyof C]: OpHooks<C[K], C> };
@@ -62,6 +76,7 @@ export function createHooks<C extends Contract>(client?: Client<C>): Hooks<C> {
           useQuery: (opts?: QueryOpts<unknown>) => useQuery(op, () => api[op](), opts),
           useMutation: (opts?: MutationOpts<C, unknown>) => useContractMutation(op, (i: unknown) => api[op](i), opts),
           useForm: (opts?: FormOpts<any, any>) => useForm(op, (i: any) => api[op](i) as Promise<any>, opts),
+          useSubscription: (cb: (data: unknown) => void) => useSubscription(op, cb),
         };
       }
       return memo[op];

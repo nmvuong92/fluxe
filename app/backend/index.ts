@@ -6,6 +6,15 @@ import { backend as store } from "./data";
 
 export const resolvers: Resolvers<typeof contract> = {
   todos: () => store.listTodos(),
-  addTodo: ({ title }) => store.addTodo(title),
-  toggleTodo: ({ id }) => store.toggleTodo(id),
+  // ctx.publish → topic "todoFeed" (subscription) → mọi client đang nghe nhận list mới (realtime).
+  addTodo: async ({ title }, { publish }) => {
+    const t = await store.addTodo(title);
+    publish("todoFeed", await store.listTodos());
+    return t;
+  },
+  toggleTodo: async ({ id }, { publish }) => {
+    const list = await store.toggleTodo(id);
+    publish("todoFeed", list);
+    return list;
+  },
 };

@@ -1,5 +1,3 @@
-import { useEffect } from "react";
-import { subscribe } from "@nmvuong92/fluxe/client";
 import { Link } from "@nmvuong92/fluxe/react";
 import { api } from "../../api";
 import type { Todo } from "../../backend/data";   // type-only → esbuild elide, không kéo server code
@@ -15,8 +13,8 @@ export function Todos({ data }: { data: TodosData }) {
   const toggle = api.toggleTodo.useMutation({ invalidates: ["todos"] });
   const todos = q.data ?? [];
 
-  // Realtime: client khác đổi → refetch.
-  useEffect(() => subscribe("todos", () => q.refetch()), []);
+  // Realtime: subscription typed (broker SSE) — client khác add/toggle → nhận list mới → refetch.
+  api.todoFeed.useSubscription(() => q.refetch());
 
   const title = form.register("title");
   const busy = form.submitting || toggle.loading || q.loading;

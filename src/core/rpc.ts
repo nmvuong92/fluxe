@@ -14,6 +14,7 @@ export interface RpcArgs {
   resolvers: any;
   contract?: Contract;
   readBody: (req: http.IncomingMessage) => Promise<string>;
+  publish?: (topic: string, data: unknown) => void;   // broker.publish → ctx.publish (realtime subscription)
 }
 
 /* Trả true nếu đã xử lý (/__rpc/<op>), false nếu không phải route rpc.
@@ -32,11 +33,13 @@ export async function handleRpc(a: RpcArgs): Promise<boolean> {
       throw new FluxeError("forbidden", `Cần quyền '${op.auth}'`, 403);
     }
   }
+  if (op.kind === "subscription") { a.res.writeHead(400); a.res.end("subscription qua /__sse"); return true; }
   let input = JSON.parse((await a.readBody(a.req)) || "{}");
   if (op.kind === "mutation") input = validateInput(op.input, input);   // Zod từ chính contract
   const fn = a.resolvers?.[name];
   if (typeof fn !== "function") throw new FluxeError("no_resolver", `Resolver thiếu cho '${name}'`, 500);
-  const out = await fn(input);
+  const ctx = { publish: a.publish ?? (() => {}) };   // arg 2: ctx.publish → realtime subscription
+  const out = op.kind === "query" ? await fn(ctx) : await fn(input, ctx);
   a.res.writeHead(200, { "content-type": "application/json" });
   a.res.end(JSON.stringify(out));
   return true;

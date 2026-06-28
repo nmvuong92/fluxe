@@ -5,7 +5,7 @@
 export { useQuery, invalidateQueries } from "./query";
 export { useMutation } from "./mutation";
 /* contract-aware: bind hook vào contract một lần (như createClient). */
-export { createHooks, useForm } from "./hooks";
+export { createHooks, useForm, useSubscription } from "./hooks";
 export type { Hooks, QueryResult, QueryOpts, MutationOpts, MutationResult } from "./hooks";
 export type { FormOpts, FormApi, ClientSchema } from "./form";
 export { Link } from "./Link";
