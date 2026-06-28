@@ -35,3 +35,15 @@ test("subscribe nhận thông báo khi có event", () => {
   s.start("mutation", "m2");
   assert.equal(n, 1); // chỉ đếm trước khi unsubscribe
 });
+
+test("clear() xoá hết event + thông báo", () => {
+  const s = new DebugStore();
+  s.start("query", "q");
+  s.start("subscription", "sub:feed");
+  assert.equal(s.events.length, 2);
+  let notified = false;
+  s.subscribe(() => { notified = true; });
+  s.clear();
+  assert.equal(s.events.length, 0);
+  assert.ok(notified);
+});

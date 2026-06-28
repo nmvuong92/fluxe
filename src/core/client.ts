@@ -132,12 +132,18 @@ export async function revalidate(): Promise<{ cell: string; data: unknown }> {
   return fetchPageProps(location.pathname + location.search);
 }
 
+/* Số kết nối SSE đang mở (devtools live-state). */
+let _sseLive = 0;
+export const sseLive = (): number => _sseLive;
+
 /* Realtime: subscribe topic qua SSE. Trả hàm hủy. (Trục 4g) */
 export function subscribe(topic: string, onData: (data: any) => void): () => void {
   if (typeof EventSource === "undefined") return () => {};
   const es = new EventSource(`/__sse/${encodeURIComponent(topic)}`);
+  _sseLive++;
   es.onmessage = (e) => {
     try { onData(JSON.parse(e.data)); } catch { /* ignore */ }
   };
-  return () => es.close();
+  let closed = false;
+  return () => { if (!closed) { closed = true; _sseLive--; es.close(); } };
 }

@@ -3,7 +3,7 @@
 /* @fluxe/react — debug store + tracing (lite). Mọi query/mutation/error ghi vào đây;
  * DebugBar subscribe để hiển thị "full flow". Immutable update → useSyncExternalStore re-render. */
 
-export type EventKind = "query" | "mutation" | "error";
+export type EventKind = "query" | "mutation" | "subscription" | "error";
 export type EventStatus = "pending" | "ok" | "error";
 
 export interface DebugEvent {
@@ -40,6 +40,11 @@ export class DebugStore {
     this.events = this.events.map((e) =>
       e.id === id ? { ...e, ...patch, ms: now() - e.startedAt } : e,
     );
+    this.emit();
+  }
+
+  clear(): void {
+    this.events = [];
     this.emit();
   }
 

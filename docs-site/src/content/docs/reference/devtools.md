@@ -17,13 +17,17 @@ Production không lộ các cơ chế này.
 
 ## Cơ chế trong fluxe
 
-**1. DebugBar — 4 tính năng** (nút ⚡ góc dưới-phải mọi trang). Cắm `<DebugBar />` một lần vào
+**1. DebugBar — live RCA** (nút ⚡ góc dưới-phải mọi trang). Cắm `<DebugBar />` một lần vào
 layout là có đủ:
 
 1. **Chaos toggle** — tiêm delay + lỗi giả (fault injection), hằng `CHAOS = "delay=600;fail=0.4"`.
 2. **Repro → Test** — "Copy as test" sinh test pasteable từ một mutation event.
 3. **RCA badge** — mỗi event hiện `resolution`: render mode + `backend.name` của app (vd `sqlite`).
 4. **Trace timing** — thanh server-ms vs client-ms.
+5. **Live state** — dòng đọc registry trực tiếp: `query` đang mount · `cached` · request đang bay ·
+   `SSE` đang mở (từ `queryStats()` + `sseLive()`).
+6. **Filter + Clear** — lọc theo kind (query/mutation/**subscription**/error), nút Clear xoá log.
+   Event `subscription` (mỗi message `useSubscription` nhận) cũng hiện trong trace, màu tím.
 
 **2. Chaos parse** — header `"delay=600;fail=0.3"` → `{ delayMs, failRate }`:
 
@@ -119,6 +123,11 @@ curl -X POST localhost:5180/__action/todos/add -H "x-fluxe-chaos: delay=600;fail
 // @nmvuong92/fluxe/react
 debug.start(kind: EventKind, label: string): number          // bắt đầu event, trả id
 debug.finish(id: number, patch: Partial<DebugEvent>): void   // kết thúc; immutable, cap 50
+debug.clear(): void                                          // xoá log (nút Clear)
+queryStats(): { mounted, cached, inflight }                  // live state cho DebugBar
+
+// @nmvuong92/fluxe/client
+sseLive(): number                                           // số kết nối SSE đang mở
 
 // @nmvuong92/fluxe
 parseChaos(header: string | undefined): Chaos                // { delayMs, failRate }

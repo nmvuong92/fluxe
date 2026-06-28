@@ -11,6 +11,13 @@ const inflight = new Map<string, Promise<unknown>>();
 /* Registry query đang mount: key → set refetch. Cho phép mutation invalidate → refetch live. */
 const active = new Map<string, Set<() => void>>();
 
+/* Thống kê live cho devtools: query đang mount · key đã cache · request đang bay. */
+export function queryStats(): { mounted: number; cached: number; inflight: number } {
+  let mounted = 0;
+  for (const set of active.values()) mounted += set.size;
+  return { mounted, cached: cache.size, inflight: inflight.size };
+}
+
 /* invalidateQueries — xoá cache + refetch mọi query đang mount khớp. `keys` so khớp:
  *  - exact: key === k
  *  - prefix: key bắt đầu bằng `k + ":"` (contract-aware key = `op:JSON(input)` → invalidate theo op). */

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /* @fluxe/react — devtools lite: data fetching + tracing + debug bar.
  * Dùng: useQuery / useMutation trong cell; mount <DebugBar/> 1 lần. */
-export { useQuery, invalidateQueries } from "./query";
+export { useQuery, invalidateQueries, queryStats } from "./query";
 export { useMutation } from "./mutation";
 /* contract-aware: bind hook vào contract một lần (như createClient). */
 export { createHooks, useForm, useSubscription } from "./hooks";

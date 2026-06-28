@@ -11,14 +11,18 @@ import { createClient, mutate as coreMutate, subscribe } from "../core/client.ts
 import { useQuery, invalidateQueries } from "./query.ts";
 import { useMutation as useRawMutation } from "./mutation.ts";
 import { useForm, type FormOpts, type FormApi } from "./form.ts";
+import { debug } from "./store.ts";
 
 /* useSubscription — nghe topic (op subscription) qua broker SSE, typed. Bỏ frame presence
- * (broker dùng chung topic cho presence). cb mới nhất giữ qua ref (không re-subscribe). */
+ * (broker dùng chung topic cho presence). cb mới nhất giữ qua ref (không re-subscribe). Mỗi
+ * event nhận được ghi vào debug store → hiện live trong DevTools. */
 export function useSubscription<T>(op: string, cb: (data: T) => void): void {
   const ref = useRef(cb);
   ref.current = cb;
   useEffect(() => subscribe(op, (data: any) => {
     if (data && typeof data === "object" && "presence" in data) return;   // bỏ presence
+    const id = debug.start("subscription", "sub:" + op);
+    debug.finish(id, { status: "ok", data });
     ref.current(data as T);
   }), [op]);
 }
