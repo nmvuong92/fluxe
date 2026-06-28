@@ -13,6 +13,9 @@ const Lot = f.object({
 });
 export type Lot = Infer<typeof Lot>;
 
+const Bid = f.object({ id: f.string, lotId: f.string, bidderId: f.string, amount: f.number, at: f.number });
+export type Bid = Infer<typeof Bid>;
+
 export const contract = f.contract({
   // demo cũ
   todos: f.query(Todo.array()),
@@ -26,6 +29,13 @@ export const contract = f.contract({
     { title: f.string, description: f.string, startPrice: f.coerce.number(), endsAt: f.coerce.number() },
     Lot, { auth: "seller" },
   ),
+  placeBid: f.mutation(                                                         // bidder đặt giá
+    { lotId: f.string, amount: f.coerce.number() },
+    Bid, { auth: "bidder" },
+  ),
 });
+
+// Realtime per-lot: client subscribe topic `lot:<id>` (Lot mới), `notif:<userId>` (thông báo).
+// Dùng useSubscription<Lot>(`lot:${id}`, cb) — topic tham số hoá, không cần op subscription riêng.
 
 export type AppContract = typeof contract;   // client import type-only → 0 schema xuống browser

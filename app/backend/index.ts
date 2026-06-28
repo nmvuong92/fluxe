@@ -1,8 +1,8 @@
 // RESOLVERS — implement contract (app/contract.ts). DB/sqlite/pg ẩn trong đây (data.ts).
 // Kiểu suy TỪ contract (Resolvers<typeof contract>) — sai chữ ký = compile error ngay, 0 codegen.
-import type { Resolvers } from "@nmvuong92/fluxe";
+import { type Resolvers, FluxeError } from "@nmvuong92/fluxe";
 import { contract } from "../contract";
-import { backend as store } from "./data";
+import { backend as store, BidError } from "./data";
 import type { AppSession } from "../auth";   // ctx.session typed
 
 // Resolvers<contract, AppSession> → ctx.session: AppSession | null (biết ai đang gọi).
@@ -26,4 +26,20 @@ export const resolvers: Resolvers<typeof contract, AppSession> = {
   // ctx.session.id = sellerId (host-verified). Op guard {auth:"seller"} đã chặn ở handleRpc.
   createLot: ({ title, description, startPrice, endsAt }, { session, span }) =>
     span("db.createLot", () => store.createLot({ title, description, startPrice, endsAt, sellerId: session!.id })),
+
+  // Đặt giá: publish giá mới cho phòng `lot:<id>` + báo người vừa bị vượt giá `notif:<id>`.
+  placeBid: async ({ lotId, amount }, { session, publish, span }) => {
+    let r;
+    try {
+      r = await span("db.placeBid", () => store.placeBid({ lotId, bidderId: session!.id, amount }));
+    } catch (e) {
+      if (e instanceof BidError) throw new FluxeError("bid", e.message, 400);   // → 400 có message rõ
+      throw e;
+    }
+    publish(`lot:${lotId}`, r.lot);   // realtime: mọi người xem lot thấy giá mới
+    if (r.previousLeader && r.previousLeader !== session!.id) {
+      publish(`notif:${r.previousLeader}`, { type: "outbid", lotId, title: r.lot.title, amount });   // 🔔
+    }
+    return r.bid;
+  },
 };
