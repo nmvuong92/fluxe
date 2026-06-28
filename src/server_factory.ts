@@ -18,7 +18,7 @@ import { renderHead, renderSitemap, renderRobots } from "./core/seo.ts";
 import { FluxeError, toErrorPayload, renderErrorPage } from "./core/errors.ts";
 import { parseCookie } from "./core/cookie.ts";
 import { validateInput } from "./core/validate.ts";
-import { createBroker } from "./core/broker.ts";
+import { createBroker, type Broker } from "./core/broker.ts";
 import { handleRpc } from "./core/rpc.ts";
 import type { Contract } from "./core/contract.ts";
 import { createRecorder } from "./core/observe.ts";
@@ -74,7 +74,7 @@ function renderBodyToString(node: any): Promise<string> {
   });
 }
 
-export interface MakeServerOpts { i18n?: I18n; config?: FluxeConfig; backend?: unknown; contract?: Contract; resolvers?: unknown }
+export interface MakeServerOpts { i18n?: I18n; config?: FluxeConfig; backend?: unknown; contract?: Contract; resolvers?: unknown; broker?: Broker }
 export type NodeHandler = (req: http.IncomingMessage, res: http.ServerResponse) => Promise<unknown>;
 
 /* createHandler — lõi request framework-agnostic: trả về handler Node (req,res).
@@ -88,7 +88,8 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
   // Backend USER-OWNED (app/backend.ts) inject qua opts.backend → dùng cho mọi cell.
   const backendFor = (_id: string) => opts.backend;
   // Realtime (RCA: live-update on action) — broker + presence eager (đơn giản, dependency-free).
-  const broker = createBroker();
+  // opts.broker: host TỰ tạo + chia sẻ (vd job worker publish realtime cùng bus). Mặc định tạo nội bộ.
+  const broker = opts.broker ?? createBroker();
   const presence = createPresence();
   const recorder = createRecorder();   // observability: request log (ring buffer)
   const renderCache = createRenderCache({ maxKeys: config.renderCache.maxKeys });   // FLUXE_RENDERCACHE_MAX_KEYS

@@ -97,6 +97,25 @@ const q = useQuery<Todo[]>("todos", () => rpc("todos", "list", {}), { initial: d
 useEffect(() => subscribe("todos", () => q.refetch()), []);
 ```
 
+## Broker dùng chung với host (publish từ job/worker)
+
+Mặc định fluxe tự tạo broker. Muốn **code host** (vd bullmq worker đóng phiên đúng giờ) đẩy
+realtime tới client → tự tạo broker và **tiêm** vào fluxe để cùng một bus:
+
+```ts
+import { createBroker } from "@nmvuong92/fluxe";
+export const broker = createBroker();                       // app/backend/broker.ts
+
+// server.ts — chia sẻ broker cho fluxe + worker
+app.use(fluxe(manifest, cells, layouts, { contract, resolvers, broker }));
+
+// jobs.ts (bullmq worker) — publish cùng broker → SSE client nhận
+broker.publish(`lot:${id}`, lot);   // vd: job đóng phiên → mọi người thấy "SOLD"
+```
+
+Resolver có thể `publish("lot:created", lot)` để worker (subscribe broker) lên lịch job — **decouple**
+resolver khỏi queue. → fluxe lo realtime/SSE, **queue là việc host** (xem [Một runtime TS] / boundary).
+
 ## API
 
 ```ts
