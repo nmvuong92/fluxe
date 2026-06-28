@@ -5,15 +5,16 @@ import { contract } from "../contract";
 import { backend as store } from "./data";
 
 export const resolvers: Resolvers<typeof contract> = {
-  todos: () => store.listTodos(),
+  // ctx.span("db.x", fn) → span con dưới resolver trong waterfall DevTools (Jaeger-lite).
+  todos: (ctx) => ctx!.span("db.list", () => store.listTodos()),
   // ctx.publish → topic "todoFeed" (subscription) → mọi client đang nghe nhận list mới (realtime).
-  addTodo: async ({ title }, { publish }) => {
-    const t = await store.addTodo(title);
-    publish("todoFeed", await store.listTodos());
+  addTodo: async ({ title }, { publish, span }) => {
+    const t = await span("db.insert", () => store.addTodo(title));
+    publish("todoFeed", await span("db.list", () => store.listTodos()));
     return t;
   },
-  toggleTodo: async ({ id }, { publish }) => {
-    const list = await store.toggleTodo(id);
+  toggleTodo: async ({ id }, { publish, span }) => {
+    const list = await span("db.toggle", () => store.toggleTodo(id));
     publish("todoFeed", list);
     return list;
   },

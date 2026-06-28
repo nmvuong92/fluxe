@@ -86,10 +86,29 @@ export function DebugBar() {
           h("span", { style: { color: "#7d8590", width: 60 } }, label),
           h("div", { style: { height: 8, width: `${Math.max(4, (ms / scale) * 200)}px`, background: color, borderRadius: 3 } }),
           h("span", { style: { color: "#7d8590" } }, `${ms}ms`));
+      // Waterfall span (Jaeger-lite): offset + width scale theo tổng root.dur. Lồng nhau theo depth.
+      const SPAN_COL: Record<string, string> = { parse: "#7d8590", validate: "#e3b341", resolver: "#a371f7", auth: "#5fd3f0" };
+      const colOf = (n: string) => SPAN_COL[n] ?? (n.startsWith("publish") ? "#3fb950" : n.startsWith("db") ? "#f0883e" : "#1f6feb");
+      const W = 180;
+      const renderSpans = (sp: any, depth: number, total: number, out: any[]) => {
+        const left = Math.min(W - 2, (sp.at / total) * W);
+        const width = Math.max(2, (sp.dur / total) * W);
+        out.push(h("div", { key: `${sp.name}-${sp.at}-${depth}`, style: { display: "flex", gap: 6, alignItems: "center", margin: "1px 0" } },
+          h("span", { style: { color: "#c9d1d9", width: 96, paddingLeft: depth * 8, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sp.name),
+          h("div", { style: { position: "relative", width: W, height: 9, background: "#161b22", borderRadius: 3 } },
+            h("div", { style: { position: "absolute", left, width, height: 9, background: colOf(sp.name), borderRadius: 3 } })),
+          h("span", { style: { color: "#7d8590", width: 48, textAlign: "right", fontSize: 10 } }, `${sp.dur}ms`)));
+        for (const c of sp.children ?? []) renderSpans(c, depth + 1, total, out);
+        return out;
+      };
+      const waterfall = e.trace
+        ? h("div", { style: { margin: "2px 0 6px" } }, ...renderSpans(e.trace, 0, Math.max(0.01, e.trace.dur), []))
+        : null;
       detail = h("div", { style: { padding: 8, borderTop: "1px solid #30363d" } },
         e.resolution ? h("div", { style: { color: "#5fd3f0", marginBottom: 4 } }, `resolution: ${e.resolution}`) : null,
-        bar("server", e.serverMs, "#3fb950"),
-        bar("client", e.ms, "#1f6feb"),
+        waterfall,
+        waterfall ? null : bar("server", e.serverMs, "#3fb950"),
+        waterfall ? null : bar("client", e.ms, "#1f6feb"),
         h("pre", { style: { margin: "6px 0 0", maxHeight: 120, overflow: "auto", color: "#a5d6ff", whiteSpace: "pre-wrap" } },
           e.error ? "ERROR: " + e.error : JSON.stringify(e.data, null, 2)),
         e.kind === "mutation" ? h("button", {

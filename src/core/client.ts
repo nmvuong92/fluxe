@@ -6,6 +6,7 @@
  * - mutate(): optimistic + rollback khi lỗi.
  * - revalidate(): refetch props trang hiện tại sau khi mutate.
  * ============================================================ */
+import { decodeTrace } from "./trace.ts";
 
 export class RpcError extends Error {
   code: string;
@@ -42,8 +43,8 @@ let _chaos = "";        // vd "delay=600;fail=0.3"
 export const setChaos = (v: string) => { _chaos = v; };
 export const getChaos = () => _chaos;
 
-/* Meta của rpc gần nhất (resolution + timing server) — hook đọc ngay sau await để log. */
-export interface RpcMeta { resolution?: string; serverMs?: number; clientMs?: number }
+/* Meta của rpc gần nhất (resolution + timing server + span trace) — hook đọc ngay sau await để log. */
+export interface RpcMeta { resolution?: string; serverMs?: number; clientMs?: number; trace?: import("./trace.ts").Span | null }
 let _lastMeta: RpcMeta = {};
 export const lastRpcMeta = (): RpcMeta => _lastMeta;
 
@@ -71,14 +72,23 @@ export async function rpc<T = any>(cell: string, action: string, input: unknown)
 /* Contract op qua POST /__rpc/<op> (tRPC-style). Dùng bởi client api sinh từ contract.
  * query: đọc thuần · mutation: server kiểm CSRF (double-submit, header dưới). */
 export async function rpcCall<O = any>(op: string, input?: unknown): Promise<O> {
+  const t0 = typeof performance !== "undefined" ? performance.now() : 0;
   const headers: Record<string, string> = { "content-type": "application/json", "x-csrf-token": cookie("csrf") };
   if (_chaos) headers["x-fluxe-chaos"] = _chaos;
   let res: Response;
   try {
     res = await fetch(`/__rpc/${op}`, { method: "POST", headers, body: JSON.stringify(input ?? {}) });
   } catch {
+    _lastMeta = {};
     throw new RpcError("network", "Mất kết nối máy chủ", 0);
   }
+  const hget = (k: string) => res.headers?.get?.(k) ?? null;
+  _lastMeta = {                                             // resolution + server timing + span trace (waterfall)
+    resolution: hget("x-fluxe-resolution") ?? undefined,
+    serverMs: Number(hget("x-fluxe-server-ms")) || undefined,
+    clientMs: Math.round((typeof performance !== "undefined" ? performance.now() : 0) - t0),
+    trace: decodeTrace(hget("x-fluxe-trace")),
+  };
   if (!res.ok) throw parseRpcError(res.status, await res.text());
   return res.json();
 }

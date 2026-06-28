@@ -34,8 +34,12 @@ export const f = {
 /* Suy kiểu TS từ schema Zod — tức thì, không chờ gen. (`infer` là từ khoá TS → dùng `Infer`.) */
 export type Infer<T extends ZodTypeAny> = z.infer<T>;
 
-/* Context tiêm vào resolver (arg 2) — publish vào topic subscription để realtime. */
-export interface ResolverCtx { publish: (topic: string, data: unknown) => void }
+/* Context tiêm vào resolver (arg 2) — publish vào topic subscription (realtime) + span (trace).
+ *   ctx.span("db.query", () => db.find(...))  → span con dưới resolver trong waterfall DevTools. */
+export interface ResolverCtx {
+  publish: (topic: string, data: unknown) => void;
+  span: <T>(name: string, fn: () => T | Promise<T>) => Promise<T>;
+}
 
 /* Op KHÔNG phải subscription (query/mutation) — subscription không có resolver req/res, là topic. */
 type DataOp<C extends Contract> = { [K in keyof C as C[K] extends { kind: "subscription" } ? never : K]: C[K] };

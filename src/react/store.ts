@@ -18,6 +18,7 @@ export interface DebugEvent {
   input?: unknown;      // cho repro→test
   resolution?: string;  // RCA: backend lang/transport đã giải (#3)
   serverMs?: number;    // thời gian server-side (#4 trace)
+  trace?: import("../core/trace.ts").Span | null;   // cây span pipeline (waterfall)
 }
 
 type Listener = () => void;

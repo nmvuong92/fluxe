@@ -51,7 +51,7 @@ export function useQuery<T>(
           const d = await fetcherRef.current();
           const m = lastRpcMeta();
           cache.set(key, d);
-          debug.finish(id, { status: "ok", data: d, resolution: m.resolution, serverMs: m.serverMs, ms: m.clientMs });
+          debug.finish(id, { status: "ok", data: d, resolution: m.resolution, serverMs: m.serverMs, ms: m.clientMs, trace: m.trace });
           return d;
         } catch (e: any) {
           const m = lastRpcMeta();

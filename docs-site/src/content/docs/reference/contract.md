@@ -54,7 +54,7 @@ export const resolvers: Resolvers<typeof contract> = {
 };
 ```
 
-> Resolver chỉ implement `query`/`mutation` (subscription bị loại khỏi `Resolvers` — nó là topic, không phải req/res). Mutation/query nhận `ctx: { publish }` ở arg 2 để bắn realtime.
+> Resolver chỉ implement `query`/`mutation` (subscription bị loại khỏi `Resolvers` — nó là topic, không phải req/res). Mutation/query nhận `ctx: { publish, span }` ở arg 2: `publish` bắn realtime, `span(name, fn)` thêm span DB vào waterfall ([DevTools](/reference/devtools/)).
 
 Tiêm vào engine (dùng chung server framework đã chọn):
 

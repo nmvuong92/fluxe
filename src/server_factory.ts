@@ -106,7 +106,7 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
     const theme = cookies.theme === "dark" || cookies.theme === "light" ? cookies.theme : "";
     try {
     // Contract DSL: POST /__rpc/<op> — validate Zod + CSRF(mutation) → resolver (opts.backend). Lớp THÊM.
-    if (await handleRpc({ url, req, res, cookies, session, resolvers: opts.resolvers ?? opts.backend, contract: opts.contract, readBody, publish: broker.publish })) return;
+    if (await handleRpc({ url, req, res, cookies, session, resolvers: opts.resolvers ?? opts.backend, contract: opts.contract, readBody, publish: broker.publish, trace: config.trace })) return;
     // Đổi ngôn ngữ qua ?locale=xx → set cookie + redirect (chạy cả trên cell static, 0 JS).
     {
       const ql = url.searchParams.get("locale");

@@ -4,6 +4,7 @@ import type http from "node:http";
 import { FluxeError } from "./errors.ts";
 import { validateInput } from "./validate.ts";
 import type { Contract } from "./contract.ts";
+import { createTracer, encodeTrace } from "./trace.ts";
 
 export interface RpcArgs {
   url: URL;
@@ -15,6 +16,7 @@ export interface RpcArgs {
   contract?: Contract;
   readBody: (req: http.IncomingMessage) => Promise<string>;
   publish?: (topic: string, data: unknown) => void;   // broker.publish → ctx.publish (realtime subscription)
+  trace?: { enabled: boolean; maxSpans: number };      // bật waterfall + header x-fluxe-trace (config)
 }
 
 /* Trả true nếu đã xử lý (/__rpc/<op>), false nếu không phải route rpc.
@@ -34,13 +36,33 @@ export async function handleRpc(a: RpcArgs): Promise<boolean> {
     }
   }
   if (op.kind === "subscription") { a.res.writeHead(400); a.res.end("subscription qua /__sse"); return true; }
-  let input = JSON.parse((await a.readBody(a.req)) || "{}");
-  if (op.kind === "mutation") input = validateInput(op.input, input);   // Zod từ chính contract
+
+  // Tracer: dựng cây span pipeline RCA. ctx.span cho resolver thêm span con (DB…). Rẻ → luôn dựng.
+  const tracer = createTracer(a.trace?.maxSpans ?? 64);
+  const t0 = Date.now();
+
+  let input = await tracer.span("parse", async () => JSON.parse((await a.readBody(a.req)) || "{}"));
+  if (op.kind === "mutation") input = await tracer.span("validate", () => validateInput(op.input, input));   // Zod từ contract
   const fn = a.resolvers?.[name];
   if (typeof fn !== "function") throw new FluxeError("no_resolver", `Resolver thiếu cho '${name}'`, 500);
-  const ctx = { publish: a.publish ?? (() => {}) };   // arg 2: ctx.publish → realtime subscription
-  const out = op.kind === "query" ? await fn(ctx) : await fn(input, ctx);
-  a.res.writeHead(200, { "content-type": "application/json" });
+
+  // ctx.publish bọc trong span "publish:<topic>" để hiện trong waterfall.
+  const ctx = {
+    publish: (topic: string, data: unknown) => { void tracer.span("publish:" + topic, () => a.publish?.(topic, data)); },
+    span: tracer.span,
+  };
+  const out = await tracer.span("resolver", () => (op.kind === "query" ? fn(ctx) : fn(input, ctx)));
+
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    "x-fluxe-resolution": "rpc:" + op.kind,
+    "x-fluxe-server-ms": String(Date.now() - t0),
+  };
+  if (a.trace?.enabled !== false) {
+    const enc = encodeTrace(tracer.finish());
+    if (enc) headers["x-fluxe-trace"] = enc;
+  }
+  a.res.writeHead(200, headers);
   a.res.end(JSON.stringify(out));
   return true;
 }

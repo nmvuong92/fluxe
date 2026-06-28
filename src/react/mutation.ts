@@ -16,7 +16,7 @@ export function useMutation<I, O>(label: string, fn: (input: I) => Promise<O>) {
     try {
       const out = await fn(input);
       const m = lastRpcMeta();
-      debug.finish(id, { status: "ok", data: out, input, resolution: m.resolution, serverMs: m.serverMs, ms: m.clientMs });
+      debug.finish(id, { status: "ok", data: out, input, resolution: m.resolution, serverMs: m.serverMs, ms: m.clientMs, trace: m.trace });
       return out;
     } catch (e: any) {
       const m = lastRpcMeta();

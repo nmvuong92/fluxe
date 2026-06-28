@@ -11,6 +11,7 @@ const Schema = z.object({
   port: z.coerce.number().int().positive(),
   renderCache: z.object({ maxKeys: z.coerce.number().int().positive() }),
   i18n: z.object({ defaultLocale: z.string().min(2) }),
+  trace: z.object({ enabled: z.coerce.boolean(), maxSpans: z.coerce.number().int().positive() }),
 });
 
 export type FluxeConfig = z.infer<typeof Schema>;
@@ -23,11 +24,18 @@ export const ENV_KEYS = {
   "PORT (hoặc FLUXE_PORT)": "port",
   "FLUXE_RENDERCACHE_MAX_KEYS": "renderCache.maxKeys",
   "FLUXE_LOCALE_DEFAULT": "i18n.defaultLocale",
+  "FLUXE_TRACE_ENABLED": "trace.enabled",
+  "FLUXE_TRACE_MAX_SPANS": "trace.maxSpans",
 } as const;
 
 const num = (s: Src, k: string, d: number) => {
   const v = s[k];
   return v == null || v === "" ? d : Number(v);
+};
+
+const bool = (s: Src, k: string, d: boolean) => {
+  const v = s[k];
+  return v == null || v === "" ? d : v === "1" || v.toLowerCase() === "true";
 };
 
 function merge(base: FluxeConfig, o: DeepPartial<FluxeConfig>): FluxeConfig {
@@ -36,6 +44,7 @@ function merge(base: FluxeConfig, o: DeepPartial<FluxeConfig>): FluxeConfig {
     ...o,
     renderCache: { ...base.renderCache, ...o.renderCache },
     i18n: { ...base.i18n, ...o.i18n },
+    trace: { ...base.trace, ...o.trace },
   } as FluxeConfig;
 }
 
@@ -48,6 +57,11 @@ export function loadConfig(source: Src = process.env, overrides: DeepPartial<Flu
     port: num(source, "PORT", num(source, "FLUXE_PORT", 5180)),
     renderCache: { maxKeys: num(source, "FLUXE_RENDERCACHE_MAX_KEYS", 256) },
     i18n: { defaultLocale: source.FLUXE_LOCALE_DEFAULT || "en" },
+    // trace: mặc định BẬT ở dev/test, TẮT ở production (không lộ timing nội bộ ra header prod).
+    trace: {
+      enabled: bool(source, "FLUXE_TRACE_ENABLED", (source.NODE_ENV || "development") !== "production"),
+      maxSpans: num(source, "FLUXE_TRACE_MAX_SPANS", 64),
+    },
   } as FluxeConfig;
 
   return Schema.parse(merge(fromEnv, overrides));

@@ -7,6 +7,7 @@ import { makeServer } from "../server_factory.ts";
 import { resolve } from "./resolver.ts";
 import { f } from "./contract.ts";
 import { handleRpc } from "./rpc.ts";
+import { decodeTrace } from "./trace.ts";
 
 const contract = f.contract({
   todos: f.query(f.string.array()),
@@ -97,6 +98,37 @@ test("[rpc] mutation nhận ctx.publish → publish topic subscription", async (
   assert.equal(status, 200);
   assert.equal(JSON.parse(body), "1");
   assert.deepEqual(published, [{ topic: "feed", data: "live:1" }]);
+});
+
+test("[rpc] trace: header x-fluxe-trace có cây span resolver (+ db từ ctx.span)", async () => {
+  const c = f.contract({ get: f.query(f.string) });
+  const r = { get: async (ctx: any) => { await ctx.span("db.read", async () => {}); return "ok"; } };
+  let headers: any = {};
+  const res: any = { writeHead: (_s: number, h: any) => { headers = h ?? {}; }, end: () => {} };
+  await handleRpc({
+    url: new URL("http://x/__rpc/get"), req: { headers: {} } as any, res, cookies: {},
+    resolvers: r, contract: c as any, readBody: async () => "{}",
+    trace: { enabled: true, maxSpans: 64 },
+  });
+  assert.equal(headers["x-fluxe-resolution"], "rpc:query");
+  assert.ok(headers["x-fluxe-trace"]);
+  const root = decodeTrace(headers["x-fluxe-trace"]);
+  const resolver = root!.children.find((s) => s.name === "resolver");
+  assert.ok(resolver, "có span resolver");
+  assert.ok(resolver!.children.some((s) => s.name === "db.read"), "db.read nest dưới resolver");
+});
+
+test("[rpc] trace tắt (enabled:false) → không gửi header x-fluxe-trace", async () => {
+  const c = f.contract({ get: f.query(f.string) });
+  const r = { get: async () => "ok" };
+  let headers: any = {};
+  const res: any = { writeHead: (_s: number, h: any) => { headers = h ?? {}; }, end: () => {} };
+  await handleRpc({
+    url: new URL("http://x/__rpc/get"), req: { headers: {} } as any, res, cookies: {},
+    resolvers: r, contract: c as any, readBody: async () => "{}",
+    trace: { enabled: false, maxSpans: 64 },
+  });
+  assert.equal(headers["x-fluxe-trace"], undefined);
 });
 
 test("[rpc] op subscription qua /__rpc → 400 (đi qua /__sse)", async () => {

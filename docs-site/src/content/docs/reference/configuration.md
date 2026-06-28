@@ -35,6 +35,8 @@ Xem config đã giải: `fx config` (như `artisan config:show`).
 | | `PORT` (hoặc `FLUXE_PORT`) | `port` | `5180` |
 | **Render cache** | `FLUXE_RENDERCACHE_MAX_KEYS` | `renderCache.maxKeys` | `256` |
 | **i18n** | `FLUXE_LOCALE_DEFAULT` | `i18n.defaultLocale` | `en` |
+| **Trace** | `FLUXE_TRACE_ENABLED` | `trace.enabled` | `true` (dev/test) · `false` (prod) |
+| | `FLUXE_TRACE_MAX_SPANS` | `trace.maxSpans` | `64` |
 
 > App-level env riêng của bạn (DB url, mail key…) khai báo ở `app/env.ts` với `loadEnv(zod)` —
 > validate fail-fast lúc boot. Xem [Env](/reference/env/).
@@ -54,6 +56,7 @@ type FluxeConfig = {
   env; port;
   renderCache: { maxKeys };
   i18n: { defaultLocale };
+  trace: { enabled; maxSpans };
 };
 ENV_KEYS   // map biến ENV → field (dùng cho fx config + docs)
 ```
