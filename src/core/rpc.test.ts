@@ -131,6 +131,31 @@ test("[rpc] trace tắt (enabled:false) → không gửi header x-fluxe-trace", 
   assert.equal(headers["x-fluxe-trace"], undefined);
 });
 
+test("[rpc] ctx.session: resolver đọc được session host gắn", async () => {
+  const c = f.contract({ whoami: f.query(f.string) });
+  const r = { whoami: (ctx: any) => "user:" + (ctx.session?.id ?? "none") };
+  let body = "";
+  const res: any = { writeHead: () => {}, end: (b?: string) => { body = b ?? ""; } };
+  await handleRpc({
+    url: new URL("http://x/__rpc/whoami"), req: { headers: {} } as any, res, cookies: {},
+    session: { id: "u1", roles: ["bidder"] }, resolvers: r, contract: c as any, readBody: async () => "{}",
+  });
+  assert.equal(JSON.parse(body), "user:u1");
+});
+
+test("[rpc] f.coerce.number: input string '5' → number 5 (form-friendly)", async () => {
+  const c = f.contract({ buy: f.mutation({ qty: f.coerce.number() }, f.number) });
+  const r = { buy: ({ qty }: { qty: number }) => qty * 2 };
+  let body = "", status = 0;
+  const res: any = { writeHead: (s: number) => { status = s; }, end: (b?: string) => { body = b ?? ""; } };
+  await handleRpc({
+    url: new URL("http://x/__rpc/buy"), req: { headers: {} } as any, res, cookies: {},
+    resolvers: r, contract: c as any, readBody: async () => JSON.stringify({ qty: "5" }),
+  });
+  assert.equal(status, 200);
+  assert.equal(JSON.parse(body), 10);   // "5" coerce → 5, *2 = 10
+});
+
 test("[rpc] op subscription qua /__rpc → 400 (đi qua /__sse)", async () => {
   const c = f.contract({ feed: f.subscription(f.string) });
   let status = 0;

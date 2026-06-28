@@ -22,6 +22,8 @@ export const f = {
   null: z.null(),
   object: <T extends ZodRawShape>(shape: T) => z.object(shape),
   union: <T extends readonly [ZodTypeAny, ZodTypeAny, ...ZodTypeAny[]]>(...opts: T) => z.union(opts as any),
+  /* coerce: form-friendly — input HTML là string, ép về number/int/bool (vd startPrice từ <input number>). */
+  coerce: { number: () => z.coerce.number(), int: () => z.coerce.number().int(), bool: () => z.coerce.boolean() },
   query: <O extends ZodTypeAny>(output: O, opts?: { auth?: OpAuth }) => ({ kind: "query", output, ...opts } as const),
   mutation: <I extends ZodRawShape | ZodTypeAny, O extends ZodTypeAny>(input: I, output: O, opts?: { auth?: OpAuth }) =>
     ({ kind: "mutation", input: (input instanceof z.ZodType ? input : z.object(input as ZodRawShape)) as ZodTypeAny, output, ...opts } as const),
@@ -34,9 +36,11 @@ export const f = {
 /* Suy kiểu TS từ schema Zod — tức thì, không chờ gen. (`infer` là từ khoá TS → dùng `Infer`.) */
 export type Infer<T extends ZodTypeAny> = z.infer<T>;
 
-/* Context tiêm vào resolver (arg 2) — publish vào topic subscription (realtime) + span (trace).
+/* Context tiêm vào resolver (arg 2) — session (host gắn, typed) + publish (realtime) + span (trace).
+ *   ctx.session?.id        → ai đang gọi (sellerId/bidderId…), host-verified
  *   ctx.span("db.query", () => db.find(...))  → span con dưới resolver trong waterfall DevTools. */
-export interface ResolverCtx {
+export interface ResolverCtx<S = unknown> {
+  session: S | null;        // do HOST gắn (req.session); null nếu chưa đăng nhập
   publish: (topic: string, data: unknown) => void;
   span: <T>(name: string, fn: () => T | Promise<T>) => Promise<T>;
 }
@@ -49,13 +53,14 @@ type OpFn<D> = D extends { input: infer I extends ZodTypeAny; output: infer O ex
   : D extends { output: infer O extends ZodTypeAny } ? () => Promise<z.infer<O>>
   : never;
 
-/* Resolver server: mutation nhận (input, ctx); query nhận (ctx?). ctx.publish → realtime. */
-type ResolverFn<D> = D extends { kind: "mutation"; input: infer I extends ZodTypeAny; output: infer O extends ZodTypeAny }
-  ? (input: z.infer<I>, ctx: ResolverCtx) => z.infer<O> | Promise<z.infer<O>>
-  : D extends { kind: "query"; output: infer O extends ZodTypeAny } ? (ctx?: ResolverCtx) => z.infer<O> | Promise<z.infer<O>>
+/* Resolver server: mutation nhận (input, ctx); query nhận (ctx?). ctx = { session, publish, span }. */
+type ResolverFn<D, S> = D extends { kind: "mutation"; input: infer I extends ZodTypeAny; output: infer O extends ZodTypeAny }
+  ? (input: z.infer<I>, ctx: ResolverCtx<S>) => z.infer<O> | Promise<z.infer<O>>
+  : D extends { kind: "query"; output: infer O extends ZodTypeAny } ? (ctx?: ResolverCtx<S>) => z.infer<O> | Promise<z.infer<O>>
   : never;
 
-/* Kiểu resolver backend phải implement — suy từ contract (compile-fail nếu sai chữ ký). Bỏ subscription. */
-export type Resolvers<C extends Contract> = { [K in keyof DataOp<C>]: ResolverFn<DataOp<C>[K]> };
+/* Kiểu resolver backend phải implement — suy từ contract (compile-fail nếu sai chữ ký). Bỏ subscription.
+ * S = kiểu session (createCells<B,S> dùng cùng kiểu) → ctx.session typed trong resolver. */
+export type Resolvers<C extends Contract, S = unknown> = { [K in keyof DataOp<C>]: ResolverFn<DataOp<C>[K], S> };
 /* Kiểu client api (query/mutation, gọi qua /__rpc) — subscription đi qua useSubscription. */
 export type Client<C extends Contract> = { [K in keyof DataOp<C>]: OpFn<DataOp<C>[K]> };

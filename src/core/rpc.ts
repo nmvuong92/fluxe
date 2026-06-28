@@ -46,8 +46,9 @@ export async function handleRpc(a: RpcArgs): Promise<boolean> {
   const fn = a.resolvers?.[name];
   if (typeof fn !== "function") throw new FluxeError("no_resolver", `Resolver thiếu cho '${name}'`, 500);
 
-  // ctx.publish bọc trong span "publish:<topic>" để hiện trong waterfall.
+  // ctx: session (host gắn) + publish (bọc span "publish:<topic>") + span.
   const ctx = {
+    session: a.session ?? null,
     publish: (topic: string, data: unknown) => { void tracer.span("publish:" + topic, () => a.publish?.(topic, data)); },
     span: tracer.span,
   };

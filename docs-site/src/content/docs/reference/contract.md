@@ -54,7 +54,17 @@ export const resolvers: Resolvers<typeof contract> = {
 };
 ```
 
-> Resolver chỉ implement `query`/`mutation` (subscription bị loại khỏi `Resolvers` — nó là topic, không phải req/res). Mutation/query nhận `ctx: { publish, span }` ở arg 2: `publish` bắn realtime, `span(name, fn)` thêm span DB vào waterfall ([DevTools](/reference/devtools/)).
+> Resolver chỉ implement `query`/`mutation` (subscription bị loại khỏi `Resolvers` — nó là topic, không phải req/res). Mutation/query nhận `ctx: { session, publish, span }` ở arg 2: `session` = ai đang gọi (host-verified, typed qua `Resolvers<typeof contract, AppSession>`), `publish` bắn realtime, `span(name, fn)` thêm span DB vào waterfall ([DevTools](/reference/devtools/)).
+
+```ts
+// ctx.session.id = người gọi (không cần truyền userId từ client → an toàn)
+export const resolvers: Resolvers<typeof contract, AppSession> = {
+  createLot: ({ title }, { session }) => db.createLot({ title, sellerId: session!.id }),
+};
+```
+
+`f.coerce.*` cho **form** (input HTML là string): `f.coerce.number()` / `.int()` / `.bool()` ép kiểu khi
+validate — vd `startPrice: f.coerce.number()` nhận `"500"` từ `<input type="number">` → `500`.
 
 Tiêm vào engine (dùng chung server framework đã chọn):
 
