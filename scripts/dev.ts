@@ -19,6 +19,10 @@ watch("app", { recursive: true }, (_e, file) => {
   if (file.endsWith("app.ts") || file.endsWith("views.ts")) return;          // file SINH RA → bỏ qua (tránh loop)
   if (!/contract\.ts$|index\.tsx?$|view\.tsx?$/.test(file)) return;           // chỉ source liên quan
   busy = true;
-  console.log(`[dev] ${file} đổi → sync + codegen`);
-  run(["scripts/sync.ts"]).on("exit", () => setTimeout(() => (busy = false), 300));
+  // index.tsx = entry cell (route/hydration/layout) → ĐỔI MANIFEST → phải `resolve` (sync + manifest),
+  // không chỉ `sync`; nếu không, cell mới SSR được nhưng hydration sai (vd island không ship JS).
+  const cellEntry = /cells\/[^/]+\/index\.tsx?$/.test(file.replace(/\\/g, "/"));
+  console.log(`[dev] ${file} đổi → ${cellEntry ? "resolve (sync + manifest)" : "sync"}`);
+  const done = () => setTimeout(() => (busy = false), 300);
+  run(["scripts/sync.ts"]).on("exit", () => (cellEntry ? run(["scripts/resolve.ts"]).on("exit", done) : done()));
 });

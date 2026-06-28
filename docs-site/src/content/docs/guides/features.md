@@ -105,6 +105,7 @@ const api = createHooks<AppContract>();
 const q = api.todos.useQuery({ initial });                          // cache + dedup + refetch
 const form = api.addTodo.useForm({ invalidates: ["todos"] });       // field typed; lỗi server → field
 const toggle = api.toggleTodo.useMutation({ invalidates: ["todos"], optimistic });
+<DataTable rows={q.data} columns={cols} />                          // view template tái dùng (bảng typed)
 <Link href="/about" preserveScroll>About</Link>                     // SPA nav + scroll restoration
 ```
 → [Data fetching](/reference/data-fetching/) · [Navigation](/reference/navigation/)

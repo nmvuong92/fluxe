@@ -10,6 +10,7 @@ export type { Hooks, QueryResult, QueryOpts, MutationOpts, MutationResult } from
 export type { FormOpts, FormApi, ClientSchema } from "./form";
 export { Link } from "./Link";
 export { Nav, type NavItem } from "./Nav";
+export { DataTable, type Column } from "./DataTable";   // view template tái dùng (bảng từ rows+columns)
 export { useTheme, type Theme } from "./theme";
 export { ThemeToggle } from "./ThemeToggle";
 export { LocaleSwitch } from "./LocaleSwitch";

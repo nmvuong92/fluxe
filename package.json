@@ -56,7 +56,7 @@
     "typecheck": "tsc --noEmit",
     "sync": "tsx scripts/sync.ts",
     "build:client": "npm run sync && esbuild src/client.tsx --bundle --format=esm --outfile=dist/client.js --jsx=automatic --loader:.tsx=tsx",
-    "dev": "npm run build:client && node --experimental-sqlite --import tsx scripts/dev.ts",
+    "dev": "npm run resolve && npm run build:client && node --experimental-sqlite --import tsx scripts/dev.ts",
     "dev:node": "npm run build:client && tsx src/server.tsx",
     "test": "tsx src/selftest2.ts",
     "test:unit": "node --experimental-sqlite --import tsx --test '{src,app}/**/*.test.ts'",
