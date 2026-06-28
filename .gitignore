@@ -16,3 +16,5 @@ docs-site/.astro/
 .DS_Store
 _*.ts
 _*.tsx
+*.db
+bidly-auth.db*
