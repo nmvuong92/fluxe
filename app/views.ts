@@ -8,6 +8,8 @@ import c_lot_detail from "./cells/lot-detail/view";
 import c_lot_new from "./cells/lot-new/view";
 import c_lots from "./cells/lots/view";
 import c_secret from "./cells/secret/view";
+import c_sign_in from "./cells/sign-in/view";
+import c_sign_up from "./cells/sign-up/view";
 import c_slow from "./cells/slow/view";
 import c_todos from "./cells/todos/view";
 
@@ -20,6 +22,8 @@ export const views: Record<string, ComponentType<{ data: any }>> = {
   "lot-new": c_lot_new,
   "lots": c_lots,
   "secret": c_secret,
+  "sign-in": c_sign_in,
+  "sign-up": c_sign_up,
   "slow": c_slow,
   "todos": c_todos,
 };

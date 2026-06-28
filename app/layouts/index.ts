@@ -2,6 +2,7 @@ import { createElement as h, Fragment, type ReactNode } from "react";
 import type { LayoutMeta } from "../../src/core/layouts";
 import { DebugBar, LocaleSwitch } from "../../src/react";
 import { NotifBell } from "../notif-bell";
+import { AuthStatus } from "../auth-status";
 
 interface LayoutEntry extends LayoutMeta {
   component: (props: { children: ReactNode; ctx?: any }) => ReactNode;
@@ -17,6 +18,7 @@ export const layouts: Record<string, LayoutEntry> = {
           h("header", { className: "site-header" },
             "fluxe site",
             h(LocaleSwitch as any, { locales: ["vi", "en"], current: ctx?.locale }),
+            h(AuthStatus as any, null),
             h(NotifBell as any, null)),
           children),
         h(DebugBar as any, null)),

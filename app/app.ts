@@ -9,7 +9,9 @@ import c_lot_detail from "./cells/lot-detail/index";
 import c_lot_new from "./cells/lot-new/index";
 import c_lots from "./cells/lots/index";
 import c_secret from "./cells/secret/index";
+import c_sign_in from "./cells/sign-in/index";
+import c_sign_up from "./cells/sign-up/index";
 import c_slow from "./cells/slow/index";
 import c_todos from "./cells/todos/index";
 
-export const cells: CellDef<any, any, any, any>[] = [c_admin, c_greet, c_hello, c_home, c_lot_detail, c_lot_new, c_lots, c_secret, c_slow, c_todos];
+export const cells: CellDef<any, any, any, any>[] = [c_admin, c_greet, c_hello, c_home, c_lot_detail, c_lot_new, c_lots, c_secret, c_sign_in, c_sign_up, c_slow, c_todos];

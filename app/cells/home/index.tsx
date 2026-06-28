@@ -4,8 +4,8 @@ import { Home } from "./view";
 export default defineCell({
   id: "home",
   route: "/",
-  hydration: "static",   // trang giới thiệu, không cần JS — i18n dịch trong loader (server) vẫn đa ngôn ngữ
-  layout: "site",        // có LocaleSwitch (VI/EN) ở header
+  layout: "site",        // island (mặc định) → header (AuthStatus/NotifBell) hydrate được; i18n vẫn SSR
+
   async loader({ backend, t }) {
     return {
       title: t!("home.title"),
