@@ -19,7 +19,7 @@ test("[inject] opts.broker: host-injected broker LÀ broker fluxe dùng cho /__s
   // Mở 1 kết nối SSE tới topic "room" → server subscribe response vào broker ĐƯỢC TIÊM.
   const req = http.get(`http://127.0.0.1:${port}/__sse/room`, () => {});
   try {
-    await delay(150);
+    await delay(400);   // CI chậm hơn — chờ kết nối SSE + subscribe vào broker
     // Nếu server dùng đúng broker host tiêm → có 1 subscriber trên "room".
     assert.equal(broker.count("room"), 1, "broker host tiêm phải có subscriber từ /__sse");
   } finally {

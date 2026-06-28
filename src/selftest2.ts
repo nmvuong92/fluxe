@@ -10,6 +10,7 @@ import { layouts } from "../app/layouts/index";
 import { backend } from "../app/backend/data";   // data user-owned (DI)
 import { resolvers } from "../app/backend/index";   // contract resolvers (/__rpc)
 import { contract } from "../app/contract";
+import { i18n } from "../app/i18n";   // cell i18n (home dịch title qua t) → cần cho SEO/render
 
 const cells: CellDecl[] = appCells.map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
 
@@ -42,7 +43,7 @@ function check(label: string, cond: boolean) {
 async function run(profileName: string, port: number) {
   const manifest = resolve(cells, profiles[profileName]);
   console.log(`\n══════════ profile=${profileName} (backend=${backend.name}) ══════════`);
-  const srv = makeServer(manifest, appCells, layouts, { backend, resolvers, contract }).listen(port);
+  const srv = makeServer(manifest, appCells, layouts, { backend, resolvers, contract, i18n }).listen(port);
   await new Promise((r) => setTimeout(r, 150));
   try {
     const homePage = await get(port, "/");
