@@ -24,8 +24,11 @@ export const resolvers: Resolvers<typeof contract, AppSession> = {
   // ── Bidly ──
   lots: (ctx) => ctx!.span("db.lots", () => store.listLots()),
   // ctx.session.id = sellerId (host-verified). Op guard {auth:"seller"} đã chặn ở handleRpc.
-  createLot: ({ title, description, startPrice, endsAt }, { session, span }) =>
-    span("db.createLot", () => store.createLot({ title, description, startPrice, endsAt, sellerId: session!.id })),
+  createLot: async ({ title, description, startPrice, endsAt }, { session, span, publish }) => {
+    const lot = await span("db.createLot", () => store.createLot({ title, description, startPrice, endsAt, sellerId: session!.id }));
+    publish("lot:created", lot);   // → job worker (host) nghe & lên lịch đóng phiên đúng giờ (decouple)
+    return lot;
+  },
 
   // Đặt giá: publish giá mới cho phòng `lot:<id>` + báo người vừa bị vượt giá `notif:<id>`.
   placeBid: async ({ lotId, amount }, { session, publish, span }) => {

@@ -19,6 +19,8 @@ import { resolvers } from "./index";     // contract resolvers — phục vụ /
 import { contract } from "../contract";  // khai báo operations (Zod schema sẵn → 0 codegen)
 import { sessionMw } from "../auth";      // bridge session provider → req.session (fluxe đọc)
 import { auth } from "./auth-server";     // better-auth (provider — host sở hữu)
+import { broker } from "./broker";        // broker DÙNG CHUNG (fluxe SSE + job worker)
+import { startJobs } from "./jobs";       // bullmq worker (host-owned queue)
 
 const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
 const app = express();
@@ -34,8 +36,11 @@ app.use(sessionMw);
 // Route/middleware Express tuỳ ý — dùng chung `backend` (service) với cell fluxe:
 app.get("/api/todos", async (_req, res) => res.json(await backend.listTodos()));
 
-// ── fluxe = catch-all: cells/SSR + core concerns cho phần còn lại ─────────────
-app.use(fluxe(manifest, cells, layouts, { i18n, backend, resolvers, contract }));
+// ── JOBS: bullmq worker (host) — đóng phiên đúng giờ + mail; publish realtime qua broker chung ──
+startJobs();
+
+// ── fluxe = catch-all: cells/SSR + core concerns. broker CHUNG để job publish realtime tới SSE ──
+app.use(fluxe(manifest, cells, layouts, { i18n, backend, resolvers, contract, broker }));
 
 app.listen(env.PORT, () =>
   console.log(`fluxe @ http://localhost:${env.PORT} (Express · backend: ${backend.name} · env: ${env.NODE_ENV})`));
