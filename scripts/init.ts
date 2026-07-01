@@ -31,7 +31,7 @@ if (apiOnly) {
       test: "node --experimental-sqlite --import tsx --test 'backend/**/*.test.ts'",
       openapi: "fx openapi",
     },
-    dependencies: { "@nmvuong92/fluxe": "*", zod: "^3", fastify: "^5" },
+    dependencies: { "@nmvuong92/fluxe": "*", zod: "^3", fastify: "^5", graphql: "^16", "graphql-yoga": "^5" },
   }, null, 2) + "\n");
   ensure("tsconfig.json", JSON.stringify({
     compilerOptions: {
@@ -114,16 +114,20 @@ export async function makeApp() {
   ensure("backend/server.ts", `${H}import Fastify from "fastify";
 import { fluxe } from "@nmvuong92/fluxe/fastify";
 import { toOpenApi, swaggerHtml } from "@nmvuong92/fluxe/openapi";
+import { graphqlHandler } from "@nmvuong92/fluxe/graphql";
 import { makeApp } from "./app.ts";
 import { contract } from "./contract.ts";
 import { env } from "./env.ts";
 const { app, store, manifest } = await makeApp();
 const server = Fastify();
+// 1 contract → OpenAPI + Bruno + GraphQL + REST + typed RPC (không trùng lặp).
 server.get("/openapi.json", () => toOpenApi(contract, { title: "${proj}", version: "1.0.0" }));
 server.get("/docs", (_req, reply) => reply.type("text/html").send(swaggerHtml("${proj}", "/openapi.json")));
+const gql = graphqlHandler(contract, app.resolvers);   // /graphql + GraphiQL
+server.route({ method: ["GET", "POST", "OPTIONS"], url: "/graphql", handler: (req, reply) => { reply.hijack(); gql(req.raw, reply.raw, () => { reply.raw.writeHead(404); reply.raw.end(); }); } });
 await server.register(fluxe(manifest, [], {}, { backend: store, contract: app.contract, resolvers: app.resolvers }));
 await server.listen({ port: env.PORT });
-console.log(\`API @ http://localhost:\${env.PORT}  ·  /docs  ·  /openapi.json  ·  REST /v1/todos\`);
+console.log(\`API @ http://localhost:\${env.PORT}  ·  /docs  ·  /graphql  ·  /openapi.json  ·  REST /v1/todos\`);
 `);
   ensure("backend/tests/e2e/todos.e2e.test.ts", `${H}import { test } from "node:test";
 import assert from "node:assert/strict";

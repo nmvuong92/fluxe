@@ -47,6 +47,10 @@
     "./openapi": {
       "types": "./lib/openapi/index.d.ts",
       "default": "./lib/openapi/index.js"
+    },
+    "./graphql": {
+      "types": "./lib/graphql/index.d.ts",
+      "default": "./lib/graphql/index.js"
     }
   },
   "files": [
@@ -83,13 +87,21 @@
     "express": "^4 || ^5",
     "fastify": "^4 || ^5",
     "react": "^18 || ^19",
-    "react-dom": "^18 || ^19"
+    "react-dom": "^18 || ^19",
+    "graphql": "^16",
+    "graphql-yoga": "^5"
   },
   "peerDependenciesMeta": {
     "express": {
       "optional": true
     },
     "fastify": {
+      "optional": true
+    },
+    "graphql": {
+      "optional": true
+    },
+    "graphql-yoga": {
       "optional": true
     }
   },
@@ -107,6 +119,8 @@
     "esbuild": "^0.23",
     "express": "^5.2.1",
     "fastify": "^5.9.0",
+    "graphql": "^16.14.2",
+    "graphql-yoga": "^5.21.2",
     "ioredis": "^5.11.1",
     "react": "^18",
     "react-dom": "^18",
