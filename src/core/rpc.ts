@@ -42,7 +42,7 @@ export async function handleRpc(a: RpcArgs): Promise<boolean> {
   const t0 = Date.now();
 
   let input = await tracer.span("parse", async () => JSON.parse((await a.readBody(a.req)) || "{}"));
-  if (op.kind === "mutation") input = await tracer.span("validate", () => validateInput(op.input, input));   // Zod từ contract
+  if ((op as any).input) input = await tracer.span("validate", () => validateInput((op as any).input, input));   // op có input (mutation | query-có-input)
   const fn = a.resolvers?.[name];
   if (typeof fn !== "function") throw new FluxeError("no_resolver", `Resolver thiếu cho '${name}'`, 500);
 
@@ -52,7 +52,7 @@ export async function handleRpc(a: RpcArgs): Promise<boolean> {
     publish: (topic: string, data: unknown) => { void tracer.span("publish:" + topic, () => a.publish?.(topic, data)); },
     span: tracer.span,
   };
-  const out = await tracer.span("resolver", () => (op.kind === "query" ? fn(ctx) : fn(input, ctx)));
+  const out = await tracer.span("resolver", () => ((op as any).input ? fn(input, ctx) : fn(ctx)));
 
   const headers: Record<string, string> = {
     "content-type": "application/json",

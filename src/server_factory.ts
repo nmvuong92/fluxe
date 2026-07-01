@@ -20,6 +20,7 @@ import { parseCookie } from "./core/cookie.ts";
 import { validateInput } from "./core/validate.ts";
 import { createBroker, type Broker } from "./core/broker.ts";
 import { handleRpc } from "./core/rpc.ts";
+import { handleRest, buildRestRoutes } from "./core/rest.ts";
 import type { Contract } from "./core/contract.ts";
 import { createRecorder } from "./core/observe.ts";
 import { createPresence } from "./core/presence.ts";
@@ -94,6 +95,7 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
   const recorder = createRecorder();   // observability: request log (ring buffer)
   const renderCache = createRenderCache({ maxKeys: config.renderCache.maxKeys });   // FLUXE_RENDERCACHE_MAX_KEYS
   let clientJs: Buffer | undefined;    // ý A: đọc dist/client.js 1 lần (zero-copy: tái dùng buffer)
+  const restRoutes = buildRestRoutes(opts.contract);   // op có `rest` → endpoint REST (build 1 lần)
   return async (req, res) => {
     const url = new URL(req.url!, "http://localhost");
     const start = Date.now();
@@ -108,6 +110,8 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
     try {
     // Contract DSL: POST /__rpc/<op> — validate Zod + CSRF(mutation) → resolver (opts.backend). Lớp THÊM.
     if (await handleRpc({ url, req, res, cookies, session, resolvers: opts.resolvers ?? opts.backend, contract: opts.contract, readBody, publish: broker.publish, trace: config.trace })) return;
+    // REST layer: op có `rest` → GET/POST/PUT/PATCH/DELETE /v1/... (cùng resolver). Lớp THÊM opt-in.
+    if (restRoutes.length && await handleRest({ url, req, res, routes: restRoutes, session, resolvers: opts.resolvers ?? opts.backend, readBody, publish: broker.publish, trace: config.trace, dev: DEV })) return;
     // Đổi ngôn ngữ qua ?locale=xx → set cookie + redirect (chạy cả trên cell static, 0 JS).
     {
       const ql = url.searchParams.get("locale");

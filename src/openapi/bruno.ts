@@ -38,11 +38,15 @@ export function toBruno(contract: Contract, opts: BrunoOpts = {}): Record<string
   for (const [op, d] of Object.entries(contract)) {
     if (d.kind === "subscription") continue;   // SSE, không phải HTTP request
     seq++;
-    const hasBody = d.kind === "mutation";
+    const rest = (d as any).rest as { method: string; path: string } | undefined;
+    const method = (rest?.method ?? "POST").toLowerCase();
+    const path = rest?.path ?? `${prefix}/${op}`;
+    const input = (d as any).input;
+    const hasBody = ["post", "put", "patch"].includes(method) && !!input;
     let bru = `meta {\n  name: ${op}\n  type: http\n  seq: ${seq}\n}\n\n`;
-    bru += `post {\n  url: {{baseUrl}}${prefix}/${op}\n  body: ${hasBody ? "json" : "none"}\n  auth: none\n}\n`;
+    bru += `${method} {\n  url: {{baseUrl}}${path}\n  body: ${hasBody ? "json" : "none"}\n  auth: none\n}\n`;
     if (hasBody) {
-      const body = JSON.stringify(example(schemaToJson(d.input)), null, 2);
+      const body = JSON.stringify(example(schemaToJson(input)), null, 2);
       bru += `\nbody:json {\n${indent(body)}\n}\n`;
     }
     files[`${op}.bru`] = bru;

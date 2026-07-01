@@ -8,6 +8,7 @@ import { toBruno } from "./bruno.ts";
 const contract = f.contract({
   listTodos: f.query(f.object({ id: f.string }).array()),
   addTodo: f.mutation({ title: f.string }, f.object({ id: f.string })),
+  getTodo: f.query(f.object({ id: f.string }), { input: { id: f.string }, rest: { method: "GET", path: "/v1/todos/:id" } }),
   onTodos: f.subscription(f.string.array()),
 });
 
@@ -31,4 +32,10 @@ test("toBruno: query .bru body:none; subscription KHÔNG sinh file", () => {
   const files = toBruno(contract, { name: "X", baseUrl: "http://x" });
   assert.match(files["listTodos.bru"], /body: none/);
   assert.equal(files["onTodos.bru"], undefined);
+});
+
+test("toBruno: op có rest → dùng method + path REST thật", () => {
+  const files = toBruno(contract, { name: "X", baseUrl: "http://x" });
+  assert.match(files["getTodo.bru"], /get \{/);
+  assert.match(files["getTodo.bru"], /url: \{\{baseUrl\}\}\/v1\/todos\/:id/);
 });
