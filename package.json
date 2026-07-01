@@ -1,12 +1,16 @@
 {
   "name": "@nmvuong92/fluxe",
-  "version": "0.21.1",
+  "version": "0.22.0",
   "description": "fluxe — khung fullstack tối giản, một runtime TS (RCA: Resolved Cell Architecture).",
   "license": "Apache-2.0",
   "author": "nmvuong92",
   "type": "module",
-  "workspaces": ["app"],
-  "bin": { "fx": "bin/fx.ts" },
+  "workspaces": [
+    "app"
+  ],
+  "bin": {
+    "fx": "bin/fx.ts"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nmvuong92/fluxe.git"
