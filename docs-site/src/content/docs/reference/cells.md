@@ -40,31 +40,27 @@ interface Ctx<I> {
 ## Typed routes — `ctx.input` SUY TỪ route (0 khai báo)
 
 `[param]` trong `route` tự thành `ctx.input.<param>: string` (template-literal type), `O` suy từ
-loader. Không còn `defineCell<{name}, Data>` tay. Để `ctx.backend` có kiểu, bind backend **một lần**
-qua `createCells<Backend>()` (kiểu tRPC):
+loader. Không còn `defineCell<{name}, Data>` tay. Cell tách **2 file** trong
+`frontend/features/<feature>/`: `<name>.view.tsx` (giao diện) + `<name>.cell.tsx` (route/loader).
+**cell.id === basename** của file `.cell.tsx`.
 
-```ts
-// app/cell.ts (tạo 1 lần — fx init sinh sẵn)
-import { createCells } from "@nmvuong92/fluxe";
-import type { Backend } from "./backend/data";
-export const defineCell = createCells<Backend>();
-```
-
-```ts
-// app/cells/hello/index.tsx
-import { defineCell } from "../../cell";
-import { Hello } from "./view";
+```tsx
+// frontend/features/hello/hello.cell.tsx
+import { defineCell } from "@nmvuong92/fluxe";
+import { Hello } from "./hello.view";
 
 export default defineCell({
   id: "hello",
   route: "/hello/[name]",              // → ctx.input.name: string (tự suy)
-  async loader({ input, backend }) {   // input.name có kiểu; backend có kiểu (từ factory); O suy từ return
-    return { name: input.name, backendName: backend.name };
+  async loader({ input, backend }) {   // input.name có kiểu; O suy từ return
+    return { name: input.name };
   },
   head: (data) => ({ title: `Xin chào ${data.name}` }),
   view: Hello,
 });
 ```
+
+Backend có kiểu qua generic của op/loader; `defineCell` từ package = `B`/`S` mặc định.
 
 Nhiều param: `route: "/u/[id]/post/[slug]"` → `input.id` + `input.slug` đều `string`. Param sai tên =
 **lỗi compile ngay tại dòng** (không chờ runtime).
@@ -97,7 +93,7 @@ actions: {
 ## Layout lồng nhau
 
 `layout: "site"` bọc view bằng layout đó; layout có `parent` → engine lồng inner→outer
-(`layoutChain`, duyệt DFS chuỗi). Khai báo trong `app/layouts/`.
+(`layoutChain`, duyệt DFS chuỗi). Khai báo trong `frontend/layouts/`.
 
 ## Guards
 
