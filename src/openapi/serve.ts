@@ -8,7 +8,7 @@ import { toOpenApi, type OpenApiOpts } from "./openapi.ts";
 
 export interface ServeOpts extends OpenApiOpts { jsonPath?: string; docsPath?: string }
 
-const swaggerHtml = (title: string, jsonPath: string) => `<!doctype html>
+export const swaggerHtml = (title: string, jsonPath: string) => `<!doctype html>
 <html><head><meta charset="utf-8"><title>${title}</title>
 <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css"></head>
 <body><div id="swagger"></div>

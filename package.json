@@ -70,7 +70,7 @@
     "test:unit": "node --experimental-sqlite --import tsx --test '{src,app}/**/*.test.ts'",
     "test:all": "npm run sync && npm run typecheck && npm run test:unit && npm run test",
     "fx": "tsx bin/fx.ts",
-    "build": "rm -rf lib && tsc -p tsconfig.build.json",
+    "build": "rm -rf lib && tsc -p tsconfig.build.json && tsx scripts/fix-dts.ts",
     "prepublishOnly": "npm run build",
     "release": "npm run test:all && npm version patch -m 'release: v%s' && git push --follow-tags",
     "release:minor": "npm run test:all && npm version minor -m 'release: v%s' && git push --follow-tags",

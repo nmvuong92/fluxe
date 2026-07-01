@@ -16,7 +16,7 @@ export function makeCommands(pkg: string): Record<string, Command> {
   const S = (f: string) => `tsx ${pkg}/scripts/${f}`;
   const SYNC = S("sync.ts");   // quét frontend/features/*.cell.tsx → frontend/registry.ts + views.ts
   return {
-    init: { desc: "Scaffold project mới (backend/frontend feature-module) — chỉ tạo file còn thiếu", shell: (a) => `${S("init.ts")} ${a.join(" ")}` },
+    init: { desc: "Scaffold project: fx init <name> [--api] [--driver] [--server] — fullstack hoặc API-only", shell: (a) => `${S("init.ts")} ${a.join(" ")}` },
     new: { desc: "Tạo cell mới: fx new <feature>/<name> [--static]", shell: (a) => `${S("new-cell.ts")} ${a.join(" ")}` },
     sync: { desc: "Auto-discovery: quét frontend/features/* → registry.ts + views.ts", shell: () => SYNC },
     config: { desc: "In config đã giải (default ← ENV FLUXE_* ← override)", shell: () => S("config.ts") },

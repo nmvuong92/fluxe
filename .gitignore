@@ -20,3 +20,6 @@ _*.ts
 _*.tsx
 *.db
 bidly-auth.db*
+
+# generated demo projects (fx init)
+app_api/

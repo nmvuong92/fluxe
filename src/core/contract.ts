@@ -4,8 +4,21 @@
  * `f` = lớp sugar mỏng trên Zod: f.string/object/query/mutation/contract. Composition dùng method
  * Zod (.array()/.optional()/.nullable()). Types qua Infer<>; client = Proxy; server đọc contract lúc
  * chạy. DB ẩn sau resolver. tRPC-style: không file sinh ra, không schema xuống browser. */
-import { z, type ZodTypeAny, type ZodRawShape } from "zod";
+import { z, type ZodTypeAny, type ZodRawShape, type ZodObject } from "zod";
 import type { StandardSchemaV1, InferOutput } from "./standard.ts";
+
+type QueryOpts = { auth?: OpAuth; rest?: RestMeta };
+type ShapeToSchema<I> = I extends ZodRawShape ? ZodObject<I> : I;
+/* query có 2 dạng: không input (đọc thuần) hoặc có input (vd GET /todos/:id). Overload để suy đúng. */
+interface QueryFn {
+  <O extends ZodTypeAny>(output: O, opts?: QueryOpts): { kind: "query"; output: O } & QueryOpts;
+  <O extends ZodTypeAny, I extends ZodRawShape | ZodTypeAny>(output: O, opts: QueryOpts & { input: I }): { kind: "query"; output: O; input: ShapeToSchema<I> } & QueryOpts;
+}
+const queryFn: QueryFn = ((output: any, opts?: any) => {
+  const { input, ...rest } = opts ?? {};
+  const inputSchema = input ? (input instanceof z.ZodType ? input : z.object(input as ZodRawShape)) : undefined;
+  return { kind: "query", output, ...(inputSchema ? { input: inputSchema } : {}), ...rest };
+}) as QueryFn;
 
 /* auth: true = cần đăng nhập; string = cần role đó (kiểm trên ctx.session host gắn). */
 export type OpAuth = true | string;
@@ -30,11 +43,7 @@ export const f = {
   union: <T extends readonly [ZodTypeAny, ZodTypeAny, ...ZodTypeAny[]]>(...opts: T) => z.union(opts as any),
   /* coerce: form-friendly — input HTML là string, ép về number/int/bool (vd startPrice từ <input number>). */
   coerce: { number: () => z.coerce.number(), int: () => z.coerce.number().int(), bool: () => z.coerce.boolean() },
-  query: <O extends ZodTypeAny, I extends ZodRawShape | ZodTypeAny = ZodTypeAny>(output: O, opts?: { auth?: OpAuth; rest?: RestMeta; input?: I }) => {
-    const { input, ...rest } = opts ?? {};
-    const inputSchema = input ? (input instanceof z.ZodType ? input : z.object(input as ZodRawShape)) : undefined;
-    return { kind: "query", output, ...(inputSchema ? { input: inputSchema } : {}), ...rest } as const;
-  },
+  query: queryFn,
   mutation: <I extends ZodRawShape | ZodTypeAny, O extends ZodTypeAny>(input: I, output: O, opts?: { auth?: OpAuth; rest?: RestMeta }) =>
     ({ kind: "mutation", input: (input instanceof z.ZodType ? input : z.object(input as ZodRawShape)) as ZodTypeAny, output, ...opts } as const),
   /* subscription: stream typed qua broker SSE (topic = op name). Mutation publish vào topic này

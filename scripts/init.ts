@@ -12,6 +12,7 @@ const proj = process.argv.slice(2).find((a) => !a.startsWith("--")) ?? "app";   
 const driver = arg("driver", "memory");
 const server = arg("server", "fastify");
 const auth = process.argv.includes("--auth");
+const apiOnly = process.argv.includes("--api");   // API-only (headless REST) vs fullstack (mặc định)
 
 function ensure(rel: string, content: string) {   // rel = đường dẫn trong project → prefix proj/
   const path = join(proj, rel);
@@ -19,6 +20,143 @@ function ensure(rel: string, content: string) {   // rel = đường dẫn trong
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content);
   console.log(`  tạo: ${path}`);
+}
+
+// ══ API-ONLY MODE: backend REST thuần (0 frontend/cell), CRUD resource + OpenAPI/Bruno + /docs ══
+if (apiOnly) {
+  ensure("package.json", JSON.stringify({
+    name: proj, private: true, type: "module",
+    scripts: {
+      dev: "node --experimental-sqlite --import tsx --watch backend/server.ts",
+      test: "node --experimental-sqlite --import tsx --test 'backend/**/*.test.ts'",
+      openapi: "fx openapi",
+    },
+    dependencies: { "@nmvuong92/fluxe": "*", zod: "^3", fastify: "^5" },
+  }, null, 2) + "\n");
+  ensure("tsconfig.json", JSON.stringify({
+    compilerOptions: {
+      target: "ES2022", module: "ESNext", moduleResolution: "Bundler",
+      strict: true, esModuleInterop: true, skipLibCheck: true, noEmit: true,
+      erasableSyntaxOnly: true, allowImportingTsExtensions: true, types: ["node"], lib: ["ES2022"],
+      paths: { "@backend/*": ["./backend/*"] },
+    },
+    include: ["backend/**/*"],
+  }, null, 2) + "\n");
+  ensure("backend/env.ts", `${H}export const env = { PORT: Number(process.env.PORT ?? 5180), NODE_ENV: process.env.NODE_ENV ?? "development" };\n`);
+  ensure("backend/db.ts", `${H}/* Driver MEMORY (CRUD resource). Đổi driver = thay file này, module KHÔNG đổi. */
+export interface Todo { id: string; title: string; done: boolean }
+export interface TodoStore {
+  name: string;
+  list(): Promise<Todo[]>;
+  get(id: string): Promise<Todo | null>;
+  add(title: string): Promise<Todo>;
+  update(id: string, title: string): Promise<Todo | null>;
+  remove(id: string): Promise<boolean>;
+}
+export function makeDb(): TodoStore {
+  const todos = new Map<string, Todo>(); let seq = 0;
+  return {
+    name: "memory",
+    async list() { return [...todos.values()]; },
+    async get(id) { return todos.get(id) ?? null; },
+    async add(title) { const t = { id: String(++seq), title, done: false }; todos.set(t.id, t); return t; },
+    async update(id, title) { const t = todos.get(id); if (!t) return null; t.title = title; return t; },
+    async remove(id) { return todos.delete(id); },
+  };
+}
+`);
+  // module: api/ (contract REST + resolver) + domain/ (service) + entry
+  ensure("backend/modules/todos/api/contract.ts", `${H}import { f } from "@nmvuong92/fluxe";
+const Todo = f.object({ id: f.string, title: f.string, done: f.bool });
+// 1 khai báo → typed /__rpc + REST versioned. Đổi v1→v2 = sửa path.
+export const todosContract = f.contract({
+  listTodos:  f.query(Todo.array(),                              { rest: { method: "GET",    path: "/v1/todos" } }),
+  getTodo:    f.query(Todo.nullable(), { input: { id: f.string }, rest: { method: "GET", path: "/v1/todos/:id" } }),
+  addTodo:    f.mutation({ title: f.string }, Todo,              { rest: { method: "POST",   path: "/v1/todos" } }),
+  updateTodo: f.mutation({ id: f.string, title: f.string }, Todo.nullable(), { rest: { method: "PUT", path: "/v1/todos/:id" } }),
+  removeTodo: f.mutation({ id: f.string }, f.bool,              { rest: { method: "DELETE", path: "/v1/todos/:id" } }),
+});
+`);
+  ensure("backend/modules/todos/domain/service.ts", `${H}import type { TodoStore } from "@backend/db";
+export function makeTodosService(store: TodoStore) {
+  return {
+    list: () => store.list(), get: (id: string) => store.get(id), add: (t: string) => store.add(t.trim()),
+    update: (id: string, t: string) => store.update(id, t), remove: (id: string) => store.remove(id),
+  };
+}
+`);
+  ensure("backend/modules/todos/api/resolver.ts", `${H}import type { Resolvers } from "@nmvuong92/fluxe";
+import type { TodoStore } from "@backend/db";
+import { todosContract } from "./contract.ts";
+import { makeTodosService } from "../domain/service.ts";
+export function makeTodosResolvers(store: TodoStore): Resolvers<typeof todosContract> {
+  const svc = makeTodosService(store);
+  return {
+    listTodos: () => svc.list(),
+    getTodo: ({ id }) => svc.get(id),
+    addTodo: ({ title }) => svc.add(title),
+    updateTodo: ({ id, title }) => svc.update(id, title),
+    removeTodo: ({ id }) => svc.remove(id),
+  };
+}
+`);
+  ensure("backend/modules/todos/todos.module.ts", `${H}import { defineModule } from "@nmvuong92/fluxe";
+import type { TodoStore } from "@backend/db";
+import { todosContract } from "./api/contract.ts";
+import { makeTodosResolvers } from "./api/resolver.ts";
+export default defineModule({
+  name: "todos", contract: todosContract, needs: ["backend"],
+  resolvers: (app) => makeTodosResolvers(app.use<TodoStore>("backend")),
+});
+`);
+  ensure("backend/contract.ts", `${H}import { todosContract } from "./modules/todos/api/contract.ts";
+export const contract = { ...todosContract };
+`);
+  ensure("backend/app.ts", `${H}import { createApp, resolve } from "@nmvuong92/fluxe";
+import { makeDb } from "./db.ts";
+import todos from "./modules/todos/todos.module.ts";
+export async function makeApp() {
+  const store = makeDb();
+  const manifest = resolve([], { name: "api" });   // API-only: 0 cell → manifest rỗng (in-process)
+  const app = await createApp({ manifest, cells: [], plugins: [todos], backend: store });
+  return { app, store, manifest };
+}
+`);
+  ensure("backend/server.ts", `${H}import Fastify from "fastify";
+import { fluxe } from "@nmvuong92/fluxe/fastify";
+import { toOpenApi, swaggerHtml } from "@nmvuong92/fluxe/openapi";
+import { makeApp } from "./app.ts";
+import { contract } from "./contract.ts";
+import { env } from "./env.ts";
+const { app, store, manifest } = await makeApp();
+const server = Fastify();
+server.get("/openapi.json", () => toOpenApi(contract, { title: "${proj}", version: "1.0.0" }));
+server.get("/docs", (_req, reply) => reply.type("text/html").send(swaggerHtml("${proj}", "/openapi.json")));
+await server.register(fluxe(manifest, [], {}, { backend: store, contract: app.contract, resolvers: app.resolvers }));
+await server.listen({ port: env.PORT });
+console.log(\`API @ http://localhost:\${env.PORT}  ·  /docs  ·  /openapi.json  ·  REST /v1/todos\`);
+`);
+  ensure("backend/tests/e2e/todos.e2e.test.ts", `${H}import { test } from "node:test";
+import assert from "node:assert/strict";
+import http from "node:http";
+import { makeApp } from "@backend/app.ts";
+test("[api] CRUD REST /v1/todos (201 create, 200 list/get, 204 delete)", async () => {
+  const { app } = await makeApp();
+  const server = http.createServer(app.handler!);
+  await new Promise<void>((r) => server.listen(0, r));
+  const base = \`http://127.0.0.1:\${(server.address() as any).port}/v1/todos\`;
+  const created = await fetch(base, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "học fluxe" }) });
+  assert.equal(created.status, 201);
+  const todo: any = await created.json();
+  const got: any = await (await fetch(\`\${base}/\${todo.id}\`)).json();
+  assert.equal(got.title, "học fluxe");
+  const del = await fetch(\`\${base}/\${todo.id}\`, { method: "DELETE" });
+  assert.equal(del.status, 204);
+  await new Promise<void>((r) => server.close(() => r()));
+});
+`);
+  console.log(`\n[init] API project "${proj}" xong (REST /v1/todos + /docs + /openapi.json). Chạy: cd ${proj} && npm run dev`);
+  process.exit(0);
 }
 
 // ── monorepo member: package.json + tsconfig ──────────────────────────────────
