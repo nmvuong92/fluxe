@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { writeFileSync, mkdirSync } from "node:fs";
 import { resolve as resolveManifest, type CellDecl } from "../src/core/resolver";
-import { profiles } from "../app/profiles";
-import { cells as appCells } from "../app/app";
+import { profiles } from "../app/frontend/profiles";
+import { cells as appCells } from "../app/frontend/registry";
 
 const name = process.argv[2] ?? process.env.FLUXE_PROFILE ?? "dev";
 const profile = profiles[name];
