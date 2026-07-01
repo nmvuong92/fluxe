@@ -3,10 +3,11 @@
 /* fx sync — auto-discovery cell. Quét "<name>.cell.tsx" trong app/frontend/features/<feature>/ →
  * sinh app/frontend/registry.ts (cells[] + views[]). Codegen tĩnh (không glob runtime). */
 import { writeFileSync } from "node:fs";
-import { scanFeatures, renderRegistry } from "./sync-core.ts";
+import { scanFeatures, renderRegistry, renderViews } from "./sync-core.ts";
 
 const ROOT = "app/frontend";
 const entries = scanFeatures(ROOT);
-writeFileSync(`${ROOT}/registry.ts`, renderRegistry(entries));
+writeFileSync(`${ROOT}/registry.ts`, renderRegistry(entries));   // cells (server)
+writeFileSync(`${ROOT}/views.ts`, renderViews(entries));         // views (client)
 const missing = entries.filter((e) => !e.hasView).map((e) => e.id);
-console.log(`[sync] ${entries.length} cell → app/frontend/registry.ts${missing.length ? ` ⚠ thiếu view: ${missing.join(", ")}` : ""}`);
+console.log(`[sync] ${entries.length} cell → registry.ts + views.ts${missing.length ? ` ⚠ thiếu view: ${missing.join(", ")}` : ""}`);

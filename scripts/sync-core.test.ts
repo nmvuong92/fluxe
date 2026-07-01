@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { scanFeatures, renderRegistry } from "./sync-core.ts";
+import { scanFeatures, renderRegistry, renderViews } from "./sync-core.ts";
 
 function fixture(): string {
   const root = mkdtempSync(join(tmpdir(), "fx-"));
@@ -24,10 +24,16 @@ test("scanFeatures tìm cell theo *.cell.tsx + view kèm", () => {
   assert.equal(entries[0].hasView, true);
 });
 
-test("renderRegistry sinh import + cells[] + views map", () => {
+test("renderRegistry = CHỈ cells (không kéo view → tách server/client)", () => {
   const out = renderRegistry(scanFeatures(fixture()));
   assert.match(out, /import homeCell from ".\/features\/home\/home.cell"/);
-  assert.match(out, /import homeView from ".\/features\/home\/home.view"/);
   assert.match(out, /export const cells.*= \[homeCell\]/);
+  assert.doesNotMatch(out, /home.view/);   // KHÔNG import view (tránh kéo server code vào client)
+});
+
+test("renderViews = CHỈ views (client bundle import file này)", () => {
+  const out = renderViews(scanFeatures(fixture()));
+  assert.match(out, /import homeView from ".\/features\/home\/home.view"/);
   assert.match(out, /"home": homeView/);
+  assert.doesNotMatch(out, /home.cell/);   // KHÔNG import cell (server code)
 });

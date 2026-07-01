@@ -4,7 +4,7 @@ import { createElement as h, useState, useEffect } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { layoutChain } from "./core/layouts";
 import { layouts } from "../app/frontend/layouts/index";
-import { views } from "../app/frontend/registry";          // CHỈ view (không loader/actions/backend → không lọt xuống client)
+import { views } from "../app/frontend/views";          // CHỈ view (không loader/actions/backend → không lọt xuống client)
 import { initNav } from "./react/nav-client";
 
 // Render view của cell + bọc layout (layout id do SERVER gửi kèm payload — client không cần biết cell config).

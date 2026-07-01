@@ -23,19 +23,28 @@ export function scanFeatures(root: string): CellEntry[] {
   return entries.sort((a, b) => a.id.localeCompare(b.id));
 }
 
+/* registry.ts — CHỈ cells (server: route/loader/actions). resolve.ts + app.ts import file này. */
 export function renderRegistry(entries: CellEntry[]): string {
-  const cellImports = entries.map((e) => `import ${ident(e.id)}Cell from "./features/${e.feature}/${e.id}.cell";`).join("\n");
-  const viewImports = entries.filter((e) => e.hasView).map((e) => `import ${ident(e.id)}View from "./features/${e.feature}/${e.id}.view";`).join("\n");
-  const cellsArr = entries.map((e) => `${ident(e.id)}Cell`).join(", ");
-  const viewsMap = entries.filter((e) => e.hasView).map((e) => `  ${JSON.stringify(e.id)}: ${ident(e.id)}View,`).join("\n");
+  const imports = entries.map((e) => `import ${ident(e.id)}Cell from "./features/${e.feature}/${e.id}.cell";`).join("\n");
+  const arr = entries.map((e) => `${ident(e.id)}Cell`).join(", ");
   return `// AUTO-GENERATED bởi fx sync — đừng sửa tay.
 import type { CellDef } from "@nmvuong92/fluxe";
-${cellImports}
-${viewImports}
+${imports}
 
-export const cells: CellDef<any, any, any, any>[] = [${cellsArr}];
+export const cells: CellDef<any, any, any, any>[] = [${arr}];
+`;
+}
+
+/* views.ts — CHỈ views (client bundle import file này → loader/actions/backend KHÔNG lọt browser). */
+export function renderViews(entries: CellEntry[]): string {
+  const withView = entries.filter((e) => e.hasView);
+  const imports = withView.map((e) => `import ${ident(e.id)}View from "./features/${e.feature}/${e.id}.view";`).join("\n");
+  const map = withView.map((e) => `  ${JSON.stringify(e.id)}: ${ident(e.id)}View,`).join("\n");
+  return `// AUTO-GENERATED bởi fx sync — đừng sửa tay.
+${imports}
+
 export const views: Record<string, any> = {
-${viewsMap}
+${map}
 };
 `;
 }

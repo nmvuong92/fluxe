@@ -7,6 +7,8 @@ lib/
 dist/
 .fluxe/
 *.tsbuildinfo
+app/frontend/registry.ts   # sinh bởi fx sync (cells)
+app/frontend/views.ts      # sinh bởi fx sync (views)
 docs-site/dist/
 docs-site/.astro/
 

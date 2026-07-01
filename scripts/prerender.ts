@@ -7,13 +7,13 @@ import { renderToString } from "react-dom/server";
 import { createElement as h } from "react";
 import { resolve, type CellDecl } from "../src/core/resolver";
 import { renderHead } from "../src/core/seo";
-import { profiles } from "../app/profiles";
-import { backend } from "../app/backend/data";   // data user-owned (DI)
-import home from "../app/cells/home/index";
-import todos from "../app/cells/todos/index";
-import hello from "../app/cells/hello/index";
+import { profiles } from "../app/frontend/profiles";
+import { cells as allCells } from "../app/frontend/registry";
+import { makeDb } from "../app/backend/db";
 
-const allCells = [home, todos, hello];
+const backend = makeDb();
+const t = (key: string, vars?: Record<string, string>) =>
+  key.replace(/\{(\w+)\}/g, (_, k) => vars?.[k] ?? "");   // stub i18n cho prerender static
 const profileName = process.argv[2] ?? process.env.FLUXE_PROFILE ?? "dev";
 const decls: CellDecl[] = allCells.map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
 const manifest = resolve(decls, profiles[profileName]);
@@ -23,7 +23,7 @@ for (const cell of allCells) {
   const r = manifest.cells[cell.id];
   if (r.render.mode !== "static") continue;   // chỉ prerender static
   if (cell.route.includes("[")) continue;      // bỏ route động (cần param runtime)
-  const data = await cell.loader({ input: {}, backend });
+  const data = await cell.loader({ input: {}, backend, t } as any);
   const body = renderToString(h(cell.view, { data }));
   const headHtml = renderHead(cell.head ? cell.head(data) : {});
   out[cell.route] =
