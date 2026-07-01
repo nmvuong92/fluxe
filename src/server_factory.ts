@@ -78,7 +78,7 @@ export interface MakeServerOpts { i18n?: I18n; config?: FluxeConfig; backend?: u
 export type NodeHandler = (req: http.IncomingMessage, res: http.ServerResponse) => Promise<unknown>;
 
 /* createHandler — lõi request framework-agnostic: trả về handler Node (req,res).
- * Dùng trực tiếp cho adapter Express/Hono/Nest; makeServer chỉ bọc bằng http.createServer. */
+ * Dùng trực tiếp cho adapter Express/Fastify; makeServer chỉ bọc bằng http.createServer. */
 export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, any, any, any>[], layouts: LayoutMap = {}, opts: MakeServerOpts = {}): NodeHandler {
   const i18n = opts.i18n;
   const config = opts.config ?? loadConfig();   // default ← ENV (FLUXE_*) ← override

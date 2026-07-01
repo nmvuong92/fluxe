@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /* Auth INTEGRATION (RCA-native) — fluxe KHÔNG tự làm auth. Bạn dùng provider (better-auth/lucia/
  * passport); fluxe bridge session của họ vào ctx.session + guard route. node middleware (req,res,next):
- * Express/Nest dùng thẳng; Hono qua adapter. Mount TRƯỚC fluxe. */
+ * Express/Fastify dùng thẳng (node middleware). Mount TRƯỚC fluxe. */
 import type http from "node:http";
 import { FluxeError } from "../core/errors.ts";
 

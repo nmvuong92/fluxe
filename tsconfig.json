@@ -11,7 +11,6 @@
     "allowImportingTsExtensions": true,
     "types": ["node"],
     "lib": ["ES2022", "DOM"],
-    "baseUrl": ".",
     "paths": {
       "@nmvuong92/fluxe": ["./src/index.ts"],
       "@nmvuong92/fluxe/react": ["./src/react/index.ts"],
@@ -19,8 +18,7 @@
       "@nmvuong92/fluxe/jobs": ["./src/core/jobs.ts"],
       "@nmvuong92/fluxe/auth": ["./src/auth/index.ts"],
       "@nmvuong92/fluxe/express": ["./src/adapters/express.ts"],
-      "@nmvuong92/fluxe/hono": ["./src/adapters/hono.ts"],
-      "@nmvuong92/fluxe/nest": ["./src/adapters/nest.ts"]
+      "@nmvuong92/fluxe/fastify": ["./src/adapters/fastify.ts"]
     }
   },
   "include": ["src/**/*", "app/**/*"],
