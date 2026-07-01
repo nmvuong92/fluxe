@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import { definePlugin } from "./plugin.ts";
+import { definePlugin, defineModule } from "./plugin.ts";
 import { createApp } from "./app.ts";
 import { f } from "./contract.ts";
 
@@ -91,6 +91,22 @@ test("app[Symbol.asyncDispose] = dispose (hỗ trợ `await using`)", async () =
   const app = await createApp({ plugins: [p] });
   await app[Symbol.asyncDispose]();
   assert.equal(disposed, true);
+});
+
+test("defineModule: resolvers factory nhận backend qua DI (không thread tay)", async () => {
+  const mod = defineModule({
+    name: "todos",
+    contract: { list: { kind: "query" } as any },
+    needs: ["backend"],
+    resolvers: (ctx) => ({ list: () => (ctx.use("backend") as any).seed }),   // backend từ DI
+  });
+  const app = await createApp({ plugins: [mod], backend: { seed: 42 } });
+  assert.equal(app.resolvers.list(), 42);
+});
+
+test("createApp auto-provide capability 'backend' từ opts.backend (ambient, không cần plugin provide)", async () => {
+  const mod = defineModule({ name: "m", needs: ["backend"], boot: () => {} });
+  await assert.doesNotReject(createApp({ plugins: [mod], backend: {} }));   // needs backend không ném dù 0 plugin provide
 });
 
 test("createApp gộp commands từ nhiều plugin", async () => {

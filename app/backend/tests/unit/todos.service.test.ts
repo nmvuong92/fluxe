@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeDb } from "@backend/db";
-import { makeTodosService } from "@backend/modules/todos/todos.service.ts";
+import { makeTodosService } from "@backend/modules/todos/domain/service.ts";
 test("service.add trim title", async () => {
   const svc = makeTodosService(makeDb());
   await svc.add("  x  ");

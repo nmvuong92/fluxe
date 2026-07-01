@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Resolvers } from "@nmvuong92/fluxe";
 import type { TodoStore } from "@backend/db";
-import { todosContract } from "./todos.contract.ts";
-import { makeTodosService } from "./todos.service.ts";
+import { todosContract } from "./contract.ts";
+import { makeTodosService } from "../domain/service.ts";
 export function makeTodosResolvers(store: TodoStore): Resolvers<typeof todosContract> {
   const svc = makeTodosService(store);
   return {

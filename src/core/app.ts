@@ -26,18 +26,20 @@ export interface App {
 
 /* Sắp plugin theo phụ thuộc capability (provider trước consumer) — Kahn's topological sort.
  * Edge: consumer --needs--> provider. Trả thứ tự boot an toàn. */
-function topoSort(plugins: Plugin[]): Plugin[] {
+function topoSort(plugins: Plugin[], ambient: Set<string>): Plugin[] {
   const providerOf = new Map<string, string>();   // capability → plugin.name
   for (const p of plugins)
     for (const cap of p.provides ?? []) providerOf.set(cap, p.name);
 
-  const byName = new Map(plugins.map((p) => [p.name, p]));
   const deps = new Map<string, Set<string>>();    // plugin.name → tập plugin.name phụ thuộc
   for (const p of plugins) {
     const set = new Set<string>();
     for (const cap of p.needs ?? []) {
       const owner = providerOf.get(cap);
-      if (!owner) throw new Error(`[app] plugin ${p.name} cần capability "${cap}" nhưng không plugin nào provide`);
+      if (!owner) {
+        if (ambient.has(cap)) continue;   // core cung cấp (vd backend) → không cần plugin provide
+        throw new Error(`[app] plugin ${p.name} cần capability "${cap}" nhưng không plugin nào provide`);
+      }
       if (owner !== p.name) set.add(owner);
     }
     deps.set(p.name, set);
@@ -85,15 +87,23 @@ export async function createApp(opts: CreateAppOpts = {}): Promise<App> {
 
   // Capability DI: boot plugin theo thứ tự topo (provider trước consumer).
   const registry = new Map<string, unknown>();
+  const ambient = new Set<string>();               // capability core cung cấp sẵn (không cần plugin)
+  if (opts.backend !== undefined) { registry.set("backend", opts.backend); ambient.add("backend"); }
   const ctx: AppContext = {
     provide(cap, impl) { registry.set(cap, impl); },
     use(cap) {
       if (!registry.has(cap)) throw new Error(`[app] capability "${cap}" chưa được provide`);
       return registry.get(cap) as any;
     },
+    addResolvers(r) {
+      for (const [op, fn] of Object.entries(r)) {
+        if (op in resolvers) throw new Error(`[app] trùng resolver "${op}"`);
+        resolvers[op] = fn;
+      }
+    },
   };
   const disposers: Array<() => void | Promise<void>> = [];   // theo thứ tự boot (topo)
-  for (const p of topoSort(plugins)) {
+  for (const p of topoSort(plugins, ambient)) {
     const d = await p.boot?.(ctx);
     if (typeof d === "function") disposers.push(d);
   }

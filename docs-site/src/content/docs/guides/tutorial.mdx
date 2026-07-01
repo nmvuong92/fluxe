@@ -89,12 +89,13 @@ export default defineCell({
 
 `fx new` tự chạy `sync` → cell đăng ký ngay. Mở `http://localhost:5180/post`.
 
-## 3. Thêm một backend module (contract + resolver)
+## 3. Thêm một backend module (api/ + domain/ + entry)
 
-Mỗi feature backend = **một local plugin** gói contract + resolvers.
+Module = folder có **entry `<x>.module.ts`** + **`api/`** (biên ngoài) + **`domain/`** (nghiệp vụ).
+Đọc api→domain = pipeline request.
 
 ```ts
-// backend/modules/todos/todos.contract.ts — nguồn sự thật (Zod, 0 codegen)
+// backend/modules/todos/api/contract.ts — nguồn sự thật (Zod, 0 codegen)
 import { f } from "@nmvuong92/fluxe";
 const Todo = f.object({ id: f.string, title: f.string, done: f.bool });
 export const todosContract = f.contract({
@@ -105,11 +106,19 @@ export const todosContract = f.contract({
 ```
 
 ```ts
-// backend/modules/todos/todos.resolvers.ts — plain function, ctx tường minh (0 decorator/DI magic)
+// backend/modules/todos/domain/service.ts — nghiệp vụ thuần
+import type { TodoStore } from "@backend/db";
+export function makeTodosService(store: TodoStore) {
+  return { list: () => store.list(), add: (title: string) => store.add(title.trim()) };
+}
+```
+
+```ts
+// backend/modules/todos/api/resolver.ts — plain function, ctx tường minh (0 decorator/DI magic)
 import type { Resolvers } from "@nmvuong92/fluxe";
 import type { TodoStore } from "@backend/db";
-import { todosContract } from "./todos.contract.ts";
-import { makeTodosService } from "./todos.service.ts";
+import { todosContract } from "./contract.ts";
+import { makeTodosService } from "../domain/service.ts";
 export function makeTodosResolvers(store: TodoStore): Resolvers<typeof todosContract> {
   const svc = makeTodosService(store);
   return {
@@ -120,21 +129,26 @@ export function makeTodosResolvers(store: TodoStore): Resolvers<typeof todosCont
 ```
 
 ```ts
-// backend/modules/todos/todos.plugin.ts — definePlugin gói lại
-import { definePlugin } from "@nmvuong92/fluxe";
-import { todosContract } from "./todos.contract.ts";
-import { makeTodosResolvers } from "./todos.resolvers.ts";
-export function todosPlugin(store) {
-  return definePlugin({ name: "@app/todos", contract: todosContract, resolvers: makeTodosResolvers(store) });
-}
+// backend/modules/todos/todos.module.ts — ENTRY: core tự wire, resolvers nhận backend qua DI
+import { defineModule } from "@nmvuong92/fluxe";
+import type { TodoStore } from "@backend/db";
+import { todosContract } from "./api/contract.ts";
+import { makeTodosResolvers } from "./api/resolver.ts";
+export default defineModule({
+  name: "todos",
+  contract: todosContract,
+  needs: ["backend"],                                   // core auto-provide "backend" từ createApp
+  resolvers: (app) => makeTodosResolvers(app.use<TodoStore>("backend")),   // KHÔNG thread store tay
+});
 ```
 
-Ghép trong `backend/app.ts` — scale = thêm module vào `plugins`:
+Ghép trong `backend/app.ts` — scale = thêm module vào `plugins` (module là value tĩnh):
 
 ```ts
+import todos from "./modules/todos/todos.module.ts";
 export async function makeApp() {
   const store = makeDb();
-  return createApp({ manifest, cells, layouts, i18n, plugins: [todosPlugin(store)], backend: store });
+  return createApp({ manifest, cells, layouts, i18n, plugins: [todos], backend: store });
 }
 ```
 

@@ -113,8 +113,8 @@ ensure("backend/env.ts", `${H}export const env = {
 };
 `);
 
-// ── backend: module todos ────────────────────────────────────────────────────
-ensure("backend/modules/todos/todos.contract.ts", `${H}import { f } from "@nmvuong92/fluxe";
+// ── backend: module todos (api/ biên ngoài + domain/ nghiệp vụ; entry = defineModule) ─────────
+ensure("backend/modules/todos/api/contract.ts", `${H}import { f } from "@nmvuong92/fluxe";
 const Todo = f.object({ id: f.string, title: f.string, done: f.bool });
 export const todosContract = f.contract({
   listTodos: f.query(Todo.array()),
@@ -123,15 +123,16 @@ export const todosContract = f.contract({
   onTodos: f.subscription(Todo.array()),
 });
 `);
-ensure("backend/modules/todos/todos.service.ts", `${H}import type { TodoStore } from "@backend/db";
+ensure("backend/modules/todos/domain/service.ts", `${H}import type { TodoStore } from "@backend/db";
+// Nghiệp vụ thuần trên store (không biết driver memory/sqlite/postgres).
 export function makeTodosService(store: TodoStore) {
   return { list: () => store.list(), add: (title: string) => store.add(title.trim()), toggle: (id: string) => store.toggle(id) };
 }
 `);
-ensure("backend/modules/todos/todos.resolvers.ts", `${H}import type { Resolvers } from "@nmvuong92/fluxe";
+ensure("backend/modules/todos/api/resolver.ts", `${H}import type { Resolvers } from "@nmvuong92/fluxe";
 import type { TodoStore } from "@backend/db";
-import { todosContract } from "./todos.contract.ts";
-import { makeTodosService } from "./todos.service.ts";
+import { todosContract } from "./contract.ts";
+import { makeTodosService } from "../domain/service.ts";
 export function makeTodosResolvers(store: TodoStore): Resolvers<typeof todosContract> {
   const svc = makeTodosService(store);
   return {
@@ -141,17 +142,22 @@ export function makeTodosResolvers(store: TodoStore): Resolvers<typeof todosCont
   };
 }
 `);
-ensure("backend/modules/todos/todos.plugin.ts", `${H}import { definePlugin } from "@nmvuong92/fluxe";
+ensure("backend/modules/todos/todos.module.ts", `${H}import { defineModule } from "@nmvuong92/fluxe";
 import type { TodoStore } from "@backend/db";
-import { todosContract } from "./todos.contract.ts";
-import { makeTodosResolvers } from "./todos.resolvers.ts";
-export function todosPlugin(store: TodoStore) {
-  return definePlugin({ name: "@app/todos", contract: todosContract, resolvers: makeTodosResolvers(store) });
-}
+import { todosContract } from "./api/contract.ts";
+import { makeTodosResolvers } from "./api/resolver.ts";
+
+// ENTRY: mở file này hiểu cả module. Core tự wire — resolvers nhận backend qua DI (needs "backend").
+export default defineModule({
+  name: "todos",
+  contract: todosContract,
+  needs: ["backend"],
+  resolvers: (app) => makeTodosResolvers(app.use<TodoStore>("backend")),
+});
 `);
 
 // ── backend: contract tổng hợp + app + server ─────────────────────────────────
-ensure("backend/contract.ts", `${H}import { todosContract } from "./modules/todos/todos.contract.ts";
+ensure("backend/contract.ts", `${H}import { todosContract } from "./modules/todos/api/contract.ts";
 // Static spread → createHooks<typeof contract>() suy type ở frontend. Thêm module = spread thêm.
 export const contract = { ...todosContract };
 `);
@@ -161,11 +167,12 @@ import { i18n } from "@frontend/i18n";
 import { cells } from "@frontend/registry";
 import { layouts } from "@frontend/layouts/index";
 import { makeDb } from "./db.ts";
-import { todosPlugin } from "./modules/todos/todos.plugin.ts";
+import todos from "./modules/todos/todos.module.ts";   // thêm module = import + thêm vào plugins
 export async function makeApp() {
   const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
   const store = makeDb();
-  const app = await createApp({ manifest, cells, layouts, i18n, plugins: [todosPlugin(store)], backend: store });
+  // backend auto-provide capability "backend" → module.needs ["backend"] tự nhận (không thread tay).
+  const app = await createApp({ manifest, cells, layouts, i18n, plugins: [todos], backend: store });
   return { app, store, manifest };
 }
 `);
@@ -316,12 +323,12 @@ import { layouts } from "@frontend/layouts/index";
 import { i18n } from "@frontend/i18n";
 import { profiles } from "@frontend/profiles";
 import { makeDb } from "@backend/db";
-import { todosPlugin } from "@backend/modules/todos/todos.plugin.ts";
+import todos from "@backend/modules/todos/todos.module.ts";
 export async function startTestServer() {
   const store = makeDb();
   const decls = cells.map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
   const manifest = resolve(decls, profiles.dev);
-  const app = await createApp({ manifest, cells, layouts, i18n, plugins: [todosPlugin(store)], backend: store });
+  const app = await createApp({ manifest, cells, layouts, i18n, plugins: [todos], backend: store });
   const server = http.createServer(app.handler!);
   await new Promise<void>((r) => server.listen(0, r));
   const port = (server.address() as any).port;
@@ -331,7 +338,7 @@ export async function startTestServer() {
 ensure("backend/tests/unit/todos.service.test.ts", `${H}import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeDb } from "@backend/db";
-import { makeTodosService } from "@backend/modules/todos/todos.service.ts";
+import { makeTodosService } from "@backend/modules/todos/domain/service.ts";
 test("service.add trim title", async () => {
   const svc = makeTodosService(makeDb());
   await svc.add("  x  ");

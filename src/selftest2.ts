@@ -11,7 +11,7 @@ import { layouts } from "../app/frontend/layouts/index";
 import { i18n } from "../app/frontend/i18n";
 import { contract } from "../app/backend/contract";
 import { makeDb } from "../app/backend/db";
-import { makeTodosResolvers } from "../app/backend/modules/todos/todos.resolvers";
+import { makeTodosResolvers } from "../app/backend/modules/todos/api/resolver";
 
 const decls: CellDecl[] = appCells.map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
 

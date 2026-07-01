@@ -7,12 +7,12 @@ import { layouts } from "@frontend/layouts/index";
 import { i18n } from "@frontend/i18n";
 import { profiles } from "@frontend/profiles";
 import { makeDb } from "@backend/db";
-import { todosPlugin } from "@backend/modules/todos/todos.plugin.ts";
+import todos from "@backend/modules/todos/todos.module.ts";
 export async function startTestServer() {
   const store = makeDb();
   const decls = cells.map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
   const manifest = resolve(decls, profiles.dev);
-  const app = await createApp({ manifest, cells, layouts, i18n, plugins: [todosPlugin(store)], backend: store });
+  const app = await createApp({ manifest, cells, layouts, i18n, plugins: [todos], backend: store });
   const server = http.createServer(app.handler!);
   await new Promise<void>((r) => server.listen(0, r));
   const port = (server.address() as any).port;
