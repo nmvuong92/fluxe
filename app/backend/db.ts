@@ -1,7 +1,6 @@
 // Copyright (c) 2026 nmvuong92
 // SPDX-License-Identifier: Apache-2.0
-/* Tầng data starter — driver MEMORY (0-dep, dev). Đổi sang sqlite/postgres = thay file này,
- * module không đổi (interface TodoStore giữ nguyên). fx init sinh driver theo lựa chọn. */
+/* Driver MEMORY (0-dep, dev). Đổi driver = thay file này, module KHÔNG đổi. */
 export interface Todo { id: string; title: string; done: boolean }
 export interface TodoStore {
   name: string;
@@ -9,10 +8,8 @@ export interface TodoStore {
   add(title: string): Promise<Todo>;
   toggle(id: string): Promise<Todo | null>;
 }
-
 export function makeDb(): TodoStore {
-  const todos: Todo[] = [];
-  let seq = 0;
+  const todos: Todo[] = []; let seq = 0;
   return {
     name: "memory",
     async list() { return todos.slice(); },

@@ -20,7 +20,6 @@
     "src/**/*.test.ts",
     "src/adapters/fixture.ts",
     "src/selftest2.ts",
-    "src/server.tsx",
-    "src/client.tsx"
+    "src/server.tsx"
   ]
 }

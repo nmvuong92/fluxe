@@ -1,0 +1,19 @@
+{
+  "name": "app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "fx dev",
+    "sync": "fx sync",
+    "resolve": "fx resolve",
+    "build": "fx build",
+    "test": "fx test"
+  },
+  "dependencies": {
+    "@nmvuong92/fluxe": "*",
+    "react": "^18",
+    "react-dom": "^18",
+    "zod": "^3",
+    "fastify": "^5"
+  }
+}

@@ -1,21 +1,47 @@
 // Copyright (c) 2026 nmvuong92
 // SPDX-License-Identifier: Apache-2.0
-/* fx init — scaffold app/ feature-module: app/backend (module=plugin) + app/frontend (feature).
+/* fx init [<name>] — scaffold project workspace member: <name>/backend (module=plugin) +
+ * <name>/frontend (feature) + package.json/tsconfig riêng. Mặc định name=app.
  * Cờ: --driver=memory|sqlite|postgres · --server=express|fastify · --auth. Không ghi đè file đã có. */
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 
 const H = "// Copyright (c) 2026 nmvuong92\n// SPDX-License-Identifier: Apache-2.0\n";
-function ensure(path: string, content: string) {
+const arg = (k: string, def: string) => (process.argv.find((a) => a.startsWith(`--${k}=`))?.split("=")[1]) ?? def;
+const proj = process.argv.slice(2).find((a) => !a.startsWith("--")) ?? "app";   // tên project (thư mục)
+const driver = arg("driver", "memory");
+const server = arg("server", "fastify");
+const auth = process.argv.includes("--auth");
+
+function ensure(rel: string, content: string) {   // rel = đường dẫn trong project → prefix proj/
+  const path = join(proj, rel);
   if (existsSync(path)) { console.log(`  bỏ qua (đã có): ${path}`); return; }
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content);
   console.log(`  tạo: ${path}`);
 }
-const arg = (k: string, def: string) => (process.argv.find((a) => a.startsWith(`--${k}=`))?.split("=")[1]) ?? def;
-const driver = arg("driver", "memory");
-const server = arg("server", "fastify");
-const auth = process.argv.includes("--auth");
+
+// ── monorepo member: package.json + tsconfig ──────────────────────────────────
+ensure("package.json", JSON.stringify({
+  name: proj, private: true, type: "module",
+  scripts: { dev: "fx dev", sync: "fx sync", resolve: "fx resolve", build: "fx build", test: "fx test" },
+  dependencies: { "@nmvuong92/fluxe": "*", react: "^18", "react-dom": "^18", zod: "^3", ...(server === "fastify" ? { fastify: "^5" } : { express: "^5" }) },
+}, null, 2) + "\n");
+ensure("tsconfig.json", JSON.stringify({
+  compilerOptions: {
+    target: "ES2022", module: "ESNext", moduleResolution: "Bundler", jsx: "react-jsx",
+    strict: true, esModuleInterop: true, skipLibCheck: true, noEmit: true,
+    allowImportingTsExtensions: true, types: ["node"], lib: ["ES2022", "DOM"],
+    paths: { "@backend/*": ["./backend/*"], "@frontend/*": ["./frontend/*"] },
+  },
+  include: ["backend/**/*", "frontend/**/*"],
+}, null, 2) + "\n");
+ensure("frontend/client.tsx", `${H}/* Client entry (project-owned) — bundle bởi \`fx build\`. Chỉ import view. */
+import { hydrate } from "@nmvuong92/fluxe/react";
+import { views } from "./views";
+import { layouts } from "./layouts/index";
+hydrate(views, layouts);
+`);
 
 // ── backend: db driver ──────────────────────────────────────────────────────
 const DRIVERS: Record<string, string> = {
@@ -79,16 +105,16 @@ export function makeDb(url = process.env.DATABASE_URL): TodoStore {
 }
 `,
 };
-ensure("app/backend/db.ts", DRIVERS[driver] ?? DRIVERS.memory);
+ensure("backend/db.ts", DRIVERS[driver] ?? DRIVERS.memory);
 
-ensure("app/backend/env.ts", `${H}export const env = {
+ensure("backend/env.ts", `${H}export const env = {
   PORT: Number(process.env.PORT ?? 5180),
   NODE_ENV: process.env.NODE_ENV ?? "development",
 };
 `);
 
 // ── backend: module todos ────────────────────────────────────────────────────
-ensure("app/backend/modules/todos/todos.contract.ts", `${H}import { f } from "@nmvuong92/fluxe";
+ensure("backend/modules/todos/todos.contract.ts", `${H}import { f } from "@nmvuong92/fluxe";
 const Todo = f.object({ id: f.string, title: f.string, done: f.bool });
 export const todosContract = f.contract({
   listTodos: f.query(Todo.array()),
@@ -97,12 +123,12 @@ export const todosContract = f.contract({
   onTodos: f.subscription(Todo.array()),
 });
 `);
-ensure("app/backend/modules/todos/todos.service.ts", `${H}import type { TodoStore } from "@backend/db";
+ensure("backend/modules/todos/todos.service.ts", `${H}import type { TodoStore } from "@backend/db";
 export function makeTodosService(store: TodoStore) {
   return { list: () => store.list(), add: (title: string) => store.add(title.trim()), toggle: (id: string) => store.toggle(id) };
 }
 `);
-ensure("app/backend/modules/todos/todos.resolvers.ts", `${H}import type { Resolvers } from "@nmvuong92/fluxe";
+ensure("backend/modules/todos/todos.resolvers.ts", `${H}import type { Resolvers } from "@nmvuong92/fluxe";
 import type { TodoStore } from "@backend/db";
 import { todosContract } from "./todos.contract.ts";
 import { makeTodosService } from "./todos.service.ts";
@@ -115,7 +141,7 @@ export function makeTodosResolvers(store: TodoStore): Resolvers<typeof todosCont
   };
 }
 `);
-ensure("app/backend/modules/todos/todos.plugin.ts", `${H}import { definePlugin } from "@nmvuong92/fluxe";
+ensure("backend/modules/todos/todos.plugin.ts", `${H}import { definePlugin } from "@nmvuong92/fluxe";
 import type { TodoStore } from "@backend/db";
 import { todosContract } from "./todos.contract.ts";
 import { makeTodosResolvers } from "./todos.resolvers.ts";
@@ -125,11 +151,11 @@ export function todosPlugin(store: TodoStore) {
 `);
 
 // ── backend: contract tổng hợp + app + server ─────────────────────────────────
-ensure("app/backend/contract.ts", `${H}import { todosContract } from "./modules/todos/todos.contract.ts";
+ensure("backend/contract.ts", `${H}import { todosContract } from "./modules/todos/todos.contract.ts";
 // Static spread → createHooks<typeof contract>() suy type ở frontend. Thêm module = spread thêm.
 export const contract = { ...todosContract };
 `);
-ensure("app/backend/app.ts", `${H}import { readFileSync } from "node:fs";
+ensure("backend/app.ts", `${H}import { readFileSync } from "node:fs";
 import { createApp, type ResolutionManifest } from "@nmvuong92/fluxe";
 import { i18n } from "@frontend/i18n";
 import { cells } from "@frontend/registry";
@@ -173,13 +199,13 @@ server.use(fluxe(manifest, cells, layouts, { i18n, backend: store, contract: app
 server.listen(env.PORT, () => console.log(\`http://localhost:\${env.PORT} (Express · \${store.name})\`));
 `,
 };
-ensure("app/backend/server.ts", SERVERS[server] ?? SERVERS.fastify);
+ensure("backend/server.ts", SERVERS[server] ?? SERVERS.fastify);
 
 // ── frontend: features + hạ tầng ─────────────────────────────────────────────
-ensure("app/frontend/profiles.ts", `${H}import type { ResolutionProfile } from "@nmvuong92/fluxe";
+ensure("frontend/profiles.ts", `${H}import type { ResolutionProfile } from "@nmvuong92/fluxe";
 export const profiles: Record<string, ResolutionProfile> = { dev: { name: "dev" }, prod: { name: "prod" } };
 `);
-ensure("app/frontend/i18n.ts", `${H}import { createI18n } from "@nmvuong92/fluxe";
+ensure("frontend/i18n.ts", `${H}import { createI18n } from "@nmvuong92/fluxe";
 export const i18n = createI18n({
   defaultLocale: "vi",
   catalogs: {
@@ -188,36 +214,42 @@ export const i18n = createI18n({
   },
 });
 `);
-ensure("app/frontend/api.ts", `${H}import { createHooks } from "@nmvuong92/fluxe/react";
+ensure("frontend/api.ts", `${H}import { createHooks } from "@nmvuong92/fluxe/react";
 import type { contract } from "@backend/contract";
 export const api = createHooks<typeof contract>();   // api.<op>.useQuery/useForm/useMutation/useSubscription
 `);
-ensure("app/frontend/layouts/site.tsx", `${H}import { createElement as h, Fragment, type ReactNode } from "react";
+ensure("frontend/layouts/site.tsx", `${H}import type { ReactNode } from "react";
 import { LocaleSwitch, DebugBar } from "@nmvuong92/fluxe/react";
 export function Site({ children, ctx }: { children: ReactNode; ctx?: any }) {
-  return h(Fragment, null,
-    h("main", { style: { maxWidth: 720, margin: "40px auto", fontFamily: "system-ui" } },
-      h("header", { style: { display: "flex", gap: 12, alignItems: "center", marginBottom: 24 } },
-        h("strong", null, "fluxe"), h(LocaleSwitch as any, { locales: ["vi", "en"], current: ctx?.locale })),
-      children),
-    h(DebugBar as any, null));
+  return (
+    <>
+      <main style={{ maxWidth: 720, margin: "40px auto", fontFamily: "system-ui" }}>
+        <header style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 24 }}>
+          <strong>fluxe</strong>
+          <LocaleSwitch locales={["vi", "en"]} current={ctx?.locale} />
+        </header>
+        {children}
+      </main>
+      <DebugBar />
+    </>
+  );
 }
 export default Site;
 `);
-ensure("app/frontend/layouts/index.ts", `${H}import type { LayoutMeta } from "@nmvuong92/fluxe";
+ensure("frontend/layouts/index.ts", `${H}import type { LayoutMeta } from "@nmvuong92/fluxe";
 import type { ReactNode } from "react";
 import Site from "./site";
 interface LayoutEntry extends LayoutMeta { component: (props: { children: ReactNode; ctx?: any }) => ReactNode }
 export const layouts: Record<string, LayoutEntry> = { site: { id: "site", component: Site } };
 `);
 
-ensure("app/frontend/features/home/home.view.tsx", `${H}export interface HomeData { title: string; cta: string }
+ensure("frontend/features/home/home.view.tsx", `${H}export interface HomeData { title: string; cta: string }
 export function Home({ data }: { data: HomeData }) {
   return (<div className="card"><h1>{data.title}</h1><a href="/todos" className="btn">{data.cta}</a></div>);
 }
 export default Home;
 `);
-ensure("app/frontend/features/home/home.cell.tsx", `${H}import { defineCell } from "@nmvuong92/fluxe";
+ensure("frontend/features/home/home.cell.tsx", `${H}import { defineCell } from "@nmvuong92/fluxe";
 import { Home } from "./home.view";
 export default defineCell({
   id: "home", route: "/", hydration: "static", layout: "site",
@@ -225,13 +257,13 @@ export default defineCell({
   head: (d) => ({ title: d.title }), view: Home,
 });
 `);
-ensure("app/frontend/features/greet/greet.view.tsx", `${H}export interface GreetData { hello: string; desc: string }
+ensure("frontend/features/greet/greet.view.tsx", `${H}export interface GreetData { hello: string; desc: string }
 export function Greet({ data }: { data: GreetData }) {
   return (<div className="card"><h1>{data.hello}</h1><p className="muted">{data.desc}</p></div>);
 }
 export default Greet;
 `);
-ensure("app/frontend/features/greet/greet.cell.tsx", `${H}import { defineCell } from "@nmvuong92/fluxe";
+ensure("frontend/features/greet/greet.cell.tsx", `${H}import { defineCell } from "@nmvuong92/fluxe";
 import { Greet } from "./greet.view";
 export default defineCell({
   id: "greet", route: "/greet", hydration: "static", layout: "site",
@@ -239,7 +271,7 @@ export default defineCell({
   head: () => ({ title: "Greet" }), view: Greet,
 });
 `);
-ensure("app/frontend/features/todos/todos.view.tsx", `${H}import { Link } from "@nmvuong92/fluxe/react";
+ensure("frontend/features/todos/todos.view.tsx", `${H}import { Link } from "@nmvuong92/fluxe/react";
 import { api } from "../../api";
 export interface TodosData { todos: { id: string; title: string; done: boolean }[] }
 export function Todos({ data }: { data: TodosData }) {
@@ -266,7 +298,7 @@ export function Todos({ data }: { data: TodosData }) {
 }
 export default Todos;
 `);
-ensure("app/frontend/features/todos/todos.cell.tsx", `${H}import { defineCell } from "@nmvuong92/fluxe";
+ensure("frontend/features/todos/todos.cell.tsx", `${H}import { defineCell } from "@nmvuong92/fluxe";
 import type { TodoStore } from "@backend/db";
 import { Todos } from "./todos.view";
 export default defineCell({
@@ -277,7 +309,7 @@ export default defineCell({
 `);
 
 // ── vùng test riêng ──────────────────────────────────────────────────────────
-ensure("app/backend/tests/helpers/make-test-app.ts", `${H}import http from "node:http";
+ensure("backend/tests/helpers/make-test-app.ts", `${H}import http from "node:http";
 import { createApp, resolve } from "@nmvuong92/fluxe";
 import { cells } from "@frontend/registry";
 import { layouts } from "@frontend/layouts/index";
@@ -296,7 +328,7 @@ export async function startTestServer() {
   return { port, store, close: () => new Promise<void>((r) => server.close(() => r())) };
 }
 `);
-ensure("app/backend/tests/unit/todos.service.test.ts", `${H}import { test } from "node:test";
+ensure("backend/tests/unit/todos.service.test.ts", `${H}import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeDb } from "@backend/db";
 import { makeTodosService } from "@backend/modules/todos/todos.service.ts";
@@ -306,7 +338,7 @@ test("service.add trim title", async () => {
   assert.equal((await svc.list())[0].title, "x");
 });
 `);
-ensure("app/backend/tests/e2e/todos.e2e.test.ts", `${H}import { test } from "node:test";
+ensure("backend/tests/e2e/todos.e2e.test.ts", `${H}import { test } from "node:test";
 import assert from "node:assert/strict";
 import { startTestServer } from "../helpers/make-test-app.ts";
 test("[e2e] addTodo rồi listTodos thấy todo", async () => {
@@ -321,7 +353,7 @@ test("[e2e] addTodo rồi listTodos thấy todo", async () => {
 
 if (auth) {
   console.log("  (--auth) module auth mẫu — tích hợp provider của bạn qua @nmvuong92/fluxe/auth");
-  ensure("app/backend/modules/auth/auth.plugin.ts", `${H}import { definePlugin } from "@nmvuong92/fluxe";
+  ensure("backend/modules/auth/auth.plugin.ts", `${H}import { definePlugin } from "@nmvuong92/fluxe";
 // Auth = INTEGRATION: bọc provider (better-auth/lucia/passport) + bridgeSession (mount TRƯỚC fluxe).
 // Xem reference/auth. Plugin này chỗ để bạn đóng góp cell/route auth của app.
 export const authPlugin = definePlugin({ name: "@app/auth" });

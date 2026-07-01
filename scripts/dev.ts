@@ -7,14 +7,18 @@
  * (sync/resolve/bundle lần đầu đã chạy trước trong lệnh `fx dev`.) */
 import { spawn } from "node:child_process";
 import { watch } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { join, dirname } from "node:path";
 
 const NODE = ["--experimental-sqlite", "--import", "tsx"];
 const run = (args: string[]) => spawn("node", [...NODE, ...args], { stdio: "inherit" });
+const SCRIPTS = dirname(fileURLToPath(import.meta.url));   // thư mục scripts/ của engine (chạy cwd=project)
+const engine = (f: string) => join(SCRIPTS, f);
 
-run(["--watch", "app/backend/server.ts"]);   // server tự restart khi file đổi
+run(["--watch", "backend/server.ts"]);   // cwd-relative: server của project tự restart khi file đổi
 
 let busy = false;
-watch("app", { recursive: true }, (_e, file) => {
+watch(".", { recursive: true }, (_e, file) => {
   if (!file || busy) return;
   if (file.endsWith("registry.ts")) return;                                   // file SINH RA → bỏ qua (tránh loop)
   if (!/\.(cell|view|contract|resolvers|plugin|service)\.tsx?$/.test(file)) return;   // chỉ source liên quan
@@ -24,5 +28,5 @@ watch("app", { recursive: true }, (_e, file) => {
   const cellEntry = /\.cell\.tsx$/.test(file.replace(/\\/g, "/"));
   console.log(`[dev] ${file} đổi → ${cellEntry ? "resolve (sync + manifest)" : "sync"}`);
   const done = () => setTimeout(() => (busy = false), 300);
-  run(["scripts/sync.ts"]).on("exit", () => (cellEntry ? run(["scripts/resolve.ts"]).on("exit", done) : done()));
+  run([engine("sync.ts")]).on("exit", () => (cellEntry ? run([engine("resolve.ts")]).on("exit", done) : done()));
 });

@@ -7,9 +7,12 @@ import { renderToString } from "react-dom/server";
 import { createElement as h } from "react";
 import { resolve, type CellDecl } from "../src/core/resolver";
 import { renderHead } from "../src/core/seo";
-import { profiles } from "../app/frontend/profiles";
-import { cells as allCells } from "../app/frontend/registry";
-import { makeDb } from "../app/backend/db";
+import { pathToFileURL } from "node:url";
+import { join } from "node:path";
+const fromCwd = (rel: string) => import(pathToFileURL(join(process.cwd(), rel)).href);
+const { profiles } = await fromCwd("frontend/profiles.ts");
+const { cells: allCells } = await fromCwd("frontend/registry.ts");
+const { makeDb } = await fromCwd("backend/db.ts");
 
 const backend = makeDb();
 const t = (key: string, vars?: Record<string, string>) =>

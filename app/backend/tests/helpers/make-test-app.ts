@@ -1,7 +1,5 @@
 // Copyright (c) 2026 nmvuong92
 // SPDX-License-Identifier: Apache-2.0
-/* Helper e2e: dựng app đầy đủ (resolve manifest in-process → không cần .fluxe/resolution.json)
- * + http server trên cổng ngẫu nhiên. Trả { port, store, close }. */
 import http from "node:http";
 import { createApp, resolve } from "@nmvuong92/fluxe";
 import { cells } from "@frontend/registry";
@@ -10,7 +8,6 @@ import { i18n } from "@frontend/i18n";
 import { profiles } from "@frontend/profiles";
 import { makeDb } from "@backend/db";
 import { todosPlugin } from "@backend/modules/todos/todos.plugin.ts";
-
 export async function startTestServer() {
   const store = makeDb();
   const decls = cells.map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));

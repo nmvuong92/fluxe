@@ -6,6 +6,7 @@ export { useQuery, invalidateQueries, queryStats } from "./query";
 export { useMutation } from "./mutation";
 /* contract-aware: bind hook vào contract một lần (như createClient). */
 export { createHooks, useForm, useSubscription } from "./hooks";
+export { hydrate } from "./hydrate";   // bootstrap client bundle (project sinh frontend/client.tsx gọi)
 export type { Hooks, QueryResult, QueryOpts, MutationOpts, MutationResult } from "./hooks";
 export type { FormOpts, FormApi, ClientSchema } from "./form";
 export { Link } from "./Link";

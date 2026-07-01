@@ -7,52 +7,29 @@ export interface Command {
   shell: (args: string[]) => string;
 }
 
-const SYNC = "tsx scripts/sync.ts";   // auto-discovery: quét app/cells/* → app/app.ts
-const ESBUILD = "esbuild src/client.tsx --bundle --format=esm --outfile=dist/client.js --jsx=automatic --loader:.tsx=tsx";
 const p = (a: string[]) => a[0] ?? "dev"; // profile mặc định
+const ESBUILD = "esbuild frontend/client.tsx --bundle --format=esm --outfile=dist/client.js --jsx=automatic --loader:.tsx=tsx";
 
-export const COMMANDS: Record<string, Command> = {
-  init: {
-    desc: "Scaffold app/ mới (env, profiles, layout, cell home) — chỉ tạo file còn thiếu",
-    shell: () => `tsx scripts/init.ts`,
-  },
-  new: {
-    desc: "Tạo cell mới: fx new <id> [--island]  (auto-discovery tự đăng ký)",
-    shell: (a) => `tsx scripts/new-cell.ts ${a.join(" ")}`,
-  },
-  sync: {
-    desc: "Auto-discovery: quét app/cells/* → app/app.ts (dev/resolve tự gọi)",
-    shell: () => SYNC,
-  },
-  config: {
-    desc: "In config đã giải (default ← ENV FLUXE_* ← override)",
-    shell: () => `tsx scripts/config.ts`,
-  },
-  resolve: {
-    desc: "Sinh .fluxe/resolution.json từ profile",
-    shell: (a) => `${SYNC} && tsx scripts/resolve.ts ${p(a)}`,
-  },
-  bench: {
-    desc: "Benchmark RPS/QPS + latency p50/p99 + RAM/CPU",
-    shell: (a) => `${SYNC} && tsx scripts/resolve.ts dev && npm run --silent build:client && tsx scripts/bench.ts ${a.join(" ")}`,
-  },
-  prerender: {
-    desc: "Prerender cell static → .fluxe/static.json",
-    shell: (a) => `${SYNC} && tsx scripts/prerender.ts ${p(a)}`,
-  },
-  build: {
-    desc: "Build đầy đủ: sync + resolve + prerender + client bundle",
-    shell: (a) => `${SYNC} && tsx scripts/resolve.ts ${p(a)} && tsx scripts/prerender.ts ${p(a)} && ${ESBUILD}`,
-  },
-  dev: {
-    desc: "Sync + resolve + build client + chạy server",
-    shell: (a) => `${SYNC} && tsx scripts/resolve.ts ${p(a)} && ${ESBUILD} && tsx scripts/dev.ts`,
-  },
-  test: {
-    desc: "Sync + typecheck + unit + integration",
-    shell: () => `${SYNC} && tsc --noEmit && node --experimental-sqlite --import tsx --test '{src,app}/**/*.test.ts' && tsx src/selftest2.ts`,
-  },
-};
+/* Lệnh fx — cwd-relative (chạy từ thư mục project). `pkg` = engine root để trỏ scripts/ đúng chỗ
+ * dù cwd là app/ hay app2/… (bin/fx.ts truyền đường dẫn tuyệt đối của package). */
+export function makeCommands(pkg: string): Record<string, Command> {
+  const S = (f: string) => `tsx ${pkg}/scripts/${f}`;
+  const SYNC = S("sync.ts");   // quét frontend/features/*.cell.tsx → frontend/registry.ts + views.ts
+  return {
+    init: { desc: "Scaffold project mới (backend/frontend feature-module) — chỉ tạo file còn thiếu", shell: (a) => `${S("init.ts")} ${a.join(" ")}` },
+    new: { desc: "Tạo cell mới: fx new <feature>/<name> [--static]", shell: (a) => `${S("new-cell.ts")} ${a.join(" ")}` },
+    sync: { desc: "Auto-discovery: quét frontend/features/* → registry.ts + views.ts", shell: () => SYNC },
+    config: { desc: "In config đã giải (default ← ENV FLUXE_* ← override)", shell: () => S("config.ts") },
+    resolve: { desc: "Sinh .fluxe/resolution.json từ profile", shell: (a) => `${SYNC} && ${S("resolve.ts")} ${p(a)}` },
+    bench: { desc: "Benchmark RPS/QPS + latency + RAM/CPU", shell: (a) => `${SYNC} && ${S("resolve.ts")} dev && ${ESBUILD} && ${S("bench.ts")} ${a.join(" ")}` },
+    prerender: { desc: "Prerender cell static → .fluxe/static.json", shell: (a) => `${SYNC} && ${S("prerender.ts")} ${p(a)}` },
+    build: { desc: "Build đầy đủ: sync + resolve + prerender + client bundle", shell: (a) => `${SYNC} && ${S("resolve.ts")} ${p(a)} && ${S("prerender.ts")} ${p(a)} && ${ESBUILD}` },
+    dev: { desc: "Sync + resolve + build client + chạy server (watch)", shell: (a) => `${SYNC} && ${S("resolve.ts")} ${p(a)} && ${ESBUILD} && ${S("dev.ts")}` },
+    test: { desc: "Sync + typecheck + unit + integration", shell: () => `${SYNC} && tsc --noEmit && node --experimental-sqlite --import tsx --test 'backend/**/*.test.ts'` },
+  };
+}
+
+export const COMMANDS: Record<string, Command> = makeCommands(".");
 
 export function renderUsage(): string {
   const lines = Object.entries(COMMANDS).map(([n, c]) => `  fx ${n.padEnd(10)} ${c.desc}`);

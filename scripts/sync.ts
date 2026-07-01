@@ -5,7 +5,7 @@
 import { writeFileSync } from "node:fs";
 import { scanFeatures, renderRegistry, renderViews } from "./sync-core.ts";
 
-const ROOT = "app/frontend";
+const ROOT = "frontend";   // cwd-relative: chạy từ thư mục project (cwd = app/ hoặc app2/…)
 const entries = scanFeatures(ROOT);
 writeFileSync(`${ROOT}/registry.ts`, renderRegistry(entries));   // cells (server)
 writeFileSync(`${ROOT}/views.ts`, renderViews(entries));         // views (client)

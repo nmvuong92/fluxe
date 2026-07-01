@@ -1,9 +1,14 @@
 // Copyright (c) 2026 nmvuong92
 // SPDX-License-Identifier: Apache-2.0
 import { writeFileSync, mkdirSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+import { join } from "node:path";
 import { resolve as resolveManifest, type CellDecl } from "../src/core/resolver";
-import { profiles } from "../app/frontend/profiles";
-import { cells as appCells } from "../app/frontend/registry";
+
+// cwd-relative: đọc file project (frontend/) qua dynamic import từ cwd → chạy cho mọi project.
+const fromCwd = (rel: string) => import(pathToFileURL(join(process.cwd(), rel)).href);
+const { profiles } = await fromCwd("frontend/profiles.ts");
+const { cells: appCells } = await fromCwd("frontend/registry.ts");
 
 const name = process.argv[2] ?? process.env.FLUXE_PROFILE ?? "dev";
 const profile = profiles[name];
