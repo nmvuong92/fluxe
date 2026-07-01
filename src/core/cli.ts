@@ -20,6 +20,7 @@ export function makeCommands(pkg: string): Record<string, Command> {
     new: { desc: "Tạo cell mới: fx new <feature>/<name> [--static]", shell: (a) => `${S("new-cell.ts")} ${a.join(" ")}` },
     sync: { desc: "Auto-discovery: quét frontend/features/* → registry.ts + views.ts", shell: () => SYNC },
     config: { desc: "In config đã giải (default ← ENV FLUXE_* ← override)", shell: () => S("config.ts") },
+    openapi: { desc: "Sinh .fluxe/openapi.json + collection Bruno (bruno/) từ contract", shell: (a) => `${S("openapi.ts")} ${a.join(" ")}` },
     resolve: { desc: "Sinh .fluxe/resolution.json từ profile", shell: (a) => `${SYNC} && ${S("resolve.ts")} ${p(a)}` },
     bench: { desc: "Benchmark RPS/QPS + latency + RAM/CPU", shell: (a) => `${SYNC} && ${S("resolve.ts")} dev && ${ESBUILD} && ${S("bench.ts")} ${a.join(" ")}` },
     prerender: { desc: "Prerender cell static → .fluxe/static.json", shell: (a) => `${SYNC} && ${S("prerender.ts")} ${p(a)}` },

@@ -4,3 +4,4 @@
 export { schemaToJson } from "./schema.ts";
 export { toOpenApi, type OpenApiOpts } from "./openapi.ts";
 export { toBruno, type BrunoOpts } from "./bruno.ts";
+export { openApiHandler, type ServeOpts } from "./serve.ts";   // node middleware serve /openapi.json + /docs

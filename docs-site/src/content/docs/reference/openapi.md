@@ -22,6 +22,27 @@ const files = toBruno(contract, { name: "Todo API", baseUrl: "http://localhost:5
 // → { "bruno.json", "environments/local.bru", "<op>.bru"… } — ghi ra đĩa = mở bằng Bruno chạy ngay.
 ```
 
+## Serve `/openapi.json` + `/docs` (Swagger UI)
+
+`openApiHandler` là **node middleware** — mount TRƯỚC fluxe (host sở hữu route):
+
+```ts
+import { openApiHandler } from "@nmvuong92/fluxe/openapi";
+import { contract } from "@backend/contract";
+
+server.use(openApiHandler(contract, { title: "Todo API" }));   // Express
+// → GET /openapi.json (spec) · GET /docs (Swagger UI qua CDN)
+```
+
+## CLI — `fx openapi`
+
+```bash
+fx openapi "Todo API"      # ghi .fluxe/openapi.json + bruno/ (collection Bruno)
+```
+
+Mở thư mục `bruno/` bằng [Bruno](https://usebruno.com) → có sẵn request mỗi op, chạy ngay. `baseUrl`
+đổi qua `FLUXE_OPENAPI_BASEURL`.
+
 ## Ánh xạ
 
 | Contract | HTTP | OpenAPI / Bruno |
