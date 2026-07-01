@@ -190,7 +190,7 @@ export function createHandler(manifest: ResolutionManifest, cells: CellDef<any, 
       }
       let input = JSON.parse((await readBody(req)) || "{}");
       const schema = (fn as any).inputSchema;
-      if (schema) input = validateInput(schema, input);   // sai → FluxeError 400 (caught)
+      if (schema) input = await validateInput(schema, input);   // sai → FluxeError 400 (caught)
       const out = await fn({ input, backend, session });
       broker.publish(cellId, { action: name, out });   // realtime: báo client khác (RCA live-update)
       res.writeHead(200, { "content-type": "application/json", "x-fluxe-resolution": resolution, "x-fluxe-server-ms": String(Date.now() - t0) });

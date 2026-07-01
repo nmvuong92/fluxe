@@ -1,6 +1,6 @@
 ---
 title: Validation
-description: validateInput/withInput (Zod) — validate body request trước khi vào handler.
+description: validateInput/withInput (Standard Schema — Zod/Valibot/TypeBox) — validate body request.
 sidebar:
   order: 10
 ---
@@ -8,17 +8,19 @@ sidebar:
 ## Định nghĩa
 
 **Body request không tin được.** Mọi dữ liệu client gửi lên (`POST /__action/*`) đều phải được
-kiểm tra cấu trúc + kiểu trước khi chạm vào handler/backend. fluxe dùng **Zod** làm schema và biến
-mọi lỗi thành **giá trị có kiểu** (`FluxeError` code `validation`, status `400`) kèm `details`
-từng field — client render được lỗi cạnh đúng ô input.
+kiểm tra cấu trúc + kiểu trước khi chạm vào handler/backend. fluxe validate qua **Standard Schema**
+([standardschema.dev](https://standardschema.dev)) — nhận **bất kỳ validator nào** (Zod / Valibot /
+TypeBox / ArkType); `f` là sugar **Zod** mặc định. Mọi lỗi thành **giá trị có kiểu** (`FluxeError`
+code `validation`, status `400`) kèm `details` từng field — client render lỗi cạnh đúng ô input.
 
 Có hai mức dùng: `validateInput` (validate trực tiếp một giá trị) và `withInput` (bọc một action
 để runtime **tự** validate input trước khi gọi handler — cách dùng phổ biến nhất trong cell).
 
 ## Cơ chế
 
-`validateInput` parse một giá trị qua Zod; nếu sai, nó gom các `issues` thành `details` field-level
-(`{ path, message }`) rồi ném `FluxeError("validation", …, 400, details)`.
+`validateInput` gọi `~standard.validate` của schema (await sync|async); nếu sai, gom các `issues`
+thành `details` field-level (`{ path, message }`) rồi ném `FluxeError("validation", …, 400, details)`.
+Đổi validator = truyền schema Valibot/TypeBox thay Zod, **không đổi gì khác** (cùng interface).
 
 `withInput` **không** validate ngay — nó chỉ **gắn schema** vào action. Khi có request action tới,
 engine tự đọc schema đã gắn và validate input **sau** rate-limit + CSRF, **trước** khi gọi handler;
@@ -57,9 +59,10 @@ Gọi action `add` với `title` rỗng (qua CSRF hợp lệ) trả về `400` v
 ## API
 
 ```ts
-// @nmvuong92/fluxe
-validateInput<T>(schema: ZodType<T>, raw: unknown): T   // sai → FluxeError 400 field-level
-withInput<I, O>(schema: ZodType<I>, handler: Action<I, O>): Action<I, O>   // bọc action: tự validate input
+// @nmvuong92/fluxe  (StandardSchemaV1 = Zod/Valibot/TypeBox…)
+validateInput<S>(schema: S, raw: unknown): Promise<InferOutput<S>>   // sai → FluxeError 400 field-level
+withInput<I, O>(schema: StandardSchemaV1<any, I>, handler: Action<I, O>): Action<I, O>   // bọc action: tự validate
+validateStandard(schema, raw)   // lõi: gọi ~standard.validate, map issues → details
 ```
 
 ## Lưu ý

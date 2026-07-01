@@ -14,6 +14,7 @@ export * from "./core/i18n.ts";          // createI18n, resolveLocale, translate
 export * from "./core/seo.ts";           // renderHead, renderSitemap, renderRobots, HeadMeta
 export * from "./core/broker.ts";        // realtime pub/sub (RCA live-update)
 export * from "./core/presence.ts";      // ai online theo topic
+export * from "./core/standard.ts";      // StandardSchemaV1, InferInput/Output, validateStandard (nhận mọi validator)
 export * from "./core/contract.ts";      // f (builder), Contract, OpDef, Resolvers, Client, Infer
 export * from "./core/layouts.ts";       // layoutChain, LayoutMeta
 export * from "./core/router.ts";        // makeRouter

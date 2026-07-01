@@ -6,26 +6,21 @@ import { z } from "zod";
 import { validateInput, withInput } from "./validate.ts";
 import { FluxeError } from "./errors.ts";
 
-test("valid → trả data đã parse", () => {
-  const r = validateInput(z.object({ title: z.string() }), { title: "x" });
+test("valid → trả data đã parse", async () => {
+  const r = await validateInput(z.object({ title: z.string() }), { title: "x" });
   assert.deepEqual(r, { title: "x" });
 });
 
-test("invalid → FluxeError 400 code=validation + details field", () => {
-  try {
-    validateInput(z.object({ title: z.string().min(1, "rỗng") }), { title: "" });
-    assert.fail("phải ném");
-  } catch (e) {
-    assert.ok(e instanceof FluxeError);
-    assert.equal(e.status, 400);
-    assert.equal(e.code, "validation");
-    assert.ok(Array.isArray((e as FluxeError).details));
-    assert.equal((e as any).details[0].path, "title");
-  }
+test("invalid → FluxeError 400 code=validation + details field", async () => {
+  await assert.rejects(
+    () => validateInput(z.object({ title: z.string().min(1, "rỗng") }), { title: "" }),
+    (e: any) => e instanceof FluxeError && e.status === 400 && e.code === "validation" &&
+      Array.isArray(e.details) && e.details[0].path === "title",
+  );
 });
 
-test("coerce: chuỗi '42' → number 42", () => {
-  const r = validateInput(z.object({ n: z.coerce.number() }), { n: "42" });
+test("coerce: chuỗi '42' → number 42", async () => {
+  const r = await validateInput(z.object({ n: z.coerce.number() }), { n: "42" });
   assert.equal(r.n, 42);
 });
 
