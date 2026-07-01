@@ -3,7 +3,24 @@ title: RCA — Resolved Cell Architecture
 description: Triết lý lõi của fluxe — tách hợp đồng khỏi quyết định vận hành.
 ---
 
-RCA tách rạch ròi **cái gì** (logic) khỏi **chạy thế nào** (vận hành).
+> **Write the contract. Resolve the substrate.** — Viết hợp đồng, để engine chiếu xuống nền tảng.
+
+RCA tách rạch ròi **cái gì** (logic) khỏi **chạy thế nào** (vận hành). Đó là luật bất biến
+của fluxe:
+
+> **Logic chỉ phụ thuộc HỢP ĐỒNG (contract), không bao giờ phụ thuộc NỀN TẢNG (substrate).**
+> Quyết định vận hành là thứ được *giải (resolved)*, không phải bạn viết tay.
+
+Hệ quả: **tối ưu theo kiến tạo** — vì render là *output của resolver*, cell `static` ship
+0 JS và bỏ transport khi in-process **mà không cần bạn viết lại**. Tối ưu là việc của engine,
+không phải kỷ luật của bạn.
+
+Hai mặt phẳng bạn cần nhớ:
+
+- **Contract Plane** — nơi bạn sống: cell + loader + view + contract, type-safe, thuần logic.
+  Đây là *toàn bộ* thứ bạn viết.
+- **Resolution Plane** — nơi engine sống: chiếu mỗi hợp đồng xuống nền tảng cụ thể theo
+  profile + phân tích build. Bạn không chạm.
 
 ## Cell — chỉ là hợp đồng
 
@@ -57,5 +74,26 @@ là **interface user-owned** ở `app/backend/data.ts`, tiêm vào runtime; prof
 - **Đổi nơi lưu không đụng logic** — chuyển `todos` từ memory sang sqlite = sửa 1 dòng `app/backend/data.ts`.
 - **Test cực dễ** — mock `Backend` là xong, cell không ràng buộc hạ tầng.
 - **Tối ưu đúng tầng** — cell static được resolve sang render-cache mà code cell giữ nguyên.
+
+## fluxe = CẦU NỐI, không reinvent
+
+RCA chiếu hợp đồng xuống nền tảng — nó **không** viết lại thứ hạ tầng đã làm tốt. Ranh giới:
+
+| GIỮ trong core (fluxe làm) | THUỘC HOST + ecosystem (bạn mount trước fluxe) |
+|---------------------------|-----------------------------------------------|
+| cells/SSR · resolver · contract + `/__rpc` + validate | auth/session/RBAC → `better-auth`, `lucia`, `passport` |
+| realtime (broker/SSE) · observability (`/_fluxe`) | rate-limit → `express-rate-limit` |
+| seo · i18n · render-cache | jobs/queue → `bullmq` · upload → `multer` |
+
+fluxe chạy như **catch-all** cạnh framework host (Express/Fastify): mount middleware của host
+**trước**, fluxe lo phần render + data-contract. Auth chỉ là **lớp tích hợp** (`@nmvuong92/fluxe/auth`):
+`bridgeSession` gắn `req.session`, `useSession()` đọc typed — provider mới lo OAuth/password/cookie.
+
+## Một runtime TypeScript — quyết định đã đo
+
+fluxe là **một runtime TS duy nhất** trên `node:http`. Không polyglot, không sidecar Go/Rust.
+Đây là kết luận **đo được**, không phải sở thích: V8 JIT ngang Rust `-O3` ở vòng lặp scalar đơn
+luồng; native chỉ thắng rõ khi đa luồng — mà hot-path của fluxe là **React SSR + I/O đơn luồng**.
+Backend = driver data TS in-process (`memory · sqlite · postgres`), đổi bằng config.
 
 → Xem thực hành ở [Backends](/reference/data/).

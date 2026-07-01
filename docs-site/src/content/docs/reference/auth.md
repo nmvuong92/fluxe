@@ -85,7 +85,7 @@ function Header() {
 
 ## 5. Guard route HOST (ngoài fluxe)
 
-`protect(role?)` cho route Express/Nest riêng của bạn:
+`protect(role?)` cho route Express/Fastify riêng của bạn:
 ```ts
 import { protect } from "@nmvuong92/fluxe/auth";
 app.get("/api/admin", protect("admin"), handler);   // 401/403 trước khi vào handler

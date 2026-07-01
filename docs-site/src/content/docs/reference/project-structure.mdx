@@ -18,7 +18,7 @@ import vào, không cần đụng nội bộ của nó.
       - index.tsx **cell**: route + loader + actions, gắn view
     - about/ …
   - layouts/index.tsx master layout (header/nav/footer + DebugBar)
-  - backend/ **backend của bạn** (Express/Hono/Nest + fluxe)
+  - backend/ **backend của bạn** (Express/Fastify + fluxe)
     - server.ts entry: mount fluxe (catch-all) + route riêng của bạn
     - data.ts tầng data/service (interface + implement); export `backend`
   - theme.ts design tokens (CSS biến, light/dark)
@@ -39,7 +39,7 @@ import vào, không cần đụng nội bộ của nó.
 | `app/cells/<id>/view.tsx` | Giao diện thuần (component + kiểu data) | `fx new` |
 | `app/cells/<id>/index.tsx` | Cell: route + `loader` + `actions`, gắn view | `fx new` |
 | `app/layouts/index.tsx` | Master layout + DebugBar | `fx init` |
-| `app/backend/server.ts` | Server entry — chọn framework Express/Hono/Nest, mount fluxe | `fx init` |
+| `app/backend/server.ts` | Server entry — chọn framework Express/Fastify, mount fluxe | `fx init` |
 | `app/theme.ts` · `app/nav.ts` | Design tokens · menu | `fx init` |
 | `app/backend/data.ts` | **Tầng data của bạn**: interface domain + chọn driver (memory/sqlite/postgres) | `fx init` |
 | `app/profiles.ts` | Profile resolve render mode cho mỗi môi trường | `fx init` |

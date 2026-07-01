@@ -14,14 +14,14 @@ Entry server (`app/backend/server.ts`) mount fluxe (catch-all) + route riêng �
 |--------------|------------|
 | `app/cells/` | Trang/feature: mỗi cell = route + loader + view (+ action/head/layout/guard) |
 | `app/layouts/` | Layout dùng chung (nested) bọc view |
-| `app/backend/server.ts` | **Entry server** của bạn: mount fluxe (catch-all) + route riêng (Express/Hono/Nest) |
+| `app/backend/server.ts` | **Entry server** của bạn: mount fluxe (catch-all) + route riêng (Express/Fastify) |
 | `app/backend/data.ts` | **Tầng data của bạn**: interface domain + chọn driver (memory / sqlite / postgres) |
 | `app/profiles.ts` | Profile resolve render mode (static/island) per môi trường |
 | `app/contract.ts` | Contract builder `f` → types suy ra qua `Infer<>`/`Resolvers<>` (không codegen) |
 
 ## `app/backend/` — backend của bạn
 
-Thư mục `app/backend/` = backend Express/Hono/Nest của bạn: `server.ts` (entry — mount fluxe
+Thư mục `app/backend/` = backend Express/Fastify của bạn: `server.ts` (entry — mount fluxe
 catch-all + route riêng) + `data.ts` (tầng data/service). Ở `app/backend/data.ts` bạn định nghĩa
 **interface domain** của mình + **chọn driver** ngay tại đây, rồi inject vào engine
 qua `makeServer(manifest, cells, layouts, { backend })`. Cell chỉ thấy interface.

@@ -33,12 +33,12 @@ export const contract = f.contract({
 ```
 Khai báo nghiệp vụ một nơi → types/validate/client/resolver suy ra qua inference (không codegen). DB ẩn sau resolver. → [Contract DSL](/reference/contract/)
 
-## Server framework (Express/Hono/Nest)
+## Server framework (Express/Fastify)
 ```ts
 import { fluxe } from "@nmvuong92/fluxe/express";
-app.use(fluxe(manifest, cells, layouts, { backend }));   // hoặc /hono, /nest
+app.use(fluxe(manifest, cells, layouts, { backend }));   // hoặc /fastify
 ```
-Nhúng fluxe vào Express/Hono/Nest; hoặc `makeServer` (node:http) zero-config. → [Chọn server framework](/guides/server-framework/)
+Nhúng fluxe vào Express/Fastify; hoặc `makeServer` (node:http) zero-config. → [Chọn server framework](/guides/server-framework/)
 
 ## Validation (Zod)
 ```ts
@@ -54,7 +54,7 @@ throw new FluxeError("forbidden", "Không cho phép", 403);   // unexpected → 
 
 ## Auth/CSRF/rate-limit/upload/jobs = việc của HOST
 
-fluxe là **cầu nối RCA** — nó mount như middleware vào host framework (Express/Hono/Nest)
+fluxe là **cầu nối RCA** — nó mount như middleware vào host framework (Express/Fastify)
 và lo cells/SSR/contract/realtime/observability. Những vấn đề xuyên suốt còn lại do **host +
 ecosystem** lo, mount **TRƯỚC** fluxe:
 
