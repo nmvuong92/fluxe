@@ -89,13 +89,13 @@ export default defineCell({
 
 `fx new` tự chạy `sync` → cell đăng ký ngay. Mở `http://localhost:5180/post`.
 
-## 3. Thêm một backend module (api/ + domain/ + entry)
+## 3. Thêm một backend module (starter FLAT — 2 file)
 
-Module = folder có **entry `<x>.module.ts`** + **`api/`** (biên ngoài) + **`domain/`** (nghiệp vụ).
-Đọc api→domain = pipeline request.
+Module = folder có **entry `<x>.module.ts`** + `contract.ts`. Phức tạp lên thì tách `domain/` ·
+`application/` · `infrastructure/` — [Data layer](/reference/../guides/data-layer/) (promotion path).
 
 ```ts
-// backend/modules/todos/api/contract.ts — nguồn sự thật (Zod, 0 codegen)
+// backend/modules/todos/contract.ts — nguồn sự thật (Zod, 0 codegen)
 import { f } from "@nmvuong92/fluxe";
 const Todo = f.object({ id: f.string, title: f.string, done: f.bool });
 export const todosContract = f.contract({
@@ -106,16 +106,10 @@ export const todosContract = f.contract({
 ```
 
 ```ts
-// backend/modules/todos/domain/rules.ts — nghiệp vụ THUẦN (pure, dễ test, 0 factory)
-export const cleanTitle = (t: string) => t.trim();
-```
-
-```ts
-// backend/modules/todos/todos.module.ts — ENTRY: resolver KHAI BÁO, ctx.db tiêm qua `use` (0 make)
+// backend/modules/todos/todos.module.ts — ENTRY: resolver KHAI BÁO, ctx.db (repository) tiêm qua `use`
 import { defineModule } from "@nmvuong92/fluxe";
 import type { TodoStore } from "@backend/db";
-import { todosContract } from "./api/contract.ts";
-import { cleanTitle } from "./domain/rules.ts";
+import { todosContract } from "./contract.ts";
 
 export default defineModule<{ db: TodoStore }>({
   name: "todos",
@@ -124,11 +118,13 @@ export default defineModule<{ db: TodoStore }>({
   resolvers: {
     listTodos: (_, { db }) => db.list(),
     addTodo: async ({ title }: { title: string }, { db, publish }) => {
-      const t = await db.add(cleanTitle(title)); publish("onTodos", await db.list()); return t;
+      const t = await db.add(title.trim()); publish("onTodos", await db.list()); return t;
     },
   },
 });
 ```
+
+Đổi ORM (memory ↔ **Drizzle** ↔ pg) = sửa `backend/db.ts`, module KHÔNG đổi (`fx init --driver=drizzle`).
 
 Ghép trong `backend/app.ts` — scale = thêm module vào `plugins` (module là value tĩnh):
 

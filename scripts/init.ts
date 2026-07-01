@@ -66,9 +66,9 @@ export function makeDb(): TodoStore {
 }
 `);
   // module: api/ (contract REST + resolver) + domain/ (service) + entry
-  ensure("backend/modules/todos/api/contract.ts", `${H}import { f } from "@nmvuong92/fluxe";
+  ensure("backend/modules/todos/contract.ts", `${H}import { f } from "@nmvuong92/fluxe";
 const Todo = f.object({ id: f.string, title: f.string, done: f.bool });
-// 1 khai báo → typed /__rpc + REST versioned. Đổi v1→v2 = sửa path.
+// 1 khai báo → typed /__rpc + REST versioned + GraphQL. Đổi v1→v2 = sửa path.
 export const todosContract = f.contract({
   listTodos:  f.query(Todo.array(),                              { rest: { method: "GET",    path: "/v1/todos" } }),
   getTodo:    f.query(Todo.nullable(), { input: { id: f.string }, rest: { method: "GET", path: "/v1/todos/:id" } }),
@@ -77,14 +77,11 @@ export const todosContract = f.contract({
   removeTodo: f.mutation({ id: f.string }, f.bool,              { rest: { method: "DELETE", path: "/v1/todos/:id" } }),
 });
 `);
-  ensure("backend/modules/todos/domain/rules.ts", `${H}// Nghiệp vụ THUẦN (pure) — không factory, không thread store.
-export const cleanTitle = (t: string) => t.trim();
-`);
   ensure("backend/modules/todos/todos.module.ts", `${H}import { defineModule } from "@nmvuong92/fluxe";
 import type { TodoStore } from "@backend/db";
-import { todosContract } from "./api/contract.ts";
-import { cleanTitle } from "./domain/rules.ts";
-// Resolver KHAI BÁO — ctx.db tiêm qua \`use\` (0 make, 0 thread). 1 resolver → RPC + REST + GraphQL.
+import { todosContract } from "./contract.ts";
+// Resolver KHAI BÁO — ctx.db (repository) tiêm qua \`use\`. 1 resolver → RPC + REST + GraphQL.
+// Phức tạp lên? tách domain/rules.ts · application/*.usecase.ts — xem guides/data-layer.
 export default defineModule<{ db: TodoStore }>({
   name: "todos",
   contract: todosContract,
@@ -92,13 +89,13 @@ export default defineModule<{ db: TodoStore }>({
   resolvers: {
     listTodos: (_, { db }) => db.list(),
     getTodo: ({ id }: { id: string }, { db }) => db.get(id),
-    addTodo: ({ title }: { title: string }, { db }) => db.add(cleanTitle(title)),
+    addTodo: ({ title }: { title: string }, { db }) => db.add(title.trim()),
     updateTodo: ({ id, title }: { id: string; title: string }, { db }) => db.update(id, title),
     removeTodo: ({ id }: { id: string }, { db }) => db.remove(id),
   },
 });
 `);
-  ensure("backend/contract.ts", `${H}import { todosContract } from "./modules/todos/api/contract.ts";
+  ensure("backend/contract.ts", `${H}import { todosContract } from "./modules/todos/contract.ts";
 export const contract = { ...todosContract };
 `);
   ensure("backend/app.ts", `${H}import { createApp, resolve } from "@nmvuong92/fluxe";
@@ -283,8 +280,8 @@ ensure("backend/env.ts", `${H}export const env = {
 };
 `);
 
-// ── backend: module todos (api/ biên ngoài + domain/ nghiệp vụ; entry = defineModule) ─────────
-ensure("backend/modules/todos/api/contract.ts", `${H}import { f } from "@nmvuong92/fluxe";
+// ── backend: module todos (starter FLAT — grow api/application/domain/infrastructure khi cần, xem guides/data-layer) ──
+ensure("backend/modules/todos/contract.ts", `${H}import { f } from "@nmvuong92/fluxe";
 const Todo = f.object({ id: f.string, title: f.string, done: f.bool });
 export const todosContract = f.contract({
   listTodos: f.query(Todo.array()),
@@ -293,29 +290,26 @@ export const todosContract = f.contract({
   onTodos: f.subscription(Todo.array()),
 });
 `);
-ensure("backend/modules/todos/domain/rules.ts", `${H}// Nghiệp vụ THUẦN (pure, dễ test) — không factory, không thread store.
-export const cleanTitle = (t: string) => t.trim();
-`);
 ensure("backend/modules/todos/todos.module.ts", `${H}import { defineModule } from "@nmvuong92/fluxe";
 import type { TodoStore } from "@backend/db";
-import { todosContract } from "./api/contract.ts";
-import { cleanTitle } from "./domain/rules.ts";
+import { todosContract } from "./contract.ts";
 
-// ENTRY: mở file này hiểu cả module. Resolver KHAI BÁO — ctx.db tiêm qua \`use\` (0 make, 0 thread).
+// ENTRY: mở file này hiểu cả module. Resolver KHAI BÁO — ctx.db (repository) tiêm qua \`use\` (0 make/thread).
+// Phức tạp lên? tách domain/rules.ts · application/*.usecase.ts — xem guides/data-layer (promotion path).
 export default defineModule<{ db: TodoStore }>({
   name: "todos",
   contract: todosContract,
-  use: { db: "backend" },                    // tiêm capability "backend" → ctx.db (typed TodoStore)
+  use: { db: "backend" },
   resolvers: {
     listTodos: (_, { db }) => db.list(),
-    addTodo: async ({ title }: { title: string }, { db, publish }) => { const t = await db.add(cleanTitle(title)); publish("onTodos", await db.list()); return t; },
+    addTodo: async ({ title }: { title: string }, { db, publish }) => { const t = await db.add(title.trim()); publish("onTodos", await db.list()); return t; },
     toggleTodo: async ({ id }: { id: string }, { db, publish }) => { const t = await db.toggle(id); publish("onTodos", await db.list()); return t; },
   },
 });
 `);
 
 // ── backend: contract tổng hợp + app + server ─────────────────────────────────
-ensure("backend/contract.ts", `${H}import { todosContract } from "./modules/todos/api/contract.ts";
+ensure("backend/contract.ts", `${H}import { todosContract } from "./modules/todos/contract.ts";
 // Static spread → createHooks<typeof contract>() suy type ở frontend. Thêm module = spread thêm.
 export const contract = { ...todosContract };
 `);
@@ -492,13 +486,6 @@ export async function startTestServer() {
   const port = (server.address() as any).port;
   return { port, store, close: () => new Promise<void>((r) => server.close(() => r())) };
 }
-`);
-ensure("backend/tests/unit/todos.rules.test.ts", `${H}import { test } from "node:test";
-import assert from "node:assert/strict";
-import { cleanTitle } from "@backend/modules/todos/domain/rules.ts";
-test("cleanTitle trim khoảng trắng", () => {
-  assert.equal(cleanTitle("  x  "), "x");
-});
 `);
 ensure("backend/tests/e2e/todos.e2e.test.ts", `${H}import { test } from "node:test";
 import assert from "node:assert/strict";

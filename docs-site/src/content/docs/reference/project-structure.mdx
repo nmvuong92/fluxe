@@ -17,11 +17,11 @@ tool — chỉ folder + alias `@backend/*`, `@frontend/*`.
     - db.ts driver data (memory/sqlite/postgres) — `makeDb()`
     - env.ts · contract.ts (spread module) · app.ts (`createApp`)
     - server.ts entry Fastify/Express mount fluxe
-    - modules/ **1 feature = 1 module** (đọc api→domain = pipeline)
+    - modules/ **1 feature = 1 module** (starter FLAT — grow khi cần)
       - todos/
         - todos.module.ts **entry** (`defineModule` — resolver khai báo, ctx.db tiêm qua `use`)
-        - api/ contract.ts (biên ngoài: schema op)
-        - domain/ rules.ts (nghiệp vụ THUẦN, 0 factory)
+        - contract.ts (op schema)
+        - *(grow: domain/rules · application/usecase · infrastructure/repo — [data-layer](/guides/data-layer/))*
     - tests/ **vùng test riêng** (unit/ e2e/ helpers/ fixtures/)
   - frontend/ **cells + UI**
     - features/ **1 feature = cell(s)**
