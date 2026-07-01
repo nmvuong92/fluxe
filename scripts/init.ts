@@ -235,6 +235,45 @@ export function makeDb(url = process.env.DATABASE_URL): TodoStore {
   };
 }
 `,
+  drizzle: `${H}/* Driver DRIZZLE (better-sqlite3). Cài: npm i drizzle-orm better-sqlite3. Cùng interface TodoStore
+ * → module KHÔNG đổi. Type-safe, SQL-first, 0 codegen. Hooks EDA/trace ở seam resolver (ctx.publish/span). */
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { eq, sql } from "drizzle-orm";
+
+export const todos = sqliteTable("todos", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  done: integer("done", { mode: "boolean" }).notNull().default(false),
+});
+
+export interface Todo { id: string; title: string; done: boolean }
+export interface TodoStore {
+  name: string;
+  list(): Promise<Todo[]>;
+  add(title: string): Promise<Todo>;
+  toggle(id: string): Promise<Todo | null>;
+}
+const row = (r: any): Todo => ({ id: String(r.id), title: r.title, done: !!r.done });
+
+export function makeDb(file = "app.db"): TodoStore {
+  const db = drizzle(new Database(file));
+  // ponytail: CREATE TABLE inline; nâng lên drizzle-kit migrations khi schema tiến hoá.
+  db.run(sql\`CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0)\`);
+  return {
+    name: "drizzle-sqlite",
+    async list() { return db.select().from(todos).all().map(row); },
+    async add(title) { return row(db.insert(todos).values({ title }).returning().get()); },
+    async toggle(id) {
+      const t = db.select().from(todos).where(eq(todos.id, Number(id))).get();
+      if (!t) return null;
+      db.update(todos).set({ done: !t.done }).where(eq(todos.id, Number(id))).run();
+      return row({ ...t, done: !t.done });
+    },
+  };
+}
+`,
 };
 ensure("backend/db.ts", DRIVERS[driver] ?? DRIVERS.memory);
 
