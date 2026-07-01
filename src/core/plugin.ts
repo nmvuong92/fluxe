@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /* fluxe Plugin Ecosystem — nền `definePlugin` + `createApp`. Batteries (`@fluxe/*`) cắm vào đây,
  * KHÔNG vào core. Xem spec: docs/superpowers/specs/2026-07-01-fluxe-plugin-ecosystem-design.md */
+import type { ResolverCtx } from "./contract.ts";
 
 export const PLUGIN_API_VERSION = 1;
 
@@ -38,18 +39,39 @@ export function definePlugin(p: Plugin): Plugin {
   return { ...p, apiVersion };
 }
 
-/* defineModule — sugar cho feature-module: đẩy WIRING vào core. `resolvers` có thể là FACTORY
- * (ctx) => resolvers → nhận capability qua DI (vd backend) trong boot, KHÔNG thread tay. Trả Plugin. */
-export interface Module extends Omit<Plugin, "resolvers"> {
-  resolvers?: Record<string, any> | ((app: AppContext) => Record<string, any>);
+/* defineModule — feature-module KHAI BÁO (bỏ make/thread). `use` tiêm capability vào ctx resolver
+ * (vd `use:{db:"backend"}` → resolver nhận `ctx.db`); `resolvers` = object khai báo `(input,ctx)=>…`
+ * HOẶC factory `(app)=>…`. `needs` tự suy từ `use`. Đẩy wiring vào core. Trả Plugin. */
+export type ModuleResolver = (input: any, ctx: any) => any;
+export interface Module<Inj = Record<string, unknown>> extends Omit<Plugin, "resolvers"> {
+  use?: Record<keyof Inj & string, Capability>;   // ctx-key → capability name (tiêm vào ctx resolver)
+  // resolver khai báo: ctx = ResolverCtx (session/publish/span) + Inj (vd { db }); input tự chú thích.
+  resolvers?: Record<string, (input: any, ctx: ResolverCtx & Inj) => any> | ((app: AppContext) => Record<string, any>);
 }
-export function defineModule(m: Module): Plugin {
-  const { resolvers, boot, ...rest } = m;
+
+/* Bọc resolver khai báo: tiêm `use` vào ctx; input-aware (op có input → (input,ctx); không → (ctx)). */
+function wrapResolvers(resolvers: Record<string, ModuleResolver>, use: Module["use"], contract: any, app: AppContext) {
+  const injected = Object.fromEntries(Object.entries(use ?? {}).map(([k, cap]) => [k, app.use(cap as string)]));
+  const out: Record<string, any> = {};
+  for (const [op, fn] of Object.entries(resolvers)) {
+    const hasInput = !!contract?.[op]?.input;
+    out[op] = hasInput
+      ? (input: any, ctx: any) => fn(input, { ...ctx, ...injected })
+      : (ctx: any) => fn(undefined, { ...ctx, ...injected });
+  }
+  return out;
+}
+
+export function defineModule<Inj = Record<string, unknown>>(m: Module<Inj>): Plugin {
+  const { resolvers, boot, use, needs, contract, ...rest } = m;
+  const derivedNeeds = [...(needs ?? []), ...Object.values(use ?? {}) as Capability[]];
   return definePlugin({
     ...rest,
+    contract,
+    needs: derivedNeeds.length ? [...new Set(derivedNeeds)] : undefined,
     async boot(app) {
-      const dispose = typeof boot === "function" ? await boot(app) : undefined;   // boot của user (nếu có)
-      if (resolvers) app.addResolvers(typeof resolvers === "function" ? resolvers(app) : resolvers);
+      const dispose = typeof boot === "function" ? await boot(app) : undefined;   // boot user (nếu có)
+      if (resolvers) app.addResolvers(typeof resolvers === "function" ? resolvers(app) : wrapResolvers(resolvers, use, contract, app));
       return dispose;
     },
   });

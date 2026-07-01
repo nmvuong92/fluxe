@@ -3,15 +3,14 @@
 /* Integration proof: cùng cell, đổi manifest/backend → hành vi khác. Cell KHÔNG đổi.
  * Chạy trên starter tối thiểu (home/greet static + todos island + contract todos). */
 import http from "node:http";
-import { makeServer } from "./server_factory";
 import { resolve, type CellDecl } from "./core/resolver";
+import { createApp } from "./core/app";
 import { profiles } from "../app/frontend/profiles";
 import { cells as appCells } from "../app/frontend/registry";
 import { layouts } from "../app/frontend/layouts/index";
 import { i18n } from "../app/frontend/i18n";
-import { contract } from "../app/backend/contract";
 import { makeDb } from "../app/backend/db";
-import { makeTodosResolvers } from "../app/backend/modules/todos/api/resolver";
+import todos from "../app/backend/modules/todos/todos.module";
 
 const decls: CellDecl[] = appCells.map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
 
@@ -43,10 +42,10 @@ function check(label: string, cond: boolean) {
 
 async function run(profileName: string, port: number) {
   const store = makeDb();
-  const resolvers = makeTodosResolvers(store);
   const manifest = resolve(decls, profiles[profileName]);
   console.log(`\n══════════ profile=${profileName} (backend=${store.name}) ══════════`);
-  const srv = makeServer(manifest, appCells, layouts, { backend: store, resolvers, contract, i18n }).listen(port);
+  const app = await createApp({ manifest, cells: appCells, layouts, i18n, plugins: [todos], backend: store });
+  const srv = http.createServer(app.handler!).listen(port);
   await new Promise((r) => setTimeout(r, 150));
   try {
     const greetPage = await get(port, "/greet");
@@ -110,7 +109,8 @@ async function runOverride(port: number) {
   const manifest = resolve(decls, profiles.dev);
   manifest.cells.greet.render.shipClientJs = true;
   console.log(`\n══════════ override: manifest ép greet ship JS ══════════`);
-  const srv = makeServer(manifest, appCells, layouts, { backend: store, i18n }).listen(port);
+  const app = await createApp({ manifest, cells: appCells, layouts, i18n, plugins: [todos], backend: store });
+  const srv = http.createServer(app.handler!).listen(port);
   await new Promise((r) => setTimeout(r, 150));
   try {
     const greetPage = await get(port, "/greet");
@@ -131,7 +131,8 @@ async function runUserBackend(port: number) {
     async toggle() { return null; },
   };
   console.log(`\n══════════ DI: opts.backend (user-owned) thắng manifest fallback ══════════`);
-  const srv = makeServer(manifest, appCells, layouts, { backend: myBackend, i18n }).listen(port);
+  const app = await createApp({ manifest, cells: appCells, layouts, i18n, plugins: [todos], backend: myBackend });
+  const srv = http.createServer(app.handler!).listen(port);
   await new Promise((r) => setTimeout(r, 150));
   try {
     const api = await get(port, "/todos?json=1");

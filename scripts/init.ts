@@ -77,36 +77,25 @@ export const todosContract = f.contract({
   removeTodo: f.mutation({ id: f.string }, f.bool,              { rest: { method: "DELETE", path: "/v1/todos/:id" } }),
 });
 `);
-  ensure("backend/modules/todos/domain/service.ts", `${H}import type { TodoStore } from "@backend/db";
-export function makeTodosService(store: TodoStore) {
-  return {
-    list: () => store.list(), get: (id: string) => store.get(id), add: (t: string) => store.add(t.trim()),
-    update: (id: string, t: string) => store.update(id, t), remove: (id: string) => store.remove(id),
-  };
-}
-`);
-  ensure("backend/modules/todos/api/resolver.ts", `${H}import type { Resolvers } from "@nmvuong92/fluxe";
-import type { TodoStore } from "@backend/db";
-import { todosContract } from "./contract.ts";
-import { makeTodosService } from "../domain/service.ts";
-export function makeTodosResolvers(store: TodoStore): Resolvers<typeof todosContract> {
-  const svc = makeTodosService(store);
-  return {
-    listTodos: () => svc.list(),
-    getTodo: ({ id }) => svc.get(id),
-    addTodo: ({ title }) => svc.add(title),
-    updateTodo: ({ id, title }) => svc.update(id, title),
-    removeTodo: ({ id }) => svc.remove(id),
-  };
-}
+  ensure("backend/modules/todos/domain/rules.ts", `${H}// Nghiệp vụ THUẦN (pure) — không factory, không thread store.
+export const cleanTitle = (t: string) => t.trim();
 `);
   ensure("backend/modules/todos/todos.module.ts", `${H}import { defineModule } from "@nmvuong92/fluxe";
 import type { TodoStore } from "@backend/db";
 import { todosContract } from "./api/contract.ts";
-import { makeTodosResolvers } from "./api/resolver.ts";
-export default defineModule({
-  name: "todos", contract: todosContract, needs: ["backend"],
-  resolvers: (app) => makeTodosResolvers(app.use<TodoStore>("backend")),
+import { cleanTitle } from "./domain/rules.ts";
+// Resolver KHAI BÁO — ctx.db tiêm qua \`use\` (0 make, 0 thread). 1 resolver → RPC + REST + GraphQL.
+export default defineModule<{ db: TodoStore }>({
+  name: "todos",
+  contract: todosContract,
+  use: { db: "backend" },
+  resolvers: {
+    listTodos: (_, { db }) => db.list(),
+    getTodo: ({ id }: { id: string }, { db }) => db.get(id),
+    addTodo: ({ title }: { title: string }, { db }) => db.add(cleanTitle(title)),
+    updateTodo: ({ id, title }: { id: string; title: string }, { db }) => db.update(id, title),
+    removeTodo: ({ id }: { id: string }, { db }) => db.remove(id),
+  },
 });
 `);
   ensure("backend/contract.ts", `${H}import { todosContract } from "./modules/todos/api/contract.ts";
@@ -261,36 +250,24 @@ export const todosContract = f.contract({
   onTodos: f.subscription(Todo.array()),
 });
 `);
-ensure("backend/modules/todos/domain/service.ts", `${H}import type { TodoStore } from "@backend/db";
-// Nghiệp vụ thuần trên store (không biết driver memory/sqlite/postgres).
-export function makeTodosService(store: TodoStore) {
-  return { list: () => store.list(), add: (title: string) => store.add(title.trim()), toggle: (id: string) => store.toggle(id) };
-}
-`);
-ensure("backend/modules/todos/api/resolver.ts", `${H}import type { Resolvers } from "@nmvuong92/fluxe";
-import type { TodoStore } from "@backend/db";
-import { todosContract } from "./contract.ts";
-import { makeTodosService } from "../domain/service.ts";
-export function makeTodosResolvers(store: TodoStore): Resolvers<typeof todosContract> {
-  const svc = makeTodosService(store);
-  return {
-    listTodos: () => svc.list(),
-    addTodo: async ({ title }, ctx) => { const t = await svc.add(title); ctx.publish("onTodos", await svc.list()); return t; },
-    toggleTodo: async ({ id }, ctx) => { const t = await svc.toggle(id); ctx.publish("onTodos", await svc.list()); return t; },
-  };
-}
+ensure("backend/modules/todos/domain/rules.ts", `${H}// Nghiệp vụ THUẦN (pure, dễ test) — không factory, không thread store.
+export const cleanTitle = (t: string) => t.trim();
 `);
 ensure("backend/modules/todos/todos.module.ts", `${H}import { defineModule } from "@nmvuong92/fluxe";
 import type { TodoStore } from "@backend/db";
 import { todosContract } from "./api/contract.ts";
-import { makeTodosResolvers } from "./api/resolver.ts";
+import { cleanTitle } from "./domain/rules.ts";
 
-// ENTRY: mở file này hiểu cả module. Core tự wire — resolvers nhận backend qua DI (needs "backend").
-export default defineModule({
+// ENTRY: mở file này hiểu cả module. Resolver KHAI BÁO — ctx.db tiêm qua \`use\` (0 make, 0 thread).
+export default defineModule<{ db: TodoStore }>({
   name: "todos",
   contract: todosContract,
-  needs: ["backend"],
-  resolvers: (app) => makeTodosResolvers(app.use<TodoStore>("backend")),
+  use: { db: "backend" },                    // tiêm capability "backend" → ctx.db (typed TodoStore)
+  resolvers: {
+    listTodos: (_, { db }) => db.list(),
+    addTodo: async ({ title }: { title: string }, { db, publish }) => { const t = await db.add(cleanTitle(title)); publish("onTodos", await db.list()); return t; },
+    toggleTodo: async ({ id }: { id: string }, { db, publish }) => { const t = await db.toggle(id); publish("onTodos", await db.list()); return t; },
+  },
 });
 `);
 
@@ -473,14 +450,11 @@ export async function startTestServer() {
   return { port, store, close: () => new Promise<void>((r) => server.close(() => r())) };
 }
 `);
-ensure("backend/tests/unit/todos.service.test.ts", `${H}import { test } from "node:test";
+ensure("backend/tests/unit/todos.rules.test.ts", `${H}import { test } from "node:test";
 import assert from "node:assert/strict";
-import { makeDb } from "@backend/db";
-import { makeTodosService } from "@backend/modules/todos/domain/service.ts";
-test("service.add trim title", async () => {
-  const svc = makeTodosService(makeDb());
-  await svc.add("  x  ");
-  assert.equal((await svc.list())[0].title, "x");
+import { cleanTitle } from "@backend/modules/todos/domain/rules.ts";
+test("cleanTitle trim khoảng trắng", () => {
+  assert.equal(cleanTitle("  x  "), "x");
 });
 `);
 ensure("backend/tests/e2e/todos.e2e.test.ts", `${H}import { test } from "node:test";

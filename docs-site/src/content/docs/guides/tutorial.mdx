@@ -106,39 +106,27 @@ export const todosContract = f.contract({
 ```
 
 ```ts
-// backend/modules/todos/domain/service.ts — nghiệp vụ thuần
-import type { TodoStore } from "@backend/db";
-export function makeTodosService(store: TodoStore) {
-  return { list: () => store.list(), add: (title: string) => store.add(title.trim()) };
-}
+// backend/modules/todos/domain/rules.ts — nghiệp vụ THUẦN (pure, dễ test, 0 factory)
+export const cleanTitle = (t: string) => t.trim();
 ```
 
 ```ts
-// backend/modules/todos/api/resolver.ts — plain function, ctx tường minh (0 decorator/DI magic)
-import type { Resolvers } from "@nmvuong92/fluxe";
-import type { TodoStore } from "@backend/db";
-import { todosContract } from "./contract.ts";
-import { makeTodosService } from "../domain/service.ts";
-export function makeTodosResolvers(store: TodoStore): Resolvers<typeof todosContract> {
-  const svc = makeTodosService(store);
-  return {
-    listTodos: () => svc.list(),
-    addTodo: async ({ title }, ctx) => { const t = await svc.add(title); ctx.publish("onTodos", await svc.list()); return t; },
-  };
-}
-```
-
-```ts
-// backend/modules/todos/todos.module.ts — ENTRY: core tự wire, resolvers nhận backend qua DI
+// backend/modules/todos/todos.module.ts — ENTRY: resolver KHAI BÁO, ctx.db tiêm qua `use` (0 make)
 import { defineModule } from "@nmvuong92/fluxe";
 import type { TodoStore } from "@backend/db";
 import { todosContract } from "./api/contract.ts";
-import { makeTodosResolvers } from "./api/resolver.ts";
-export default defineModule({
+import { cleanTitle } from "./domain/rules.ts";
+
+export default defineModule<{ db: TodoStore }>({
   name: "todos",
   contract: todosContract,
-  needs: ["backend"],                                   // core auto-provide "backend" từ createApp
-  resolvers: (app) => makeTodosResolvers(app.use<TodoStore>("backend")),   // KHÔNG thread store tay
+  use: { db: "backend" },                    // tiêm capability "backend" → ctx.db (typed)
+  resolvers: {
+    listTodos: (_, { db }) => db.list(),
+    addTodo: async ({ title }: { title: string }, { db, publish }) => {
+      const t = await db.add(cleanTitle(title)); publish("onTodos", await db.list()); return t;
+    },
+  },
 });
 ```
 

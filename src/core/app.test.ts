@@ -104,6 +104,21 @@ test("defineModule: resolvers factory nhận backend qua DI (không thread tay)"
   assert.equal(app.resolvers.list(), 42);
 });
 
+test("defineModule: resolver KHAI BÁO (object) + use → tiêm ctx.db (bỏ make/thread)", async () => {
+  const mod = defineModule({
+    name: "todos",
+    contract: { list: { kind: "query" } as any, add: { kind: "mutation", input: {} } as any },
+    use: { db: "backend" },
+    resolvers: {
+      list: (_input: any, { db }: any) => db.tag + ":list",          // query no-input → fn(_, ctx)
+      add: (input: any, { db }: any) => db.tag + ":add:" + input.x,  // mutation → fn(input, ctx)
+    },
+  });
+  const app = await createApp({ plugins: [mod], backend: { tag: "DB" } });
+  assert.equal(app.resolvers.list(), "DB:list");
+  assert.equal(app.resolvers.add({ x: 1 }), "DB:add:1");
+});
+
 test("createApp auto-provide capability 'backend' từ opts.backend (ambient, không cần plugin provide)", async () => {
   const mod = defineModule({ name: "m", needs: ["backend"], boot: () => {} });
   await assert.doesNotReject(createApp({ plugins: [mod], backend: {} }));   // needs backend không ném dù 0 plugin provide

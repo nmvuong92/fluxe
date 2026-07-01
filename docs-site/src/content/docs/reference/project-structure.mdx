@@ -19,9 +19,9 @@ tool — chỉ folder + alias `@backend/*`, `@frontend/*`.
     - server.ts entry Fastify/Express mount fluxe
     - modules/ **1 feature = 1 module** (đọc api→domain = pipeline)
       - todos/
-        - todos.module.ts **entry** (`defineModule` — mở là hiểu cả module)
-        - api/ contract.ts · resolver.ts (biên ngoài)
-        - domain/ service.ts · data.ts (nghiệp vụ)
+        - todos.module.ts **entry** (`defineModule` — resolver khai báo, ctx.db tiêm qua `use`)
+        - api/ contract.ts (biên ngoài: schema op)
+        - domain/ rules.ts (nghiệp vụ THUẦN, 0 factory)
     - tests/ **vùng test riêng** (unit/ e2e/ helpers/ fixtures/)
   - frontend/ **cells + UI**
     - features/ **1 feature = cell(s)**
