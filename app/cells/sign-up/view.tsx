@@ -1,7 +1,5 @@
 import { useState } from "react";
 
-export interface SignUpData {}
-
 // Gọi thẳng endpoint better-auth (/api/auth/*) — provider lo password/session/cookie.
 // Không ship better-auth xuống browser: chỉ fetch JSON, cookie do server set.
 export function SignUp() {

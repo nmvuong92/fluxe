@@ -30,9 +30,8 @@ export function LotDetail({ data }: { data: LotDetailData }) {
     wsRef.current = ws;
     ws.onmessage = (e) => {
       const m = JSON.parse(e.data);
-      if (m.type === "chat") setChat((c) => [...c, m]);
-      else if (m.type === "system") setChat((c) => [...c, m]);
-      else if (m.type === "price") setChat((c) => [...c, { type: "price", text: `💰 giá qua WS: $${m.price} (${m.status})` }]);
+      if (m.type === "price") setChat((c) => [...c, { type: "price", text: `💰 giá qua WS: $${m.price} (${m.status})` }]);
+      else setChat((c) => [...c, m]);   // chat + system: append as-is
     };
     return () => ws.close();
   }, [data.lot.id]);

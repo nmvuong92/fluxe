@@ -1,7 +1,5 @@
 import { useState } from "react";
 
-export interface SignInData {}
-
 export function SignIn() {
   const [f, setF] = useState({ email: "", password: "" });
   const [err, setErr] = useState("");
