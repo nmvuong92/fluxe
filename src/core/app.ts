@@ -1,0 +1,100 @@
+// Copyright (c) 2026 nmvuong92
+// SPDX-License-Identifier: Apache-2.0
+/* createApp — thin composer gom plugin (cells/contract/resolvers/commands) + capability DI + boot,
+ * rồi gọi xuống createHandler. Xem spec: docs/superpowers/specs/2026-07-01-fluxe-plugin-ecosystem-design.md */
+import type { Plugin, AppContext } from "./plugin.ts";
+import { createHandler, type MakeServerOpts, type NodeHandler } from "../server_factory.ts";
+import type { ResolutionManifest } from "./resolver.ts";
+
+export interface CreateAppOpts extends MakeServerOpts {
+  plugins?: Plugin[];
+  manifest?: ResolutionManifest;   // nếu có → dựng handler (thin composer trên createHandler)
+  layouts?: Record<string, any>;
+}
+
+export interface App {
+  cells: any[];
+  contract: Record<string, any>;
+  resolvers: Record<string, any>;
+  commands: any[];
+  use<T>(cap: string): T;
+  handler?: NodeHandler;           // có khi truyền manifest — mount lên Fastify/Express
+}
+
+/* Sắp plugin theo phụ thuộc capability (provider trước consumer) — Kahn's topological sort.
+ * Edge: consumer --needs--> provider. Trả thứ tự boot an toàn. */
+function topoSort(plugins: Plugin[]): Plugin[] {
+  const providerOf = new Map<string, string>();   // capability → plugin.name
+  for (const p of plugins)
+    for (const cap of p.provides ?? []) providerOf.set(cap, p.name);
+
+  const byName = new Map(plugins.map((p) => [p.name, p]));
+  const deps = new Map<string, Set<string>>();    // plugin.name → tập plugin.name phụ thuộc
+  for (const p of plugins) {
+    const set = new Set<string>();
+    for (const cap of p.needs ?? []) {
+      const owner = providerOf.get(cap);
+      if (!owner) throw new Error(`[app] plugin ${p.name} cần capability "${cap}" nhưng không plugin nào provide`);
+      if (owner !== p.name) set.add(owner);
+    }
+    deps.set(p.name, set);
+  }
+
+  const order: Plugin[] = [];
+  const done = new Set<string>();
+  while (order.length < plugins.length) {
+    const ready = plugins.filter((p) => !done.has(p.name) && [...deps.get(p.name)!].every((d) => done.has(d)));
+    if (ready.length === 0) throw new Error("[app] vòng lặp phụ thuộc capability giữa plugin (cycle)");
+    for (const p of ready) { order.push(p); done.add(p.name); }
+  }
+  return order;
+}
+
+export async function createApp(opts: CreateAppOpts = {}): Promise<App> {
+  const plugins = opts.plugins ?? [];
+  const cells: any[] = [];
+  const seenId = new Map<string, string>();   // cell.id → plugin.name (chống đụng namespace)
+  for (const p of plugins) {
+    for (const c of p.cells ?? []) {
+      const prev = seenId.get(c.id);
+      if (prev) throw new Error(`[app] trùng cell id "${c.id}": ${prev} vs ${p.name}`);
+      seenId.set(c.id, p.name);
+      cells.push(c);
+    }
+  }
+
+  const contract: Record<string, any> = {};
+  const resolvers: Record<string, any> = {};
+  const opOwner = new Map<string, string>();   // op name → plugin.name
+  for (const p of plugins) {
+    for (const [op, def] of Object.entries(p.contract ?? {})) {
+      const prev = opOwner.get(op);
+      if (prev) throw new Error(`[app] trùng op "${op}": ${prev} vs ${p.name}`);
+      opOwner.set(op, p.name);
+      contract[op] = def;
+    }
+    Object.assign(resolvers, p.resolvers ?? {});
+  }
+
+  // Capability DI: boot plugin theo thứ tự topo (provider trước consumer).
+  const registry = new Map<string, unknown>();
+  const ctx: AppContext = {
+    provide(cap, impl) { registry.set(cap, impl); },
+    use(cap) {
+      if (!registry.has(cap)) throw new Error(`[app] capability "${cap}" chưa được provide`);
+      return registry.get(cap) as any;
+    },
+  };
+  for (const p of topoSort(plugins)) await p.boot?.(ctx);
+
+  const commands: any[] = [];
+  for (const p of plugins) commands.push(...(p.commands ?? []));
+
+  // Thin composer: nếu có manifest → gọi createHandler với đóng góp đã gộp.
+  const { plugins: _p, manifest, layouts, ...rest } = opts;
+  const handler = manifest
+    ? createHandler(manifest, cells, layouts ?? {}, { ...rest, contract, resolvers })
+    : undefined;
+
+  return { cells, contract, resolvers, commands, use: ctx.use, handler };
+}

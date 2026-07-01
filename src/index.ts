@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /* @nmvuong92/fluxe — entry ENGINE = CẦU NỐI RCA (cells/SSR + contract/rpc).
  * Auth/csrf/ratelimit/storage/jobs/DI = việc của HOST framework + ecosystem, KHÔNG có trong fluxe.
- * Subpath: /react (DX React), /client (rpc runtime), /express·/hono·/nest (adapter). */
+ * Subpath: /react (DX React), /client (rpc runtime), /express·/fastify (adapter). */
 export * from "./core/engine.ts";        // defineCell, Ctx, CellDef, Loader, Action, Hydration, Session
 export * from "./core/validate.ts";      // validateInput, withInput
 export * from "./core/errors.ts";        // FluxeError, ErrorPayload, toErrorPayload, renderErrorPage
@@ -18,4 +18,6 @@ export * from "./core/contract.ts";      // f (builder), Contract, OpDef, Resolv
 export * from "./core/layouts.ts";       // layoutChain, LayoutMeta
 export * from "./core/router.ts";        // makeRouter
 export { makeServer, createHandler, type NodeHandler, type MakeServerOpts } from "./server_factory.ts";
+export * from "./core/plugin.ts";        // definePlugin, Plugin, Capability, AppContext (ecosystem @fluxe/*)
+export * from "./core/app.ts";           // createApp — thin composer gom plugin → createHandler
 // Backend (data) + auth/csrf/ratelimit/storage/jobs = USER-OWNED / HOST framework — fluxe không ship.
