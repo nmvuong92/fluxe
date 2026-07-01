@@ -18,7 +18,9 @@
       "@nmvuong92/fluxe/jobs": ["./src/core/jobs.ts"],
       "@nmvuong92/fluxe/auth": ["./src/auth/index.ts"],
       "@nmvuong92/fluxe/express": ["./src/adapters/express.ts"],
-      "@nmvuong92/fluxe/fastify": ["./src/adapters/fastify.ts"]
+      "@nmvuong92/fluxe/fastify": ["./src/adapters/fastify.ts"],
+      "@backend/*": ["./app/backend/*"],
+      "@frontend/*": ["./app/frontend/*"]
     }
   },
   "include": ["src/**/*", "app/**/*"],
