@@ -13,6 +13,10 @@ export interface AppContext {
   use<T>(cap: Capability): T;
 }
 
+/* Teardown: boot() có thể trả hàm cleanup (đóng DB pool/worker…) — app.dispose() chạy NGƯỢC
+ * thứ tự topo. Dùng `using`/`Symbol.asyncDispose`. */
+export type Dispose = () => void | Promise<void>;
+
 export interface Plugin {
   name: string;
   apiVersion?: number;              // mặc định = PLUGIN_API_VERSION; engine fail-fast nếu lệch
@@ -22,7 +26,7 @@ export interface Plugin {
   contract?: Record<string, any>;   // đóng góp op typed (Contract)
   resolvers?: Record<string, any>;  // handler cho op
   commands?: any[];                 // mở rộng CLI `fx`
-  boot?(app: AppContext): void | Promise<void>;
+  boot?(app: AppContext): void | Dispose | Promise<void | Dispose>;   // trả cleanup (tuỳ chọn)
 }
 
 export function definePlugin(p: Plugin): Plugin {

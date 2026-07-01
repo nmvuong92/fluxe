@@ -68,6 +68,31 @@ test("capability: vòng lặp phụ thuộc → fail-fast (cycle)", async () => 
   await assert.rejects(createApp({ plugins: [a, b] }), /cycle|vòng lặp/);
 });
 
+test("plugin.boot trả dispose → app.dispose() gọi teardown", async () => {
+  let disposed = false;
+  const p = definePlugin({ name: "@x/a", boot: () => () => { disposed = true; } });
+  const app = await createApp({ plugins: [p] });
+  await app.dispose();
+  assert.equal(disposed, true);
+});
+
+test("dispose chạy NGƯỢC thứ tự topo (consumer teardown trước provider)", async () => {
+  const order: string[] = [];
+  const provider = definePlugin({ name: "@x/db", provides: ["db"], boot: () => () => { order.push("db"); } });
+  const consumer = definePlugin({ name: "@x/svc", needs: ["db"], boot: () => () => { order.push("svc"); } });
+  const app = await createApp({ plugins: [provider, consumer] });
+  await app.dispose();
+  assert.deepEqual(order, ["svc", "db"]);
+});
+
+test("app[Symbol.asyncDispose] = dispose (hỗ trợ `await using`)", async () => {
+  let disposed = false;
+  const p = definePlugin({ name: "@x/a", boot: () => () => { disposed = true; } });
+  const app = await createApp({ plugins: [p] });
+  await app[Symbol.asyncDispose]();
+  assert.equal(disposed, true);
+});
+
 test("createApp gộp commands từ nhiều plugin", async () => {
   const a = definePlugin({ name: "@fluxe/a", commands: [{ name: "a:x" }] });
   const b = definePlugin({ name: "@fluxe/b", commands: [{ name: "b:y" }] });

@@ -19,6 +19,8 @@ export interface App {
   resolvers: Record<string, any>;
   commands: any[];
   use<T>(cap: string): T;
+  dispose(): Promise<void>;        // chạy teardown mọi plugin (ngược thứ tự topo)
+  [Symbol.asyncDispose](): Promise<void>;   // `await using app = await createApp(...)`
   handler?: NodeHandler;           // có khi truyền manifest — mount lên Fastify/Express
 }
 
@@ -90,7 +92,14 @@ export async function createApp(opts: CreateAppOpts = {}): Promise<App> {
       return registry.get(cap) as any;
     },
   };
-  for (const p of topoSort(plugins)) await p.boot?.(ctx);
+  const disposers: Array<() => void | Promise<void>> = [];   // theo thứ tự boot (topo)
+  for (const p of topoSort(plugins)) {
+    const d = await p.boot?.(ctx);
+    if (typeof d === "function") disposers.push(d);
+  }
+  async function dispose() {
+    for (let i = disposers.length - 1; i >= 0; i--) await disposers[i]();   // NGƯỢC topo
+  }
 
   const commands: any[] = [];
   for (const p of plugins) commands.push(...(p.commands ?? []));
@@ -101,5 +110,5 @@ export async function createApp(opts: CreateAppOpts = {}): Promise<App> {
     ? createHandler(manifest, cells, layouts ?? {}, { ...rest, contract, resolvers })
     : undefined;
 
-  return { cells, contract, resolvers, commands, use: ctx.use, handler };
+  return { cells, contract, resolvers, commands, use: ctx.use, dispose, [Symbol.asyncDispose]: dispose, handler };
 }
