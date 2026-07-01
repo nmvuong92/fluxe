@@ -43,6 +43,10 @@
     "./fastify": {
       "types": "./lib/adapters/fastify.d.ts",
       "default": "./lib/adapters/fastify.js"
+    },
+    "./openapi": {
+      "types": "./lib/openapi/index.d.ts",
+      "default": "./lib/openapi/index.js"
     }
   },
   "files": [
