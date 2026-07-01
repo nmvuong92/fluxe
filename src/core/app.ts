@@ -10,6 +10,7 @@ export interface CreateAppOpts extends MakeServerOpts {
   plugins?: Plugin[];
   manifest?: ResolutionManifest;   // nếu có → dựng handler (thin composer trên createHandler)
   layouts?: Record<string, any>;
+  cells?: any[];                   // page cells nền (vd @frontend/registry) — plugin cells gộp thêm
 }
 
 export interface App {
@@ -53,7 +54,11 @@ function topoSort(plugins: Plugin[]): Plugin[] {
 export async function createApp(opts: CreateAppOpts = {}): Promise<App> {
   const plugins = opts.plugins ?? [];
   const cells: any[] = [];
-  const seenId = new Map<string, string>();   // cell.id → plugin.name (chống đụng namespace)
+  const seenId = new Map<string, string>();   // cell.id → nguồn (chống đụng namespace)
+  for (const c of opts.cells ?? []) {         // page cells nền (frontend registry)
+    seenId.set(c.id, "app");
+    cells.push(c);
+  }
   for (const p of plugins) {
     for (const c of p.cells ?? []) {
       const prev = seenId.get(c.id);
@@ -91,7 +96,7 @@ export async function createApp(opts: CreateAppOpts = {}): Promise<App> {
   for (const p of plugins) commands.push(...(p.commands ?? []));
 
   // Thin composer: nếu có manifest → gọi createHandler với đóng góp đã gộp.
-  const { plugins: _p, manifest, layouts, ...rest } = opts;
+  const { plugins: _p, manifest, layouts, cells: _c, ...rest } = opts;
   const handler = manifest
     ? createHandler(manifest, cells, layouts ?? {}, { ...rest, contract, resolvers })
     : undefined;

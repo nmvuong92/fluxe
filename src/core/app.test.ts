@@ -16,6 +16,13 @@ test("createApp gộp cells từ nhiều plugin", async () => {
   assert.deepEqual(app.cells.map((c) => c.id).sort(), ["a", "b"]);
 });
 
+test("createApp gộp base cells (opts.cells) với plugin cells", async () => {
+  const page = cell("home");                                    // page cell từ frontend registry
+  const p = definePlugin({ name: "@fluxe/p", cells: [cell("extra")] });
+  const app = await createApp({ cells: [page], plugins: [p] });
+  assert.deepEqual(app.cells.map((c) => c.id).sort(), ["extra", "home"]);
+});
+
 test("createApp ném khi trùng cell id giữa 2 plugin", async () => {
   const a = definePlugin({ name: "@fluxe/a", cells: [cell("dup")] });
   const b = definePlugin({ name: "@fluxe/b", cells: [cell("dup")] });
