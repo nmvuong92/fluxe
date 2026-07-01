@@ -1,35 +1,32 @@
 // Copyright (c) 2026 nmvuong92
 // SPDX-License-Identifier: Apache-2.0
-/* fx new <id> [--island] — scaffold cell theo cấu trúc tách view/cell (như SvelteKit/Astro):
- *   view.tsx   = giao diện thuần (React component + kiểu data)
- *   index.tsx  = cell: route/hydration/layout/loader/actions/head, gắn view
- * Sau đó sync (auto-discovery đăng ký). Static (mặc định) hoặc island (--island). */
+/* fx new <feature>/<name> [--static] — scaffold cell trong app/frontend/features/<feature>/:
+ *   <name>.view.tsx  = giao diện thuần (React component + kiểu data)
+ *   <name>.cell.tsx  = cell: route/hydration/layout/loader/head, gắn view
+ * Dạng ngắn `fx new <name>` → feature = name. Sau đó sync (auto-discovery). Mặc định island; --static = 0-JS. */
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 
 const args = process.argv.slice(2);
-const isStatic = args.includes("--static");   // mặc định island; --static để opt-in 0-JS
-const id = args.find((a) => !a.startsWith("--"));
+const isStatic = args.includes("--static");
+const raw = args.find((a) => !a.startsWith("--"));
 
-if (!id || !/^[a-z][a-z0-9-]*$/.test(id)) {
-  console.error("Dùng: fx new <id> [--static]   (id: chữ thường, vd 'tasks', 'about-us')");
+if (!raw || !/^[a-z][a-z0-9-]*(\/[a-z][a-z0-9-]*)?$/.test(raw)) {
+  console.error("Dùng: fx new <feature>/<name> [--static]   (hoặc `fx new <name>`; chữ thường)");
   process.exit(1);
 }
+const [feature, nameOpt] = raw.includes("/") ? raw.split("/") : [raw, raw];
+const name = nameOpt;
+const dir = join("app/frontend/features", feature);
+const cellPath = join(dir, `${name}.cell.tsx`);
+const viewPath = join(dir, `${name}.view.tsx`);
+if (existsSync(cellPath)) { console.error(`Cell '${name}' đã tồn tại: ${cellPath}`); process.exit(1); }
 
-const dir = join("app/cells", id);
-if (existsSync(dir)) {
-  console.error(`Cell '${id}' đã tồn tại: ${dir}`);
-  process.exit(1);
-}
+const Comp = name.replace(/(^|-)([a-z])/g, (_, __, c) => c.toUpperCase());   // lot-detail → LotDetail
 
-const Comp = id.replace(/(^|-)([a-z])/g, (_, __, c) => c.toUpperCase());   // tasks → Tasks
-
-// ---- STATIC ----
-const staticView = `// view.tsx — GIAO DIỆN thuần (không server logic). Đây là chỗ designer/frontend sửa.
-export interface ${Comp}Data {
-  title: string;
-}
+const staticView = `// ${name}.view.tsx — GIAO DIỆN thuần (0 server logic).
+export interface ${Comp}Data { title: string }
 
 export function ${Comp}({ data }: { data: ${Comp}Data }) {
   return (
@@ -40,95 +37,59 @@ export function ${Comp}({ data }: { data: ${Comp}Data }) {
   );
 }
 
-export default ${Comp};   // client bundle import default (chỉ view, không server logic)
+export default ${Comp};
 `;
 
-const staticCell = `// index.tsx — CELL: route + server logic (loader/head), gắn view.
-import { defineCell } from "../../cell";   // ctx.input suy từ route + ctx.backend có kiểu
-import { ${Comp} } from "./view";
+const staticCell = `// ${name}.cell.tsx — CELL: route + loader (server), gắn view.
+import { defineCell } from "@nmvuong92/fluxe";
+import { ${Comp} } from "./${name}.view";
 
 export default defineCell({
-  id: "${id}",
-  route: "/${id}",                          // có [param] → ctx.input.<param> tự suy
+  id: "${name}",
+  route: "/${name}",
   hydration: "static",
   layout: "site",
-  async loader() {            // chạy SERVER → trả props cho view (O suy từ return)
-    return { title: "${Comp}" };
-  },
+  async loader() { return { title: "${Comp}" }; },
   head: (data) => ({ title: data.title }),
   view: ${Comp},
 });
 `;
 
-// ---- ISLAND ----
-const islandView = `// view.tsx — GIAO DIỆN island: state + useQuery/useMutation. Không chứa loader/actions server.
+const islandView = `// ${name}.view.tsx — GIAO DIỆN island (interactive: state client).
 import { useState } from "react";
-import { rpc } from "@nmvuong92/fluxe/client";
-import { useQuery, useMutation } from "@nmvuong92/fluxe/react";
-import type { Todo } from "@nmvuong92/fluxe";
 
-export interface ${Comp}Data {
-  items: Todo[];
-}
+export interface ${Comp}Data { title: string }
 
 export function ${Comp}({ data }: { data: ${Comp}Data }) {
-  const { data: items, refetch } = useQuery("${id}", () => rpc<Todo[]>("${id}", "list", {}), {
-    initial: data.items,
-  });
-  const add = useMutation("${id}.add", (title: string) => rpc("${id}", "add", { title }));
-  const [title, setTitle] = useState("");
-
-  async function onAdd() {
-    await add.mutate(title);
-    setTitle("");
-    refetch();
-  }
-
+  const [n, setN] = useState(0);
   return (
     <div className="card">
-      <h1>${Comp}</h1>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} />
-      <button onClick={onAdd}>Thêm</button>
-      {add.error && <p style={{ color: "red" }}>{add.error}</p>}
-      <ul>
-        {(items ?? []).map((t) => (
-          <li key={t.id}>{t.title}</li>
-        ))}
-      </ul>
+      <h1>{data.title}</h1>
+      <button onClick={() => setN(n + 1)}>Đã bấm {n} lần</button>
     </div>
   );
 }
 
-export default ${Comp};   // client bundle import default (chỉ view, không server logic)
+export default ${Comp};
 `;
 
-const islandCell = `// index.tsx — CELL: route + loader + actions (server), gắn view.
-import { z } from "zod";
-import { defineCell } from "../../cell";   // ctx.input suy từ route + ctx.backend có kiểu
-import { withInput } from "@nmvuong92/fluxe";
-import { ${Comp} } from "./view";
+const islandCell = `// ${name}.cell.tsx — CELL: route + loader (server), gắn view (hydration mặc định island).
+import { defineCell } from "@nmvuong92/fluxe";
+import { ${Comp} } from "./${name}.view";
 
 export default defineCell({
-  id: "${id}",
-  route: "/${id}",
-  layout: "site",                 // hydration mặc định "island" (interactive) — không cần khai báo
-  async loader({ backend }) {
-    return { items: await backend.listTodos() };
-  },
+  id: "${name}",
+  route: "/${name}",
+  layout: "site",
+  async loader() { return { title: "${Comp}" }; },
+  head: (data) => ({ title: data.title }),
   view: ${Comp},
-  actions: {
-    list: async ({ backend }) => backend.listTodos(),
-    add: withInput(
-      z.object({ title: z.string().min(1, "Không được rỗng").max(200) }),
-      async ({ input, backend }) => backend.addTodo(input.title),
-    ),
-  },
 });
 `;
 
 mkdirSync(dir, { recursive: true });
-writeFileSync(join(dir, "view.tsx"), isStatic ? staticView : islandView);
-writeFileSync(join(dir, "index.tsx"), isStatic ? staticCell : islandCell);
-console.log(`[new] tạo ${dir}/view.tsx + index.tsx (${isStatic ? "static" : "island"})`);
-execSync("tsx scripts/sync.ts", { stdio: "inherit" });   // auto-discovery đăng ký ngay
-console.log(`→ Chạy: npm run dev   rồi mở  http://localhost:5180/${id}`);
+writeFileSync(viewPath, isStatic ? staticView : islandView);
+writeFileSync(cellPath, isStatic ? staticCell : islandCell);
+console.log(`[new] tạo ${cellPath} + ${viewPath} (${isStatic ? "static" : "island"})`);
+execSync("npm run sync", { stdio: "inherit" });   // auto-discovery đăng ký ngay (npm resolve tsx)
+console.log(`→ Chạy: npm run dev   rồi mở  http://localhost:5180/${name}`);
