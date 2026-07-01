@@ -1,251 +1,331 @@
 // Copyright (c) 2026 nmvuong92
 // SPDX-License-Identifier: Apache-2.0
-/* fx init — scaffold app/ cho project mới. CHỈ tạo file còn thiếu (không ghi đè). An toàn
- * chạy trên repo đã có app/ (sẽ báo "đã có, bỏ qua"). Sau cùng sync để đăng ký cell. */
-import { mkdirSync, writeFileSync, existsSync } from "node:fs";
+/* fx init — scaffold app/ feature-module: app/backend (module=plugin) + app/frontend (feature).
+ * Cờ: --driver=memory|sqlite|postgres · --server=express|fastify · --auth. Không ghi đè file đã có. */
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { execSync } from "node:child_process";
 
+const H = "// Copyright (c) 2026 nmvuong92\n// SPDX-License-Identifier: Apache-2.0\n";
 function ensure(path: string, content: string) {
-  if (existsSync(path)) { console.log(`· đã có, bỏ qua: ${path}`); return; }
+  if (existsSync(path)) { console.log(`  bỏ qua (đã có): ${path}`); return; }
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content);
-  console.log(`✓ tạo ${path}`);
+  console.log(`  tạo: ${path}`);
 }
+const arg = (k: string, def: string) => (process.argv.find((a) => a.startsWith(`--${k}=`))?.split("=")[1]) ?? def;
+const driver = arg("driver", "memory");
+const server = arg("server", "fastify");
+const auth = process.argv.includes("--auth");
 
-ensure("app/env.ts", `import { z } from "zod";
-import { loadEnv } from "@nmvuong92/fluxe";
-
-export const env = loadEnv(
-  z.object({
-    PORT: z.coerce.number().int().positive().default(5180),
-    NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-    FLUXE_SECRET: z.string().min(8).default("dev-secret-change-me"),
-  }),
-);
-`);
-
-ensure("app/profiles.ts", `import type { ResolutionProfile } from "@nmvuong92/fluxe";
-
-// Profile chỉ resolve RENDER (static/island). Data = app/backend/data.ts.
-export const profiles: Record<string, ResolutionProfile> = {
-  dev: { name: "dev" },
-};
-`);
-
-// Tầng data CỦA BẠN: định nghĩa interface domain + implement CRUD. Engine KHÔNG biết gì về data.
-ensure("app/backend/data.ts", `// Interface domain + implement = của bạn. Inject qua makeServer(..., { backend }).
+// ── backend: db driver ──────────────────────────────────────────────────────
+const DRIVERS: Record<string, string> = {
+  memory: `${H}/* Driver MEMORY (0-dep, dev). Đổi driver = thay file này, module KHÔNG đổi. */
 export interface Todo { id: string; title: string; done: boolean }
-export interface Backend {
+export interface TodoStore {
   name: string;
-  listTodos(): Promise<Todo[]>;
-  addTodo(title: string): Promise<Todo>;
+  list(): Promise<Todo[]>;
+  add(title: string): Promise<Todo>;
+  toggle(id: string): Promise<Todo | null>;
 }
-
-// In-memory cho khởi đầu — đổi sang node:sqlite / pg / ORM của bạn khi cần.
-export function memoryBackend(): Backend {
-  let todos: Todo[] = [];
-  let seq = 1;
+export function makeDb(): TodoStore {
+  const todos: Todo[] = []; let seq = 0;
   return {
     name: "memory",
-    async listTodos() { return todos; },
-    async addTodo(title) {
-      const t: Todo = { id: String(seq++), title, done: false };
-      todos = [...todos, t];
-      return t;
-    },
+    async list() { return todos.slice(); },
+    async add(title) { const t = { id: String(++seq), title, done: false }; todos.push(t); return t; },
+    async toggle(id) { const t = todos.find((x) => x.id === id); if (t) t.done = !t.done; return t ?? null; },
   };
 }
+`,
+  sqlite: `${H}/* Driver SQLite (node:sqlite — chạy: node --experimental-sqlite). Cùng interface TodoStore. */
+import { DatabaseSync } from "node:sqlite";
+export interface Todo { id: string; title: string; done: boolean }
+export interface TodoStore {
+  name: string;
+  list(): Promise<Todo[]>;
+  add(title: string): Promise<Todo>;
+  toggle(id: string): Promise<Todo | null>;
+}
+export function makeDb(file = "app.db"): TodoStore {
+  const db = new DatabaseSync(file);
+  db.exec("CREATE TABLE IF NOT EXISTS todos(id INTEGER PRIMARY KEY, title TEXT, done INTEGER DEFAULT 0)");
+  const row = (r: any): Todo => ({ id: String(r.id), title: r.title, done: !!r.done });
+  return {
+    name: "sqlite",
+    async list() { return db.prepare("SELECT * FROM todos ORDER BY id").all().map(row); },
+    async add(title) { const r = db.prepare("INSERT INTO todos(title) VALUES(?)").run(title); return { id: String(r.lastInsertRowid), title, done: false }; },
+    async toggle(id) { db.prepare("UPDATE todos SET done = 1 - done WHERE id = ?").run(Number(id)); const r = db.prepare("SELECT * FROM todos WHERE id = ?").get(Number(id)); return r ? row(r) : null; },
+  };
+}
+`,
+  postgres: `${H}/* Driver Postgres (cài: npm i pg). Cùng interface TodoStore. Đặt DATABASE_URL. */
+import { Pool } from "pg";
+export interface Todo { id: string; title: string; done: boolean }
+export interface TodoStore {
+  name: string;
+  list(): Promise<Todo[]>;
+  add(title: string): Promise<Todo>;
+  toggle(id: string): Promise<Todo | null>;
+}
+export function makeDb(url = process.env.DATABASE_URL): TodoStore {
+  const pool = new Pool({ connectionString: url });
+  const row = (r: any): Todo => ({ id: String(r.id), title: r.title, done: r.done });
+  return {
+    name: "postgres",
+    async list() { const { rows } = await pool.query("SELECT * FROM todos ORDER BY id"); return rows.map(row); },
+    async add(title) { const { rows } = await pool.query("INSERT INTO todos(title,done) VALUES($1,false) RETURNING *", [title]); return row(rows[0]); },
+    async toggle(id) { const { rows } = await pool.query("UPDATE todos SET done = NOT done WHERE id=$1 RETURNING *", [id]); return rows[0] ? row(rows[0]) : null; },
+  };
+}
+`,
+};
+ensure("app/backend/db.ts", DRIVERS[driver] ?? DRIVERS.memory);
 
-export const backend: Backend = memoryBackend();
+ensure("app/backend/env.ts", `${H}export const env = {
+  PORT: Number(process.env.PORT ?? 5180),
+  NODE_ENV: process.env.NODE_ENV ?? "development",
+};
 `);
 
-// SERVER ENTRY — chọn framework qua --server (express | fastify), mặc định express.
-const serverArg = (process.argv.find((a) => a.startsWith("--server=")) ?? "--server=express").split("=")[1];
+// ── backend: module todos ────────────────────────────────────────────────────
+ensure("app/backend/modules/todos/todos.contract.ts", `${H}import { f } from "@nmvuong92/fluxe";
+const Todo = f.object({ id: f.string, title: f.string, done: f.bool });
+export const todosContract = f.contract({
+  listTodos: f.query(Todo.array()),
+  addTodo: f.mutation({ title: f.string }, Todo),
+  toggleTodo: f.mutation({ id: f.string }, Todo.nullable()),
+  onTodos: f.subscription(Todo.array()),
+});
+`);
+ensure("app/backend/modules/todos/todos.service.ts", `${H}import type { TodoStore } from "@backend/db";
+export function makeTodosService(store: TodoStore) {
+  return { list: () => store.list(), add: (title: string) => store.add(title.trim()), toggle: (id: string) => store.toggle(id) };
+}
+`);
+ensure("app/backend/modules/todos/todos.resolvers.ts", `${H}import type { Resolvers } from "@nmvuong92/fluxe";
+import type { TodoStore } from "@backend/db";
+import { todosContract } from "./todos.contract.ts";
+import { makeTodosService } from "./todos.service.ts";
+export function makeTodosResolvers(store: TodoStore): Resolvers<typeof todosContract> {
+  const svc = makeTodosService(store);
+  return {
+    listTodos: () => svc.list(),
+    addTodo: async ({ title }, ctx) => { const t = await svc.add(title); ctx.publish("onTodos", await svc.list()); return t; },
+    toggleTodo: async ({ id }, ctx) => { const t = await svc.toggle(id); ctx.publish("onTodos", await svc.list()); return t; },
+  };
+}
+`);
+ensure("app/backend/modules/todos/todos.plugin.ts", `${H}import { definePlugin } from "@nmvuong92/fluxe";
+import type { TodoStore } from "@backend/db";
+import { todosContract } from "./todos.contract.ts";
+import { makeTodosResolvers } from "./todos.resolvers.ts";
+export function todosPlugin(store: TodoStore) {
+  return definePlugin({ name: "@app/todos", contract: todosContract, resolvers: makeTodosResolvers(store) });
+}
+`);
+
+// ── backend: contract tổng hợp + app + server ─────────────────────────────────
+ensure("app/backend/contract.ts", `${H}import { todosContract } from "./modules/todos/todos.contract.ts";
+// Static spread → createHooks<typeof contract>() suy type ở frontend. Thêm module = spread thêm.
+export const contract = { ...todosContract };
+`);
+ensure("app/backend/app.ts", `${H}import { readFileSync } from "node:fs";
+import { createApp, type ResolutionManifest } from "@nmvuong92/fluxe";
+import { i18n } from "@frontend/i18n";
+import { cells } from "@frontend/registry";
+import { layouts } from "@frontend/layouts/index";
+import { makeDb } from "./db.ts";
+import { todosPlugin } from "./modules/todos/todos.plugin.ts";
+export async function makeApp() {
+  const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
+  const store = makeDb();
+  const app = await createApp({ manifest, cells, layouts, i18n, plugins: [todosPlugin(store)], backend: store });
+  return { app, store, manifest };
+}
+`);
+
 const SERVERS: Record<string, string> = {
-  express: `// BACKEND CỦA BẠN (Express, đã wire sẵn fluxe). Ghi logic backend ở đây; fluxe core lo
-// cells/SSR · session/CSRF · rate-limit · realtime · validation · upload · observability.
-import express from "express";
-import { readFileSync } from "node:fs";
-import { fluxe } from "@nmvuong92/fluxe/express";
-import type { ResolutionManifest } from "@nmvuong92/fluxe";
-import { cells } from "../app";
-import { layouts } from "../layouts/index";
-import { backend } from "./data";   // service dùng chung cho route Express + cell
-
-const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
-const app = express();
-
-// 👉 Route/middleware Express RIÊNG của bạn (chạy trước fluxe), dùng chung \`backend\`:
-app.get("/api/todos", async (_req, res) => res.json(await backend.listTodos()));
-
-app.use(fluxe(manifest, cells, layouts, { backend }));   // fluxe = catch-all
-app.listen(5180, () => console.log("http://localhost:5180 (Express)"));
-`,
-  fastify: `import Fastify from "fastify";
-import { readFileSync } from "node:fs";
+  fastify: `${H}import Fastify from "fastify";
 import { fluxe } from "@nmvuong92/fluxe/fastify";
-import type { ResolutionManifest } from "@nmvuong92/fluxe";
-import { cells } from "../app";
-import { layouts } from "../layouts/index";
-import { backend } from "./data";
-
-const manifest: ResolutionManifest = JSON.parse(readFileSync(".fluxe/resolution.json", "utf8"));
-const app = Fastify();
-// 👉 Route Fastify RIÊNG của bạn (chạy trước fluxe, giữ body-parsing của Fastify):
-app.get("/api/todos", async () => backend.listTodos());
-await app.register(fluxe(manifest, cells, layouts, { backend }));   // fluxe = catch-all
-await app.listen({ port: 5180 });
-console.log("http://localhost:5180 (Fastify)");
+import { i18n } from "@frontend/i18n";
+import { cells } from "@frontend/registry";
+import { layouts } from "@frontend/layouts/index";
+import { makeApp } from "./app.ts";
+import { env } from "./env.ts";
+const { app, store, manifest } = await makeApp();
+const server = Fastify();
+server.get("/api/todos", () => store.list());   // 👉 route riêng của bạn (trước fluxe)
+await server.register(fluxe(manifest, cells, layouts, { i18n, backend: store, contract: app.contract, resolvers: app.resolvers }));
+await server.listen({ port: env.PORT });
+console.log(\`http://localhost:\${env.PORT} (Fastify · \${store.name})\`);
+`,
+  express: `${H}import express from "express";
+import { fluxe } from "@nmvuong92/fluxe/express";
+import { i18n } from "@frontend/i18n";
+import { cells } from "@frontend/registry";
+import { layouts } from "@frontend/layouts/index";
+import { makeApp } from "./app.ts";
+import { env } from "./env.ts";
+const { app, store, manifest } = await makeApp();
+const server = express();
+server.get("/api/todos", async (_req, res) => res.json(await store.list()));   // 👉 route riêng
+server.use(fluxe(manifest, cells, layouts, { i18n, backend: store, contract: app.contract, resolvers: app.resolvers }));
+server.listen(env.PORT, () => console.log(\`http://localhost:\${env.PORT} (Express · \${store.name})\`));
 `,
 };
-ensure("app/backend/server.ts", SERVERS[serverArg] ?? SERVERS.express);
+ensure("app/backend/server.ts", SERVERS[server] ?? SERVERS.fastify);
 
-// Design tokens — CSS biến. "auto" theo OS (prefers-color-scheme); [data-theme] ép light/dark.
-ensure("app/theme.ts", `export const themeCSS = \`
-:root {
-  --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280; --accent: #4f46e5;
-  --card: #f8f9fc; --border: #e5e7eb; --radius: 10px;
-  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0d1117; --fg: #e6edf3; --muted: #8b949e; --accent: #7c83ff;
-    --card: #161b22; --border: #30363d;
-  }
-}
-[data-theme="dark"] { --bg:#0d1117; --fg:#e6edf3; --muted:#8b949e; --accent:#7c83ff; --card:#161b22; --border:#30363d; }
-[data-theme="light"] { --bg:#fff; --fg:#1a1a2e; --muted:#6b7280; --accent:#4f46e5; --card:#f8f9fc; --border:#e5e7eb; }
-
-* { box-sizing: border-box; }
-body { margin: 0; font-family: var(--font); background: var(--bg); color: var(--fg); }
-.shell { max-width: 880px; margin: 0 auto; padding: 0 20px; }
-.site-header { display:flex; align-items:center; gap:16px; padding:14px 0; border-bottom:1px solid var(--border); }
-.brand { font-weight: 700; font-size: 18px; color: var(--fg); text-decoration:none; }
-.nav { display:flex; gap:14px; flex:1; }
-.nav-link { color: var(--muted); text-decoration:none; }
-.nav-link.active { color: var(--accent); font-weight:600; }
-.theme-toggle { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:4px 10px; cursor:pointer; font-size:15px; }
-.card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin:20px 0; }
-.site-footer { padding:24px 0; color:var(--muted); border-top:1px solid var(--border); margin-top:32px; font-size:14px; }
-\`;
+// ── frontend: features + hạ tầng ─────────────────────────────────────────────
+ensure("app/frontend/profiles.ts", `${H}import type { ResolutionProfile } from "@nmvuong92/fluxe";
+export const profiles: Record<string, ResolutionProfile> = { dev: { name: "dev" }, prod: { name: "prod" } };
 `);
-
-// Navigation khai báo — sửa ở đây, <Nav/> render + active tự động.
-ensure("app/nav.ts", `import type { NavItem } from "@nmvuong92/fluxe/react";
-
-export const nav: NavItem[] = [
-  { label: "Trang chủ", href: "/" },
-  { label: "Giới thiệu", href: "/about" },
-];
-`);
-
-// MASTER LAYOUT — header (brand + Nav + ThemeToggle) + main + footer + DebugBar + theme CSS.
-ensure("app/layouts/index.tsx", `import type { ReactNode } from "react";
-import type { LayoutMeta } from "@nmvuong92/fluxe";
-import { Nav, ThemeToggle, Link, DebugBar, shellScript } from "@nmvuong92/fluxe/react";
-import { themeCSS } from "../theme";
-import { nav } from "../nav";
-
-interface LayoutEntry extends LayoutMeta {
-  component: (props: { children: ReactNode }) => ReactNode;
-}
-
-export const layouts: Record<string, LayoutEntry> = {
-  site: {
-    id: "site",
-    component: ({ children }) => (
-      <>
-        <style dangerouslySetInnerHTML={{ __html: themeCSS }} />
-        <script dangerouslySetInnerHTML={{ __html: shellScript }} />
-        <div className="shell">
-          <header className="site-header">
-            <Link href="/" className="brand">⚡ fluxe</Link>
-            <Nav items={nav} />
-            <ThemeToggle />
-          </header>
-          <main>{children}</main>
-          <footer className="site-footer">Dựng bằng fluxe — RCA.</footer>
-        </div>
-        <DebugBar />
-      </>
-    ),
+ensure("app/frontend/i18n.ts", `${H}import { createI18n } from "@nmvuong92/fluxe";
+export const i18n = createI18n({
+  defaultLocale: "vi",
+  catalogs: {
+    vi: { "home.title": "fluxe starter", "home.cta": "Tới /todos →", "greet.hello": "Xin chào, {name}!", "greet.desc": "i18n: locale từ cookie / Accept-Language." },
+    en: { "home.title": "fluxe starter", "home.cta": "Go to /todos →", "greet.hello": "Hello, {name}!", "greet.desc": "i18n: locale from cookie / Accept-Language." },
   },
-};
+});
+`);
+ensure("app/frontend/api.ts", `${H}import { createHooks } from "@nmvuong92/fluxe/react";
+import type { contract } from "@backend/contract";
+export const api = createHooks<typeof contract>();   // api.<op>.useQuery/useForm/useMutation/useSubscription
+`);
+ensure("app/frontend/layouts/site.tsx", `${H}import { createElement as h, Fragment, type ReactNode } from "react";
+import { LocaleSwitch, DebugBar } from "@nmvuong92/fluxe/react";
+export function Site({ children, ctx }: { children: ReactNode; ctx?: any }) {
+  return h(Fragment, null,
+    h("main", { style: { maxWidth: 720, margin: "40px auto", fontFamily: "system-ui" } },
+      h("header", { style: { display: "flex", gap: 12, alignItems: "center", marginBottom: 24 } },
+        h("strong", null, "fluxe"), h(LocaleSwitch as any, { locales: ["vi", "en"], current: ctx?.locale })),
+      children),
+    h(DebugBar as any, null));
+}
+export default Site;
+`);
+ensure("app/frontend/layouts/index.ts", `${H}import type { LayoutMeta } from "@nmvuong92/fluxe";
+import type { ReactNode } from "react";
+import Site from "./site";
+interface LayoutEntry extends LayoutMeta { component: (props: { children: ReactNode; ctx?: any }) => ReactNode }
+export const layouts: Record<string, LayoutEntry> = { site: { id: "site", component: Site } };
 `);
 
-// Cell home theo cấu trúc tách view/cell (view.tsx = giao diện, index.tsx = route + server).
-ensure("app/cells/home/view.tsx", `// GIAO DIỆN thuần.
-export interface HomeData {
-  title: string;
-}
-
+ensure("app/frontend/features/home/home.view.tsx", `${H}export interface HomeData { title: string; cta: string }
 export function Home({ data }: { data: HomeData }) {
-  return (
-    <div className="card">
-      <h1>{data.title}</h1>
-      <p>Chào mừng tới fluxe — sửa file này để bắt đầu.</p>
-    </div>
-  );
+  return (<div className="card"><h1>{data.title}</h1><a href="/todos" className="btn">{data.cta}</a></div>);
 }
-
 export default Home;
 `);
-
-// defineCell BIND kiểu backend (createCells<Backend>) → ctx.input suy từ route + ctx.backend có kiểu.
-ensure("app/cell.ts", `import { createCells } from "@nmvuong92/fluxe";
-import type { Backend } from "./backend/data";
-
-export const defineCell = createCells<Backend>();
-`);
-
-ensure("app/cells/home/index.tsx", `// CELL: route + server logic, gắn view.
-import { defineCell } from "../../cell";
-import { Home } from "./view";
-
+ensure("app/frontend/features/home/home.cell.tsx", `${H}import { defineCell } from "@nmvuong92/fluxe";
+import { Home } from "./home.view";
 export default defineCell({
-  id: "home",
-  route: "/",
-  layout: "site",        // hydration mặc định "island" — không cần khai báo
-  async loader() {
-    return { title: "App của tôi" };
-  },
-  head: (data) => ({ title: data.title }),
-  view: Home,
+  id: "home", route: "/", hydration: "static", layout: "site",
+  async loader({ t }) { return { title: t!("home.title"), cta: t!("home.cta") }; },
+  head: (d) => ({ title: d.title }), view: Home,
 });
 `);
-
-ensure("app/cells/about/view.tsx", `export interface AboutData {
-  title: string;
+ensure("app/frontend/features/greet/greet.view.tsx", `${H}export interface GreetData { hello: string; desc: string }
+export function Greet({ data }: { data: GreetData }) {
+  return (<div className="card"><h1>{data.hello}</h1><p className="muted">{data.desc}</p></div>);
 }
-
-export function About({ data }: { data: AboutData }) {
+export default Greet;
+`);
+ensure("app/frontend/features/greet/greet.cell.tsx", `${H}import { defineCell } from "@nmvuong92/fluxe";
+import { Greet } from "./greet.view";
+export default defineCell({
+  id: "greet", route: "/greet", hydration: "static", layout: "site",
+  async loader({ t }) { return { hello: t!("greet.hello", { name: "fluxe" }), desc: t!("greet.desc") }; },
+  head: () => ({ title: "Greet" }), view: Greet,
+});
+`);
+ensure("app/frontend/features/todos/todos.view.tsx", `${H}import { Link } from "@nmvuong92/fluxe/react";
+import { api } from "../../api";
+export interface TodosData { todos: { id: string; title: string; done: boolean }[] }
+export function Todos({ data }: { data: TodosData }) {
+  const q = api.listTodos.useQuery({ initial: data.todos });
+  const form = api.addTodo.useForm({ invalidates: ["listTodos"], onSuccess: () => form.reset() });
+  const toggle = api.toggleTodo.useMutation({ invalidates: ["listTodos"] });
+  api.onTodos.useSubscription(() => q.refetch());
+  const todos = q.data ?? [];
+  const title = form.register("title");
+  const busy = form.submitting || toggle.loading || q.loading;
   return (
     <div className="card">
-      <h1>{data.title}</h1>
-      <p>Trang giới thiệu — theo theme sáng/tối.</p>
+      <h1>Todos (island)</h1>
+      <form className="row" onSubmit={form.handleSubmit}>
+        <input {...title} placeholder="Việc mới..." disabled={busy} /><button type="submit" disabled={busy}>Thêm</button>
+      </form>
+      {form.errors.title ? <p style={{ color: "crimson" }}>{form.errors.title}</p> : null}
+      <ul className="list">
+        {todos.map((t) => (<li key={t.id} onClick={() => toggle.mutate({ id: t.id })} className={t.done ? "done" : ""}><span>{t.done ? "✓" : "○"}</span> {t.title}</li>))}
+      </ul>
+      <Link href="/" className="muted">← trang chủ (SPA nav)</Link>
     </div>
   );
 }
-
-export default About;
+export default Todos;
 `);
-
-ensure("app/cells/about/index.tsx", `import { defineCell } from "../../cell";
-import { About } from "./view";
-
+ensure("app/frontend/features/todos/todos.cell.tsx", `${H}import { defineCell } from "@nmvuong92/fluxe";
+import type { TodoStore } from "@backend/db";
+import { Todos } from "./todos.view";
 export default defineCell({
-  id: "about",
-  route: "/about",
-  layout: "site",        // hydration mặc định "island"
-  async loader() {
-    return { title: "Giới thiệu" };
-  },
-  head: (data) => ({ title: data.title }),
-  view: About,
+  id: "todos", route: "/todos", layout: "site",
+  async loader({ backend }) { return { todos: await (backend as TodoStore).list() }; },
+  head: () => ({ title: "Todos" }), view: Todos,
 });
 `);
 
-console.log("[init] xong. Đăng ký cell:");
-execSync("tsx scripts/sync.ts", { stdio: "inherit" });
-console.log("→ Chạy: npm run dev   rồi mở  http://localhost:5180");
+// ── vùng test riêng ──────────────────────────────────────────────────────────
+ensure("app/backend/tests/helpers/make-test-app.ts", `${H}import http from "node:http";
+import { createApp, resolve } from "@nmvuong92/fluxe";
+import { cells } from "@frontend/registry";
+import { layouts } from "@frontend/layouts/index";
+import { i18n } from "@frontend/i18n";
+import { profiles } from "@frontend/profiles";
+import { makeDb } from "@backend/db";
+import { todosPlugin } from "@backend/modules/todos/todos.plugin.ts";
+export async function startTestServer() {
+  const store = makeDb();
+  const decls = cells.map((c) => ({ id: c.id, route: c.route, hydration: c.hydration }));
+  const manifest = resolve(decls, profiles.dev);
+  const app = await createApp({ manifest, cells, layouts, i18n, plugins: [todosPlugin(store)], backend: store });
+  const server = http.createServer(app.handler!);
+  await new Promise<void>((r) => server.listen(0, r));
+  const port = (server.address() as any).port;
+  return { port, store, close: () => new Promise<void>((r) => server.close(() => r())) };
+}
+`);
+ensure("app/backend/tests/unit/todos.service.test.ts", `${H}import { test } from "node:test";
+import assert from "node:assert/strict";
+import { makeDb } from "@backend/db";
+import { makeTodosService } from "@backend/modules/todos/todos.service.ts";
+test("service.add trim title", async () => {
+  const svc = makeTodosService(makeDb());
+  await svc.add("  x  ");
+  assert.equal((await svc.list())[0].title, "x");
+});
+`);
+ensure("app/backend/tests/e2e/todos.e2e.test.ts", `${H}import { test } from "node:test";
+import assert from "node:assert/strict";
+import { startTestServer } from "../helpers/make-test-app.ts";
+test("[e2e] addTodo rồi listTodos thấy todo", async () => {
+  const { port, close } = await startTestServer();
+  try {
+    await fetch(\`http://127.0.0.1:\${port}/__rpc/addTodo\`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "học fluxe" }) });
+    const todos = await (await fetch(\`http://127.0.0.1:\${port}/__rpc/listTodos\`, { method: "POST" })).json();
+    assert.ok(todos.some((t: any) => t.title === "học fluxe"));
+  } finally { await close(); }
+});
+`);
+
+if (auth) {
+  console.log("  (--auth) module auth mẫu — tích hợp provider của bạn qua @nmvuong92/fluxe/auth");
+  ensure("app/backend/modules/auth/auth.plugin.ts", `${H}import { definePlugin } from "@nmvuong92/fluxe";
+// Auth = INTEGRATION: bọc provider (better-auth/lucia/passport) + bridgeSession (mount TRƯỚC fluxe).
+// Xem reference/auth. Plugin này chỗ để bạn đóng góp cell/route auth của app.
+export const authPlugin = definePlugin({ name: "@app/auth" });
+`);
+}
+
+console.log(`\n[init] scaffold xong: driver=${driver} · server=${server}${auth ? " · auth" : ""}. Chạy: fx dev`);
